@@ -1,0 +1,72 @@
+{
+    // Site name
+    "site_name": "site-1",
+    // List of block serials, available nodes in the provided block serials will be used for cluster deployment
+    "blocks_serial_numbers": [],
+    // To re-use the existing network setting set use_existing_network_settings to ture
+    "use_existing_network_settings": false,
+    // the below section can be empty if use_existing_network_settings is set to true
+    "network": {
+        // Provide start and end ip address for MGMT static IPs
+        // Provide Gateway and Netmask for management network
+        // mgmt_static_ips = [start_ip, end_ip]
+        "mgmt_static_ips": [],
+        "mgmt_gateway": "",
+        "mgmt_netmask": "",
+        // IPMI IPs are optional, if not provided the existing IPMI will be re-used
+        // Provide start and end ip address for IPMI static IPs
+        // Provide Gateway and Netmask for IPMI network
+        // ipmi_static_ips = [start_ip, end_ip]
+        "ipmi_static_ips": [],
+        "ipmi_gateway": "",
+        "ipmi_netmask": ""
+    },
+    // set re-image to true for re-imaging  with provided aos, ahv versions
+    "re-image": true,
+    // the below section can be empty if re-image is not required
+    "imaging_parameters": {
+        "aos_version": "6.5.1.8",
+        "hypervisor_type": "kvm",
+        "hypervisor_version": "20201105.30411"
+    },
+    // Cluster details for deployment
+    "clusters": {
+        // Cluster name and its details
+        "cluster-01": {
+            // Cluster size will be the number of nodes for deployment
+            "cluster_size": 1,
+            "cluster_vip": "x.x.x.x",
+            //   cvm_ram is Gigabytes. Minimum 12, no maximum. Default set it to 12.
+            "cvm_ram": 12,
+            // Nutanix supports RF2, and also RF3 only if the cluster has 5+ nodes
+            "redundancy_factor": 2
+        },
+        "cluster-02": {
+            "cluster_size": 3,
+            "cluster_vip": "x.x.x.x",
+            // Provided node serials will be used for this cluster deployment. (Optional)
+            // Node serials need not be a part of blocks_serial_numbers mentioned above
+            "node_serials": [],
+            // Cluster Specific network setting. (Optional)
+            "network": {
+                // Provide start and end ip address for MGMT static IPs
+                // Provide Gateway and Netmask for management network
+                // mgmt_static_ips = [start_ip, end_ip]
+                "mgmt_static_ips": [],
+                "mgmt_gateway": "",
+                "mgmt_netmask": "",
+                // IPMI IPs are optional, if not provided the existing IPMI will be re-used
+                // Provide start and end ip address for IPMI static IPs
+                // Provide Gateway and Netmask for IPMI network
+                // ipmi_static_ips = [start_ip, end_ip]
+                "ipmi_static_ips": [],
+                "ipmi_gateway": "",
+                "ipmi_netmask": ""
+            },
+            // Re-image can be set to true or false for this particular cluster
+            "re-image": false,
+            "cvm_ram": 24,
+            "redundancy_factor": 2
+        }
+    }
+}

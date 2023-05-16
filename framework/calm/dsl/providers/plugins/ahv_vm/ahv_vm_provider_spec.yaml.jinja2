@@ -1,0 +1,507 @@
+
+{% macro ahvNIC() -%}
+
+title: AHV NIC
+type: object
+properties:
+  network_function_nic_type:
+    type: string
+    default: INGRESS
+    enum: [INGRESS, EGRESS, TAP]
+  nic_type:
+    type: string
+    default: NORMAL_NIC
+    enum: [NORMAL_NIC, DIRECT_NIC, NETWORK_FUNCTION_NIC]
+  type:
+    type: string
+  subnet_reference:
+    type: [object, "null"]
+    properties:
+      uuid:
+        type: string
+      kind:
+        type: string
+        default: subnet
+      name:
+        type: string
+      type:
+        type: string
+  vpc_reference:
+    type: [object, "null"]
+    properties:
+      uuid:
+        type: string
+      kind:
+        type: string
+        default: vpc
+      name:
+        type: string
+      type:
+        type: string
+  network_function_chain_reference:
+    type: [object, "null"]
+    properties:
+      uuid:
+        type: string
+      kind:
+        type: string
+        default: network_function_chain
+      name:
+        type: string
+      type:
+        type: string
+  mac_address:
+    type: string
+  ip_endpoint_list:
+    type: array
+    items:
+      type: object
+      properties:
+        ip:
+          type: string
+        type:
+          type: string
+          default: ASSIGNED
+          enum: [ASSIGNED, LEARNED]
+
+{%- endmacro %}
+
+
+{% macro ahvBootConfig() -%}
+
+title: AHV Boot Configuration
+type: [object, "null"]
+properties:
+  boot_device:
+    type: object
+    properties:
+      type:
+        type: string
+      disk_address:
+        type: object
+        properties:
+          type:
+            type: string
+          device_index:
+            type: integer
+          adapter_type:
+            type: string
+  boot_type:
+    type: string
+    enum: [LEGACY, UEFI, SECURE_BOOT, '']
+  type:
+    type: string
+  mac_address:
+    type: string
+
+{%- endmacro %}
+
+
+{% macro ahvDisk() -%}
+
+title: AHV Disk
+type: object
+properties:
+  data_source_reference:
+    type: [object, "null"]
+    properties:
+      name:
+        type: string
+      kind:
+        type: string
+        enum: [image, app_package]
+      uuid:
+        type: string
+      type:
+        type: string
+  type:
+    type: string
+  device_properties:
+    type: object
+    properties:
+      device_type:
+        type: string
+      type:
+        type: string
+      disk_address:
+        type: object
+        properties:
+          device_index:
+            type: integer
+          adapter_type:
+            type: string
+          type:
+            type: string
+  disk_size_mib:
+    type: integer
+    default: 0
+  volume_group_reference:
+    type: [object, "null"]
+    properties:
+      name:
+        type: string
+      kind:
+        type: string
+      uuid:
+        type: string
+      type:
+        type: string
+
+{%- endmacro %}
+
+
+{% macro ahvCloudInitScript() -%}
+
+title: AHV CLOUD INIT Script
+type: object
+properties:
+  cloud_init:
+    type: object
+    properties:
+      user_data:
+        type: string
+      meta_data:
+        type: string
+      type:
+        type: string
+  sysprep:
+    type: ["null"]
+  type:
+    type: string
+
+{%- endmacro %}
+
+
+{% macro ahvSysPrepScript() -%}
+
+title: AHV Sys Prep Script
+type: object
+properties:
+  cloud_init:
+    type: ["null"]
+  type:
+    type: string
+  sysprep:
+    type: object
+    properties:
+      unattend_xml:
+        type: string
+      install_type:
+        type: string
+        enum: [PREPARED, FRESH]
+      is_domain:
+        type: boolean
+      domain:
+        type: string
+      dns_ip:
+        type: string
+      dns_search_path:
+        type: string
+      type:
+        type: string
+      domain_credential_reference:  # Review after CALM-15575 is resolved
+        type: [object, "null"]
+        properties:
+          uuid:
+            type: string
+          kind:
+            type: string
+            default: subnet
+          name:
+            type: string
+          type:
+            type: string
+
+{%- endmacro %}
+
+
+{% macro nutanixSnapshotSchedule() -%}
+
+title: Nutanix Snapshot Schedule
+type: object
+properties:
+  type:
+    type: string
+  is_suspended:
+    type: boolean
+  interval_multiple:
+    type: integer
+  duration_secs:
+    type: integer
+  end_time:
+    type: integer
+  interval_type:
+    type: string
+
+{%- endmacro %}
+
+
+{% macro nutanixSnapshotScheduleInfo() -%}
+
+title: Nutanix Snapshot Schedule Information
+type: object
+properties:
+  type:
+    type: string
+  remote_retention_quantity:
+    type: integer
+  snapshot_type:
+    type: string
+  local_retention_quantity:
+    type: integer
+  schedule:
+    {{ nutanixSnapshotSchedule() | indent(4) }}
+
+{%- endmacro %}
+
+
+{% macro nutanixSnapshotPolicy() -%}
+
+title: Nutanix Snapshot Policy
+type: object
+properties:
+  type:
+    type: string
+  replication_target:
+    type: object
+    properties:
+      cluster_reference:
+        type: [object, "null"]
+        properties:
+          uuid:
+            type: string
+          kind:
+            type: string
+            default: cluster
+          name:
+            type: string
+          type:
+            type: string
+      availability_zone_reference:
+        type: [object, "null"]
+        properties:
+          uuid:
+            type: string
+          kind:
+            type: string
+            default: availability_zone
+          name:
+            type: string
+          type:
+            type: string
+  snapshot_schedule_list:
+    type: array
+    items:
+      {{ nutanixSnapshotScheduleInfo() | indent(6) }}
+
+{%- endmacro %}
+
+
+{% macro nutanixBackupPolicy() -%}
+
+title: Nutanix Backup Policy
+type: [object, "null"]
+properties:
+  type:
+    type: string
+  default_snapshot_type:
+    type: string
+  consistency_group_identifier:
+    type: string
+  snapshot_policy_list:
+    type: array
+    items:
+      {{ nutanixSnapshotPolicy() | indent(6) }}
+
+{%- endmacro %}
+
+
+{% macro ahvGPU() -%}
+
+title: AHV GPU
+type: object
+properties:
+  vendor:
+    type: string
+  mode:
+    type: string
+  device_id:
+    type: integer
+  type:
+    type: string
+
+{%- endmacro %}
+
+
+{% macro ahvSerialPort() -%}
+
+title: AHV Serial Port
+type: object
+properties:
+  index:
+    type: integer
+  is_connected:
+    type: boolean
+    default: False
+  type:
+    type: string
+
+{%- endmacro %}
+
+
+{% macro ahvGuestTools() -%}
+
+title: AHV Guest Tools
+type: [object, "null"]
+properties:
+  type:
+    type: string
+  nutanix_guest_tools:
+    type: object
+    properties:
+      state:
+        type: string
+      version:
+        type: string
+      ngt_state:
+        type: string
+      iso_mount_state:
+        type: string
+      type:
+        type: string
+      credentials:
+        type: object
+        properties:
+          username:
+            type: string
+          password:
+            type: string
+          type:
+            type: string
+      enabled_capability_list:
+        type: array
+        items:
+          type: string
+
+{%- endmacro %}
+
+
+{% macro ahvResources() -%}
+
+title: AHV Resources
+type: object
+properties:
+  account_uuid:
+    type: string
+  type:
+    type: string
+  nic_list:
+    type: array
+    items:
+      {{ ahvNIC() | indent(6) }}
+  num_vcpus_per_socket:
+    type: integer
+  num_sockets:
+    type: integer
+  memory_size_mib:
+    type: integer
+  cluster_uuid:
+    type: string
+  power_state:
+    type: string
+    enum: [ON, OFF]
+  gpu_list:
+    type: array
+    items:
+      {{ ahvGPU() | indent(6) }}
+  hardware_clock_timezone:
+    type: string
+  parent_reference:
+    type: [object, "null"]
+    properties:
+      uuid:
+        type: string
+      kind:
+        type: string
+      name:
+        type: string
+      type:
+        type: string
+  machine_type:
+    type: string
+  guest_tools:
+    {{ ahvGuestTools() | indent(4) }}
+  disk_list:
+    type: array
+    items:
+      {{ ahvDisk() | indent(6) }}
+  boot_config:
+    {{ ahvBootConfig() | indent(4) }}
+  guest_customization:
+    anyOf:
+      - type: ["null"]
+      - $ref: '#/components/schemas/cloud_init_script'
+      - $ref: '#/components/schemas/sys_prep_script'
+  serial_port_list:
+    type: array
+    items:
+      {{ ahvSerialPort() | indent(6) }}
+
+{%- endmacro %}
+
+
+{% macro ahvCreateSpec() -%}
+
+title: AHV CreateSpec
+type: object
+properties:
+  name:
+    type: string
+  categories:
+    type: [object, string]
+  resources:
+    {{ ahvResources() | indent(4) }}
+  type:
+    type: string
+  cluster_reference:
+    type: [object, "null"]
+    properties:
+      uuid:
+        type: string
+      kind:
+        type: string
+        default: cluster
+      name:
+        type: string
+      type:
+        type: string
+  availability_zone_reference:
+    type: [object, "null"]
+    properties:
+      uuid:
+        type: string
+      kind:
+        type: string
+        default: availability_zone
+      name:
+        type: string
+      type:
+        type: string
+  backup_policy:
+    {{ nutanixBackupPolicy() | indent(4) }}
+
+{%- endmacro %}
+
+info:
+  title: AHV_VM
+  description: AHV VM spec payload using v3 API
+  version: 3.0.1      # TODO add right version of ahv schema
+
+components:
+  schemas:
+    provider_spec:
+      {{ ahvCreateSpec() | indent(6) }}
+    cloud_init_script:
+      {{ ahvCloudInitScript() | indent(6) }}
+    sys_prep_script:
+      {{ ahvSysPrepScript() | indent(6) }}

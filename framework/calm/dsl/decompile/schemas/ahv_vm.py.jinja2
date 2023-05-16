@@ -1,0 +1,13 @@
+{% macro ahv_vm(obj) %}
+{{obj.resources}}
+
+
+class {{obj.name}}(AhvVm):
+
+    {% if obj.gui_display_name %}name="{{obj.gui_display_name}}"{% endif %}
+    resources = {{obj.resources_cls_name}}
+    {% if obj.cluster_name %}cluster = Ref.Cluster(name="{{obj.cluster_name}}"){% endif %}
+    {% if obj.categories %}categories = {{obj.categories}}{% endif %}
+{% endmacro %}
+
+{{ ahv_vm(obj) }}

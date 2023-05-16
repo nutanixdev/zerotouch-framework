@@ -1,0 +1,11 @@
+cluster_reference: true
+resources:
+  nic_list:
+    '0':
+      subnet_reference: true
+      vpc_reference: true
+  gpu_list:
+    '0':
+       vendor: true
+       mode : true
+       device_id: true

@@ -1,0 +1,1 @@
+echo "@@{calm_array_address[0]}@@ @@{calm_array_name[0]}@@" | sudo tee -a /etc/hosts

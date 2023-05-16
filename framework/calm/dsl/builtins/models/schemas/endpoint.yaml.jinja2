@@ -1,0 +1,36 @@
+{% macro Endpoint() -%}
+
+title: Endpoint
+type: object
+x-calm-dsl-type: app_endpoint
+properties:
+  name:
+    type: string
+    maxLength: 64
+  type:
+    type: string
+    maxLength: 64
+  value_type:
+    type: string
+    maxLength: 64
+  provider_type:
+    type: string
+    maxLength: 64
+  tunnel_reference:
+    x-calm-dsl-display-name: tunnel
+    x-calm-dsl-min-version: 3.5.0
+    $ref: '#/components/schemas/CalmRef'
+  attrs:
+    additionalProperties: true
+    type: object
+    x-calm-dsl-type: dict
+  
+{%- endmacro %}
+
+
+{% macro EndpointSchema() -%}
+
+Endpoint:
+  {{ Endpoint()|indent(2) }}
+
+{%- endmacro %}

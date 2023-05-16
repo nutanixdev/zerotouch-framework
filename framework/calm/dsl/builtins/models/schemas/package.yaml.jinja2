@@ -1,0 +1,93 @@
+{% macro Package() -%}
+
+title: Package
+type: object
+x-calm-dsl-type: app_package
+properties:
+  name:
+    type: string
+    maxLength: 64
+    default: ''
+  description:
+    type: string
+    maxLength: 1000
+    default: ''
+  type:
+    type: string
+    default: CUSTOM
+  options:
+    additionalProperties: true
+    type: object
+    x-calm-dsl-type: object
+    properties:
+      install_runbook:
+        type: object
+        x-calm-dsl-type: dict
+      uninstall_runbook:
+        type: object
+        x-calm-dsl-type: dict
+      name:
+        type: string
+      description:
+        type: string
+      resources:
+        type: object
+        x-calm-dsl-type: object
+        properties:
+          image_type:
+            type: string
+            enum: [DISK_IMAGE, ISO_IMAGE]
+          source_uri:
+            type: string
+          architecture:
+            type: string
+          version:
+            type: object
+            x-calm-dsl-type: object
+            properties:
+              product_version:
+                type: string
+              product_name:
+                type: string
+          checksum:
+            type: object
+            x-calm-dsl-type: object
+            properties:
+              checksum_algorithm:
+                type: string
+                enum: ['SHA_1', 'SHA_256', '']
+              checksum_value:
+                type: string
+          
+    # TODO - fix this mess!
+    default: {"install_runbook": {}, "uninstall_runbook": {}}
+  service_local_reference_list:
+    type: array
+    x-calm-dsl-display-name: services
+    items:
+       $ref: '#/components/schemas/Ref'
+  variable_list:
+    type: array
+    x-calm-dsl-display-name: variables
+    items:
+      $ref: '#/components/schemas/Variable'
+  action_list:
+    x-calm-dsl-display-name: actions
+    type: array
+    items:
+      $ref: '#/components/schemas/Action'
+  image_spec:
+    x-calm-dsl-type: dict
+    type: object
+  version:
+    type: string
+
+{%- endmacro %}
+
+
+{% macro PackageSchema() -%}
+
+Package:
+  {{ Package()|indent(2) }}
+
+{%- endmacro %}

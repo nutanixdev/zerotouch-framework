@@ -1,0 +1,77 @@
+{% import "ref.yaml.jinja2" as ref %}
+
+{% macro ProjectSpec() -%}
+
+title: Project Spec
+type: object
+x-calm-dsl-type: project
+properties:
+  provider_list:
+    x-calm-dsl-display-name: providers
+    type: array
+    items:
+      $ref: '#/components/schemas/AccountProvider'
+  user_reference_list:
+    x-calm-dsl-display-name: users
+    type: array
+    items:
+      type: object
+      x-calm-dsl-type: object
+      properties:
+        kind:
+          type: string
+        name:
+          type: string
+        uuid:
+          type: string
+  environment_reference_list:
+    x-calm-dsl-display-name: env_refs
+    type: array
+    items:
+      $ref: '#/components/schemas/Ref'
+  default_environment_reference:
+    x-calm-dsl-display-name: default_environment
+    x-calm-dsl-min-version: 3.2.0
+    {{ ref.Ref() | indent(4) }}
+  environment_definition_list:
+    x-calm-dsl-display-name: envs
+    description: Inline definitions of environment in project
+    type: array
+    items:
+      $ref: '#/components/schemas/Environment'
+  external_user_group_reference_list:
+    x-calm-dsl-display-name: groups
+    type: array
+    items:
+      type: object
+      x-calm-dsl-type: object
+      properties:
+        kind:
+          type: string
+        name:
+          type: string
+        uuid:
+          type: string
+  quotas:
+    type: object
+    x-calm-dsl-type: object
+    properties:
+      VCPUS:
+        x-calm-dsl-display-name: vcpus
+        type: integer
+      STORAGE:
+        x-calm-dsl-display-name: storage
+        type: integer
+      MEMORY:
+        x-calm-dsl-display-name: memory
+        type: integer
+
+{%- endmacro %}
+
+
+{% macro ProjectSchema() -%}
+
+Project:
+  {{ ProjectSpec() | indent(2) }}
+
+{%- endmacro %}

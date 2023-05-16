@@ -1,0 +1,58 @@
+{% macro PublishedService() -%}
+
+title: PublishedService
+type: object
+x-calm-dsl-type: app_published_service
+properties:
+  name:
+    type: string
+    maxLength: 64
+    default: ''
+  description:
+    type: string
+    maxLength: 1000
+    default: ''
+  type:
+    type: string
+    default: K8S_SERVICE
+    enum: [K8S_SERVICE]
+  port_list:
+    x-calm-dsl-display-name: ports
+    type: array
+    items:
+      $ref: '#/components/schemas/Port'
+    default: []
+  singleton:
+    type: boolean
+    default: true
+  tier:
+    type: string
+    default: ''
+  depends_on_list:
+    x-calm-dsl-display-name: dependencies
+    type: array
+    items:
+      $ref: '#/components/schemas/Ref'
+  variable_list:
+    x-calm-dsl-display-name: variables
+    type: array
+    items:
+      $ref: '#/components/schemas/Variable'
+  action_list:
+    x-calm-dsl-display-name: actions
+    type: array
+    items:
+      $ref: '#/components/schemas/Action'
+  options:      # Improve this validation
+    x-calm-dsl-type: dict
+    type: object
+
+{%- endmacro %}
+
+
+{% macro PublishedServiceSchema() -%}
+
+PublishedService:
+  {{ PublishedService()|indent(2) }}
+
+{%- endmacro %}

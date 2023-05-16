@@ -1,0 +1,9 @@
+image:
+  name: AHV_CENTOS_78
+  type: DISK_IMAGE
+  source: http://download.nutanix.com/Calm/CentOS-7-x86_64-2003.qcow2
+  architecture: X86_64
+
+product:
+  name: AHV_CENTOS_78
+  version: 1.0

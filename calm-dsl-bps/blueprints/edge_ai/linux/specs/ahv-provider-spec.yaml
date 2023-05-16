@@ -1,0 +1,65 @@
+categories:
+  OSType: Linux
+name: vm_@@{calm_application_name}@@-@@{calm_array_index}@@
+resources:
+  boot_config:
+    boot_device:
+      disk_address:
+        adapter_type: SCSI
+        device_index: 0
+  gpu_list:
+  - vendor: NVIDIA
+    mode: PASSTHROUGH_COMPUTE
+    device_id: 8433
+  disk_list:
+  - data_source_reference:
+      kind: image
+      name: replaced-in-bp
+      uuid: replaced-in-bp
+    device_properties:
+      device_type: DISK
+      disk_address:
+        adapter_type: SCSI
+        device_index: 0
+    disk_size_mib: 0
+  - device_properties:
+      device_type: CDROM
+      disk_address:
+        adapter_type: IDE
+        device_index: 0
+    disk_size_mib: 0
+  guest_customization:
+    cloud_init:
+      user_data: |-
+        #cloud-config
+        runcmd:
+          - sudo sed -i "$ a PubkeyAcceptedAlgorithms +ssh-rsa\nHostKeyAlgorithms +ssh-rsa\nPubkeyAcceptedKeyTypes +ssh-rsa" /etc/ssh/sshd_config
+          - sudo systemctl restart sshd
+        disable_root: False
+        hostname: @@{name}@@
+        users:
+          - default
+          - name: @@{cred_os.username}@@
+            shell: /bin/bash
+            homedir: /home/@@{cred_os.username}@@
+            ssh-authorized-keys:
+              - @@{os_cred_public_key}@@
+            sudo: ['ALL=(ALL) NOPASSWD:ALL']
+        ssh_pwauth: false
+        package_upgrade: true
+  memory_size_mib: replaced-in-bp
+  nic_list:
+  - network_function_nic_type: INGRESS
+    nic_type: NORMAL_NIC
+    subnet_reference:
+      kind: subnet
+      name: replaced-in-bp
+      uuid: replaced-in-bp
+  num_sockets: replaced-in-bp
+  num_vcpus_per_socket: replaced-in-bp
+  guest_tools:
+      nutanix_guest_tools:
+        iso_mount_state: MOUNTED
+        state: ENABLED
+        enabled_capability_list:
+          - VSS_SNAPSHOT

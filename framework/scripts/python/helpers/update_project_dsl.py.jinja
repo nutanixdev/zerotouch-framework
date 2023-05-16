@@ -1,0 +1,23 @@
+from calm.dsl.builtins import Project, Provider, Ref
+
+NTNX_ACCOUNT = "{{ NTNX_ACCOUNT }}"
+SUBNET_CLUSTER_MAPPING = {{ SUBNET_CLUSTER_MAPPING }}
+
+
+class UpdateProvider(Project):
+    """
+    Update the project
+        1. Append the cluster and subnet information for the specified Nutanix account in the project
+    """
+
+    providers = [
+        Provider.Ntnx(
+            account=Ref.Account(NTNX_ACCOUNT),
+            clusters=[Ref.Cluster(name=cluster_name, account_name=NTNX_ACCOUNT)
+                      for cluster_name in SUBNET_CLUSTER_MAPPING.keys()],
+            subnets=[
+                Ref.Subnet(name=subnet, cluster=cluster_name)
+                for cluster_name, subnet_list in SUBNET_CLUSTER_MAPPING.items() for subnet in subnet_list
+            ]
+        )
+    ]

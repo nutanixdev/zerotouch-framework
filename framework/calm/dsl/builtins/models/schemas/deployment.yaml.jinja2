@@ -1,0 +1,77 @@
+{% import "ref.yaml.jinja2" as ref %}
+
+{% macro Deployment() -%}
+
+title: Deployment
+type: object
+x-calm-dsl-type: app_blueprint_deployment
+properties:
+  published_service_local_reference_list:
+    x-calm-dsl-display-name: published_services
+    type: array
+    items:
+      $ref: '#/components/schemas/Ref'
+  package_local_reference_list:
+    x-calm-dsl-display-name: packages
+    type: array
+    items:
+      $ref: '#/components/schemas/Ref'
+  substrate_local_reference:
+    x-calm-dsl-display-name: substrate
+    {{ ref.Ref() | indent(4) }}
+  depends_on_list:
+    x-calm-dsl-display-name: dependencies
+    type: array
+    items:
+      $ref: '#/components/schemas/Ref'
+  variable_list:
+    x-calm-dsl-display-name: variables
+    type: array
+    items:
+      $ref: '#/components/schemas/Variable'
+  action_list:
+    x-calm-dsl-display-name: actions
+    type: array
+    items:
+      $ref: '#/components/schemas/Action'
+  min_replicas:
+    description: Minimum replicas for the deployment.
+    type: string
+    default: "1"
+  default_replicas:
+    x-calm-dsl-min-version: 2.9.0
+    type: string
+  max_replicas:
+    description: Maximum replicas for the deployment.
+    type: string
+    default: "1"
+  type:
+    type: string
+    default: 'GREENFIELD'
+  name:
+    type: string
+  options:
+    x-calm-dsl-type: dict
+    type: object
+  description:
+    type: string
+  editables:
+    type: object
+    x-calm-dsl-type: object
+    properties:
+      min_replicas:
+        type: boolean
+      default_replicas:
+        type: boolean
+      max_replicas:
+        type: boolean
+
+{%- endmacro %}
+
+
+{% macro DeploymentSchema() -%}
+
+Deployment:
+  {{ Deployment()|indent(2) }}
+
+{%- endmacro %}

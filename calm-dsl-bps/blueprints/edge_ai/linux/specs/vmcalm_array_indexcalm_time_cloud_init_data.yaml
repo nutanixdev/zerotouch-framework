@@ -1,0 +1,6 @@
+|-
+#cloud-config
+hostname: @@{name}@@
+ssh_pwauth: false
+ssh_authorized_keys:
+  - @@{cred_os.public_key}@@

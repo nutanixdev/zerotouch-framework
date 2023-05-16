@@ -1,0 +1,60 @@
+{% macro Substrate() -%}
+
+title: Substrate
+type: object
+x-calm-dsl-type: app_substrate
+properties:
+  name:
+    type: string
+    maxLength: 64
+    default: ''
+  description:
+    type: string
+    maxLength: 1000
+    default: ''
+  type:
+    x-calm-dsl-display-name: provider_type
+    type: string
+    default: 'AHV_VM'
+  os_type:
+    type: string
+    default: 'Linux'
+  account_reference:
+    type: object
+    x-calm-dsl-type: app_calm_ref
+    x-calm-dsl-display-name: account
+    x-calm-dsl-min-version: 3.2.0
+  vm_recovery_spec:
+    type: object
+    x-calm-dsl-type: recovery_vm_ahv_spec
+    x-calm-dsl-min-version: 3.3.0
+  create_spec:
+    x-calm-dsl-display-name: provider_spec
+    type: object
+    x-calm-dsl-type: app_provider_spec
+  editables:
+    x-calm-dsl-display-name: provider_spec_editables
+    type: object
+    x-calm-dsl-type: dict
+  variable_list:
+    x-calm-dsl-display-name: variables
+    type: array
+    items:
+      $ref: '#/components/schemas/Variable'
+  action_list:
+    x-calm-dsl-display-name: actions
+    type: array
+    items:
+      $ref: '#/components/schemas/Action'
+  readiness_probe:
+    $ref: '#/components/schemas/ReadinessProbe'
+
+{%- endmacro %}
+
+
+{% macro SubstrateSchema() -%}
+
+Substrate:
+  {{ Substrate()|indent(2) }}
+
+{%- endmacro %}
