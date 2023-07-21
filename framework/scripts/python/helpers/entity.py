@@ -1,5 +1,4 @@
 import copy
-import sys
 from base64 import b64encode
 from typing import Union, List, Dict
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
@@ -34,6 +33,8 @@ class Entity:
     def read(
         self,
         uuid=None,
+        method="GET",
+        data=None,
         endpoint=None,
         query=None,
         timeout=30,
@@ -43,7 +44,13 @@ class Entity:
             uri = uri + "/{0}".format(endpoint)
         if query:
             uri = self._build_url_with_query(uri, query)
-        resp = self.session.get(uri, timeout=timeout)
+
+        if method == "GET":
+            resp = self.session.get(uri, timeout=timeout)
+        elif method == "POST":
+            resp = self.session.post(uri, data=data, timeout=timeout)
+        else:
+            raise "Invalid method"
 
         if self.entity_type in resp:
             resp = resp[self.entity_type]
@@ -181,11 +188,8 @@ class Entity:
             "timeout": timeout,
             "jsonify": False
         }
-        try:
-            response = self.session.post(uri=uri, **kwargs)
-            return response
-        except Exception as e:
-            logger.error(e)
+        response = self.session.post(uri=uri, **kwargs)
+        return response
 
     @staticmethod
     def _get_default_spec():

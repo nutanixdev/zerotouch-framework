@@ -21,32 +21,16 @@ import sys
 from pathlib import Path
 from helpers.log_utils import get_logger, ConfigureRootLogger
 from helpers.workflow_utils import Workflow
-from scripts.python.create_address_groups_pc import CreateAddressGroups
-from scripts.python.create_bp_calm import CreateBp
-from scripts.python.create_container_pe import CreateContainerPe
-from scripts.python.enable_microseg_pc import EnableMicroseg
-from scripts.python.foundation_script import FoundationScript
-from scripts.python.create_service_groups_pc import CreateServiceGroups
-from scripts.python.create_security_policy_pc import CreateNetworkSecurityPolicy
-from scripts.python.launch_calm_bp import LaunchBp
-from scripts.python.register_pe_to_pc import RegisterToPc
-from scripts.python.add_ad_server_pe import AddAdServerPe
-from scripts.python.create_rolemapping_pe import CreateRoleMapping
-from scripts.python.create_pc_categories import CreateCategoryPc
-from scripts.python.create_pc_subnets import CreateSubnetsPc
-from scripts.python.update_dsip_pe import UpdateDsip
-from helpers.helper_functions import create_pe_pc_objects
-from scripts.python.update_calm_project import UpdateCalmProject
-from scripts.python.init_calm_dsl import InitCalmDsl
-from scripts.python.initial_cluster_config import InitialClusterConfig
-from scripts.python.configure_pod import PodConfig
-from helpers.schema import IMAGING_SCHEMA, CREATE_VM_WORKLOAD_SCHEMA, CREATE_AI_WORKLOAD_SCHEMA, POD_CONFIG_SCHEMA
-from helpers.helper_functions import get_input_data, validate_input_data, get_aos_url_mapping, \
-    get_hypervisor_url_mapping, save_logs
+from scripts.python import *
+from helpers.helper_functions import create_pe_objects, create_pc_objects, replace_config_files, save_pod_logs
+from helpers.schema import *
+from helpers.helper_functions import get_input_data, validate_input_data, save_logs
 
 parser = argparse.ArgumentParser(description="Description")
-parser.add_argument("--workflow", type=str, help="workflow to run", required=True)
-parser.add_argument("-f", "--file", type=str, help="input file", required=True)
+parser.add_argument("--workflow", type=str, help="workflow to run")
+parser.add_argument("--script", type=str, help="script/s to run")
+parser.add_argument("--schema", type=str, help="schema for the script")
+parser.add_argument("-f", "--file", type=str, help="input file/s", required=True)
 parser.add_argument("--debug", action='store_true')
 args = parser.parse_args()
 
@@ -55,11 +39,16 @@ project_root = Path(__file__).parent.parent
 
 
 def main():
-    workflow_type = args.workflow
-    files = [f"{project_root}/{file.strip()}" for file in args.file.split(",")]
-
     # initialize the logger
     logger = get_logger(__name__)
+
+    workflow_type = args.workflow
+    try:
+        input_scripts = [eval(script.strip()) for script in args.script.split(",")] if args.script else []
+    except Exception as e:
+        logger.error("Invalid Script specified")
+        raise Exception(e)
+    files = [f"{project_root}/{file.strip()}" for file in args.file.split(",")]
 
     for file in files:
         if not os.path.exists(file):
@@ -67,36 +56,51 @@ def main():
             sys.exit(1)
 
     pre_run_actions = [get_input_data, validate_input_data]
-    post_run_actions = [save_logs]
+    post_run_actions = [save_logs, replace_config_files]
     schema = {}
+    scripts = []
 
-    match workflow_type:
-        case "imaging":
-            pre_run_actions += [get_aos_url_mapping, get_hypervisor_url_mapping]
-            schema = IMAGING_SCHEMA
-            scripts = [FoundationScript]
-        case "config-cluster":
-            pre_run_actions += [create_pe_pc_objects]
-            scripts = [InitialClusterConfig, RegisterToPc, AddAdServerPe, CreateRoleMapping, UpdateDsip,
-                       CreateContainerPe, CreateSubnetsPc, CreateCategoryPc, EnableMicroseg,
-                       CreateAddressGroups, CreateServiceGroups, CreateNetworkSecurityPolicy]
-        case "calm-vm-workloads":
-            schema = CREATE_VM_WORKLOAD_SCHEMA
-            scripts = [InitCalmDsl, UpdateCalmProject, CreateBp, LaunchBp]
-        case "calm-edgeai-vm-workload":
-            schema = CREATE_AI_WORKLOAD_SCHEMA
-            scripts = [InitCalmDsl, UpdateCalmProject, CreateBp, LaunchBp]
-        case "pod-config":
-            schema = POD_CONFIG_SCHEMA
-            scripts = [PodConfig]
-        # case "example-workflow-type":
-        #     schema = EXAMPLE_SCHEMA  # EXAMPLE_SCHEMA is a dict defined in helpers/schema.py
-        #     pre_run_actions = [new_function1, new_function2]  # either create a new actions list (or)
-        #     post_run_actions += [new_function3] # modify existing actions list
-        #     scripts = [ExampleScript1, ExampleScript2]  # ExampleScript1 is .py file which inherits "Script" class
-        case _:
-            logger.error("Select the correct workflow")
-            sys.exit(1)
+    if workflow_type:
+        match workflow_type:
+            case "imaging":
+                schema = IMAGING_SCHEMA
+                post_run_actions[0] = save_pod_logs
+                scripts = [FoundationScript]
+            case "config-cluster":
+                pre_run_actions += [create_pe_objects, create_pc_objects]
+                scripts = [InitialClusterConfig, RegisterToPc, AddAdServerPe, CreateRoleMapping, UpdateDsip,
+                           CreateContainerPe, CreateSubnetsPc, CreateCategoryPc, EnableFlow,
+                           CreateAddressGroups, CreateServiceGroups, CreateNetworkSecurityPolicy]
+            case "calm-vm-workloads":
+                schema = CREATE_VM_WORKLOAD_SCHEMA
+                scripts = [InitCalmDsl, CreateAppFromDsl]
+            case "calm-edgeai-vm-workload":
+                schema = CREATE_AI_WORKLOAD_SCHEMA
+                scripts = [InitCalmDsl, UpdateCalmProject, CreateBp, LaunchBp]
+            case "calm-container-workload":
+                schema = POD_NKE_CLUSTER_SCHEMA
+                pre_run_actions += [create_pe_objects, create_pc_objects]
+                scripts = [EnableKarbon, CreateKarbonClusterPc]
+            case "pod-config":
+                schema = POD_CONFIG_SCHEMA
+                post_run_actions[0] = save_pod_logs
+                scripts = [PodConfig]
+            # case "example-workflow-type":
+            #     schema = EXAMPLE_SCHEMA  # EXAMPLE_SCHEMA is a dict defined in helpers/schema.py
+            #     pre_run_actions = [new_function1, new_function2]  # either create a new actions list (or)
+            #     post_run_actions += [new_function3] # modify existing actions list
+            #     scripts = [ExampleScript1, ExampleScript2]  # ExampleScript1 is .py file which inherits "Script" class
+            case _:
+                logger.warning("No workflow is selected")
+    elif input_scripts:
+        if not schema:
+            pre_run_actions.pop()
+        pre_run_actions += [create_pe_objects, create_pc_objects]
+        schema = args.schema
+        scripts = input_scripts
+    else:
+        logger.error("Select either pre-configured workflow or script to run the framework.")
+        sys.exit(1)
 
     if validate_input_data in pre_run_actions and not schema:
         logger.error("Schema is empty! "
@@ -105,6 +109,7 @@ def main():
 
     # create a workflow and run it
     wf_handler = Workflow(
+            workflow_type=workflow_type,
             project_root=project_root,
             schema=schema,
             input_files=files

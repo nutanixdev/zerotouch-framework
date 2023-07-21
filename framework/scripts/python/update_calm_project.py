@@ -8,12 +8,13 @@ logger = get_logger(__name__)
 
 
 class UpdateCalmProject(Script):
-    def __init__(self, data: dict):
+    def __init__(self, data: dict, **kwargs):
         self.data = data
-        super(UpdateCalmProject, self).__init__()
+        super(UpdateCalmProject, self).__init__(**kwargs)
+        self.logger = self.logger or logger
 
     def execute(self, **kwargs):
-        logger.info("Update the project...")
+        self.logger.info("Update the project...")
         helper_directory = f"{self.data['project_root']}/framework/scripts/python/helpers"
         project_update_helper = "update_project_dsl.py.jinja"
 

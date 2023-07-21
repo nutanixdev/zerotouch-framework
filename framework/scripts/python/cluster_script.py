@@ -9,13 +9,14 @@ logger = get_logger(__name__)
 
 
 class ClusterScript(Script):
-    def __init__(self, data: dict, parallel: bool = True):
+    def __init__(self, data: dict, parallel: bool = True, **kwargs):
         self.data = data
         # pass the Cluster Objects
         # create_pe_pc helper function can be used
         self.pe_clusters = self.data.get("clusters", {})
         self.parallel = parallel
-        super(ClusterScript, self).__init__()
+        super(ClusterScript, self).__init__(**kwargs)
+        self.results["clusters"] = {}
 
     def execute(self, **kwargs):
         if self.parallel:

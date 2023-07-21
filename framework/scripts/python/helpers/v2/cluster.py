@@ -1,8 +1,5 @@
 from helpers.rest_utils import RestAPIUtil
 from scripts.python.helpers.pe_entity_v2 import PeEntityV2
-from helpers.log_utils import get_logger
-
-logger = get_logger(__name__)
 
 
 class Cluster(PeEntityV2):

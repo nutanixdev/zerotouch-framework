@@ -1,9 +1,6 @@
 from copy import deepcopy
 from typing import Optional
-from helpers.log_utils import get_logger
 from scripts.python.helpers.pc_entity import PcEntity
-
-logger = get_logger(__name__)
 
 
 class ServiceGroup(PcEntity):
@@ -34,7 +31,6 @@ class ServiceGroup(PcEntity):
         for protocol, values in service_details.items():
             self._build_spec_service_details(spec, {protocol: values})
 
-        logger.debug(spec)
         return spec
 
     def _get_default_spec(self):
@@ -73,8 +69,7 @@ class ServiceGroup(PcEntity):
             service = {"protocol": "ICMP", "icmp_type_code_list": []}
 
         if not service:
-            logger.error("Unsupported Protocol")
-            return
+            raise Exception("Unsupported Protocol")
         payload["service_list"].append(service)
 
         return payload, None

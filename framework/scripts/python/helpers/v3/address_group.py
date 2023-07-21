@@ -1,10 +1,6 @@
 from copy import deepcopy
 from typing import Optional, List
-
 from scripts.python.helpers.pc_entity import PcEntity
-from helpers.log_utils import get_logger
-
-logger = get_logger(__name__)
 
 
 class AddressGroup(PcEntity):
@@ -31,8 +27,6 @@ class AddressGroup(PcEntity):
         self._build_spec_desc(spec, ag_info.get("description"))
         # Get ip_address_block_list
         self._build_spec_subnets(spec, ag_info.get("subnets", []))
-
-        logger.debug(spec)
         return spec
 
     def _get_default_spec(self):

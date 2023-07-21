@@ -9,10 +9,10 @@ logger = get_logger(__name__)
 
 class PcTaskMonitor(StateMonitor):
     """
-  The class to wait for task status to come in expected state
-  """
+    The class to wait for task status to come in expected state
+    """
     DEFAULT_CHECK_INTERVAL_IN_SEC = 5
-    DEFAULT_TIMEOUT_IN_SEC = 300
+    DEFAULT_TIMEOUT_IN_SEC = 1800
 
     def __init__(self, session: RestAPIUtil, **kwargs):
         """
@@ -64,15 +64,6 @@ class PcTaskMonitor(StateMonitor):
         logger.info("[{}/{}] Tasks Completed".format(len(self.completed_task_list),
                                                      len(self.task_uuid_list)))
         return response, completed
-
-    @property
-    def incomplete_task_uuids(self) -> List:
-        """
-        Get Incomplete task uuids
-        Returns:
-          list
-        """
-        return list(set(self.task_uuid_list) - set(self.completed_task_uuids))
 
     @staticmethod
     def __uuid_list_chunks(uuid_list: List, chunk_size=100):

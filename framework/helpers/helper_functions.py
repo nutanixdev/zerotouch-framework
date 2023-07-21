@@ -1,22 +1,20 @@
+import glob
 import os
 import pathlib
 import sys
 from datetime import datetime
 from helpers.general_utils import validate_schema, get_json_file_contents, create_new_directory, \
-    copy_file_util, enforce_data_arg, get_yml_file_contents
-from helpers.general_utils import validate_ip
+    copy_file_util, enforce_data_arg, get_yml_file_contents, delete_file_util
 from helpers.rest_utils import RestAPIUtil
 from scripts.python.helpers.v2.cluster import Cluster as PeCluster
-from scripts.python.helpers.v3.cluster import Cluster as PcCluster
 from helpers.log_utils import get_logger
 
 logger = get_logger(__name__)
 
-SITES_DIRECTORY = "sites"
+LOGS_DIRECTORY = "workflow_runs"
 FRAMEWORK_DIRECTORY = "framework"
 GLOBAL_CONFIG_NAME = "global.json"
 SITES_CONFIG_DIRECTORY = "config"
-LOG_NAME = "script_log.log"
 
 """
 These are the functions that are part of pre_run_actions and post_run_actions in main.py
@@ -133,26 +131,40 @@ def get_hypervisor_url_mapping(data: dict) -> None:
 
 
 @enforce_data_arg
-def save_logs(data: dict):
+def save_pod_logs(data: dict):
     """
     Create a new directory and save logs
     """
-    logger.info("Pushing logs...")
-    # create a new site directory
-    branch = data["site_name"]
-    timestamp = datetime.utcnow().strftime("%Y-%m-%d-%H:%M:%S")
+    if not data.get("pod", {}).get("pod_name"):
+        raise Exception("Pod name is not specified!")
 
-    new_site_directory = f"{data['project_root']}/{SITES_DIRECTORY}/{branch}/{timestamp}"
+    pod_name = data["pod"]["pod_name"]
+
+    logger.info("Pushing pod logs...")
+    # create a new directory
+    timestamp = datetime.utcnow().strftime("%Y-%m-%d-%H_%M_%S")
+
+    new_log_directory = os.path.join(data['project_root'], "pod-runs", pod_name)
+
     # as we are using mkdir -p, this will create the branch directory, along with logs directory as well
-    logs_directory = f"{new_site_directory}/logs"
+    logs_directory = os.path.join(new_log_directory, "logs")
     create_new_directory(logs_directory)
 
     # push logs to the branch
-    source = f"{data['project_root']}/{FRAMEWORK_DIRECTORY}/{LOG_NAME}"
-    destination = f"{logs_directory}/app_logs.log"
-    copy_file_util(source, destination)
+    source = os.path.join(data['project_root'], FRAMEWORK_DIRECTORY)
+    log_files = glob.glob(os.path.join(source, "*.log"))
 
-    config_directory = f"{new_site_directory}/configs"
+    for log_file in log_files:
+        _, log_file_name = os.path.split(log_file)
+        destination = os.path.join(logs_directory, f"{timestamp}_{log_file_name}")
+        try:
+            copy_file_util(log_file, destination)
+        except Exception as e:
+            raise Exception(e)
+        finally:
+            delete_file_util(log_file)
+
+    config_directory = os.path.join(new_log_directory, "configs")
     create_new_directory(config_directory)
 
     # push input configs to the branch
@@ -160,38 +172,80 @@ def save_logs(data: dict):
 
     for file in files:
         _, file_name = os.path.split(file)
-        destination = f"{config_directory}/{file_name}"
+        destination = os.path.join(config_directory, f"{timestamp}_{file_name}")
         copy_file_util(file, destination)
 
 
 @enforce_data_arg
-def create_pe_pc_objects(data: dict):
+def save_logs(data: dict):
     """
-    This function will create necessary Pc and Pe objects that can be used by the scripts
+    Create a new directory and save logs
+    """
+    logger.info("Pushing logs...")
+    # create a new site directory
+    timestamp = datetime.utcnow().strftime("%Y-%m-%d-%H_%M_%S")
+
+    new_log_directory = os.path.join(data['project_root'], LOGS_DIRECTORY)
+    if data.get('workflow_type'):
+        new_log_directory = os.path.join(new_log_directory, data["workflow_type"])
+
+    # as we are using mkdir -p, this will create the branch directory, along with logs directory as well
+    logs_directory = os.path.join(new_log_directory, "logs")
+    create_new_directory(logs_directory)
+
+    # push logs to the branch
+    source = f"{data['project_root']}/{FRAMEWORK_DIRECTORY}"
+    log_files = glob.glob(os.path.join(source, "*.log"))
+
+    for log_file in log_files:
+        _, log_file_name = os.path.split(log_file)
+        destination = os.path.join(logs_directory, f"{timestamp}_{log_file_name}")
+        copy_file_util(log_file, destination)
+        delete_file_util(log_file)
+
+    config_directory = os.path.join(new_log_directory, "configs")
+    create_new_directory(config_directory)
+
+    # push input configs to the branch
+    files = data["input_files"]
+
+    for file in files:
+        _, file_name = os.path.split(file)
+        destination = os.path.join(config_directory, f"{timestamp}_{file_name}")
+        copy_file_util(file, destination)
+
+
+def replace_config_files(data: dict):
+    """
+    Replace modified config files
+    """
+    example_configs_dir = os.path.join(data['project_root'], SITES_CONFIG_DIRECTORY, "example-configs")
+    # replace input configs with example configs
+    files = data["input_files"]
+
+    for file in files:
+        _, file_name = os.path.split(file)
+        source = os.path.join(example_configs_dir, file_name)
+        if os.path.exists(source):
+            destination = os.path.join(data['project_root'], SITES_CONFIG_DIRECTORY, file_name)
+            copy_file_util(source, destination)
+        else:
+            delete_file_util(file)
+
+
+@enforce_data_arg
+def create_pc_objects(data: dict):
+    """
+    This function will create necessary Pc object that can be used by the scripts
     This script does the below actions:
         1. Reads the input configs and creates a "pc_session" from pc_ip, pc_username and pc_password from the configs
          that can be used to query the PC
-        2. Checks if the file has "clusters" entity, if it exists
-            a. If "cluster_ip"s are specified as keys, it creates "pe_session" from pe_username, pe_password and
-            "cluster_info" with cluster details
-            b. If "cluster_name"s are specified, we leverage PC to find the IP, create "pe_session" and create
-            "cluster_info" with cluster name
 
     Eg config: file1
     ----------------------------------
     pc_ip: 10.1.1.1
     pc_username: admin
     pc_password: nutanix/4u
-    pe_username: admin
-    pe_password: nutanix/4u
-
-    clusters:
-      # configure the clusters that are already registered to a PC
-      # cluster-name
-      10.1.1.110:
-        dsip: ''
-      cluster-02: {}
-      cluster-03: {}
     ----------------------------------
     Response: self.data object -> updated
 
@@ -202,24 +256,7 @@ def create_pe_pc_objects(data: dict):
         'pc_ip': '10.1.1.1',
         'pc_username': 'admin',
         'pc_password': 'nutanix/4u',
-        'pe_username': 'admin',
-        'pe_password': 'nutanix/4u',
-        'clusters': {
-            '10.1.1.110': {
-                'dsip': '',
-                'cluster_info': {'name': 'cluster-01', 'uuid': '0005f033-4b58-4d1a-0000-000000011115', ...},
-                'pe_session': <helpers.rest_utils.RestAPIUtil object at 0x1092a99f0>
-            },
-            '10.1.1.111': {
-                'cluster_info': {'name': 'cluster-02'},
-                'pe_session': <helpers.rest_utils.RestAPIUtil object at 0x1092aa710>
-            },
-            '10.1.1.112': {
-                'cluster_info': {'name': 'cluster-03'},
-                'pe_session': <helpers.rest_utils.RestAPIUtil object at 0x1092aaf50>}
-            },
-            'pc_session': <helpers.rest_utils.RestAPIUtil object at 0x1092a9570>
-        }
+        'pc_session': <helpers.rest_utils.RestAPIUtil object at 0x1092a9570>
     }
     """
 
@@ -229,10 +266,47 @@ def create_pe_pc_objects(data: dict):
                                          pwd=data["pc_password"],
                                          port="9440", secured=True)
 
+
+@enforce_data_arg
+def create_pe_objects(data: dict):
+    """
+    This function will create necessary Pe objects that can be used by the scripts
+    This script does the below actions:
+        1. Checks if data has "clusters" entity, if it exists
+            i. If "cluster_ip"s are specified as keys, it creates "pe_session" from pe_username, pe_password and
+            "cluster_info" with cluster details
+
+    Eg config: file1
+    ----------------------------------
+    pe_username: admin
+    pe_password: nutanix/4u
+
+    clusters:
+      # configure the clusters that are already registered to a PC
+      # cluster-name
+      10.1.1.110:
+        dsip: ''
+    ----------------------------------
+    Response: self.data object -> updated
+
+    {
+        'project_root': PosixPath('path'),
+        'schema': {},
+        'input_files': ['file1'],
+        'pe_username': 'admin',
+        'pe_password': 'nutanix/4u',
+        'clusters': {
+            '10.1.1.110': {
+                'dsip': '',
+                'cluster_info': {'name': 'cluster-01'},
+                'pe_session': <helpers.rest_utils.RestAPIUtil object at 0x1092a99f0>
+            }
+        }
+    }
+    """
+
     # if clusters are specified, get their sessions
     clusters = data.get("clusters", {})
-
-    pc_cluster_obj = None
 
     clusters_map = {}
     for cluster_key, cluster_details in clusters.items():
@@ -253,27 +327,10 @@ def create_pe_pc_objects(data: dict):
             raise Exception(f"PE credentials not specified for the cluster {cluster_key}")
 
         cluster_info = {}
-        # check if cluster keys are names or ip
-        if not validate_ip("cluster_ip", cluster_key, lambda x, y: x):
-            # need to fetch cluster_ip from PC if names are specified
-            if data.get("pc_session"):
-                if not pc_cluster_obj:
-                    pc_cluster_obj = PcCluster(data["pc_session"])
-                    pc_cluster_obj.get_pe_info_list()
-
-                cluster_uuid = pc_cluster_obj.name_uuid_map.get(cluster_key)
-                cluster_info = {"name": cluster_key}
-                cluster_ip = pc_cluster_obj.uuid_ip_map.get(cluster_uuid)
-                if not cluster_ip:
-                    raise Exception(f"Cannot get Cluster IP for {cluster_key}")
-            else:
-                raise Exception("PC details (pc_ip, pc_username, pc_password) are to be provided when only "
-                                "cluster names are specified!")
-        else:
-            # cluster_keys are IPs
-            cluster_ip = cluster_key
-            if cluster_details.get("name"):
-                cluster_info = {"name": cluster_details["name"]}
+        # cluster_keys are IPs
+        cluster_ip = cluster_key
+        if cluster_details.get("name"):
+            cluster_info = {"name": cluster_details["name"]}
 
         # Create PE session with cluster_ip
         pe_session = RestAPIUtil(cluster_ip, user=pe_username, pwd=pe_password, port="9440", secured=True)

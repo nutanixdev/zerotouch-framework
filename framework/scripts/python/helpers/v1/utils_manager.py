@@ -1,8 +1,5 @@
 from helpers.rest_utils import RestAPIUtil
 from scripts.python.helpers.pe_entity_v1 import PeEntityV1
-from helpers.log_utils import get_logger
-
-logger = get_logger(__name__)
 
 
 class UtilsManager(PeEntityV1):
@@ -22,8 +19,4 @@ class UtilsManager(PeEntityV1):
             "oldPassword":  self.DEFAULT_SYSTEM_PASSWORD,
             "newPassword": new_password
         }
-        response = self.create(data=data, endpoint=endpoint, timeout=120)
-        if response["value"]:
-            logger.info(f"Default System password updated with new password in {cluster_info}")
-        else:
-            raise Exception(f"Could not change the system password in {cluster_info}. Error: {response}")
+        return self.create(data=data, endpoint=endpoint, timeout=120)

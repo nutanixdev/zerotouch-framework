@@ -12,14 +12,15 @@ class CreateSubnetsPc(Script):
     Class that creates subnets in PC
     """
 
-    def __init__(self, data: dict):
+    def __init__(self, data: dict, **kwargs):
         self.task_uuid_list = []
         self.data = data
         self.pc_session = self.data["pc_session"]
         # pass the Cluster Objects
         # create_pe_pc helper function can be used
         self.pe_clusters = self.data.get("clusters", {})
-        super(CreateSubnetsPc, self).__init__()
+        super(CreateSubnetsPc, self).__init__(**kwargs)
+        self.logger = self.logger or logger
 
     def execute(self, **kwargs):
         try:
@@ -44,7 +45,7 @@ class CreateSubnetsPc(Script):
                     subnets_response = network.list(filter=filter_criteria)
 
                     if len(subnets_response) > 0:
-                        logger.warning(f"Skipping Subnet creation. Subnet {subnet_info['name']} with vlanId "
+                        self.logger.warning(f"Skipping Subnet creation. Subnet {subnet_info['name']} with vlanId "
                                        f"{subnet_info['vlan_id']}, already exists in the cluster {cluster_name}")
                     else:
 
@@ -56,21 +57,48 @@ class CreateSubnetsPc(Script):
                             self.exceptions.append(f"Failed to create subnets {subnet_info['name']}: {e}")
 
             if not subnets_to_create:
-                logger.warning(f"No subnets to create in {self.data['pc_ip']}")
+                self.logger.warning(f"No subnets to create in '{self.data['pc_ip']}'")
                 return
 
-            logger.info(f"Batch create subnets in {self.data['pc_ip']}")
+            self.logger.info(f"Batch create subnets in '{self.data['pc_ip']}'")
             self.task_uuid_list = network.batch_create_network(subnets_to_create)
+
+            if self.task_uuid_list:
+                app_response, status = PcTaskMonitor(self.pc_session,
+                                                     task_uuid_list=self.task_uuid_list).monitor()
+
+                if app_response:
+                    self.exceptions.append(f"Some tasks have failed. {app_response}")
+
+                if not status:
+                    self.exceptions.append(
+                        "Timed out. Creation of subnets in PC didn't happen in the prescribed timeframe")
         except Exception as e:
             self.exceptions.append(e)
 
     def verify(self, **kwargs):
-        if self.task_uuid_list:
-            app_response, status = PcTaskMonitor(self.pc_session,
-                                                 task_uuid_list=self.task_uuid_list).monitor()
+        # Initial status
+        self.results["clusters"] = {}
 
-            if app_response:
-                self.exceptions.append(f"Some tasks have failed. {app_response}")
+        for cluster_ip, cluster_details in self.pe_clusters.items():
+            try:
+                self.results["clusters"][cluster_ip] = {"Create_subnets": {}}
+                if not cluster_details.get("networks"):
+                    continue
 
-            if not status:
-                self.exceptions.append("Timed out. Creation of subnets in PC didn't happen in the prescribed timeframe")
+                network = Network(session=self.pc_session)
+                for subnet_info in cluster_details.get("networks", []):
+                    # Initial status
+                    self.results["clusters"][cluster_ip]["Create_subnets"][subnet_info['name']] = "CAN'T VERIFY"
+
+                    cluster_name = cluster_details["cluster_info"]["name"]
+                    filter_criteria = f"cluster_name=={cluster_name};vlan_id=={subnet_info['vlan_id']}"
+
+                    subnets_response = network.list(filter=filter_criteria)
+                    if len(subnets_response) > 0:
+                        self.results["clusters"][cluster_ip]["Create_subnets"][subnet_info['name']] = "PASS"
+                    else:
+                        self.results["clusters"][cluster_ip]["Create_subnets"][subnet_info['name']] = "FAIL"
+            except Exception as e:
+                self.logger.debug(e)
+                self.logger.info(f"Exception occurred during the verification of '{type(self).__name__}' for {cluster_ip}")

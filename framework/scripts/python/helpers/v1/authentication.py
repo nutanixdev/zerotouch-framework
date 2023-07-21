@@ -1,9 +1,5 @@
-from typing import List
 from helpers.rest_utils import RestAPIUtil
 from scripts.python.helpers.pe_entity_v1 import PeEntityV1
-from helpers.log_utils import get_logger
-
-logger = get_logger(__name__)
 
 
 class AuthN(PeEntityV1):
@@ -30,22 +26,17 @@ class AuthN(PeEntityV1):
         endpoint = "directories"
         return self.read(endpoint=endpoint)
 
-    def create_role_mapping(self, directory_name: str, role_mappings: List, cluster_info: str):
+    def get_role_mappings(self, directory_name: str):
         endpoint = f"directories/{directory_name}/role_mappings"
-        existing_role_mapping = self.read(endpoint=endpoint)
+        return self.read(endpoint=endpoint)
 
-        existing_role = set([mapping["role"] for mapping in existing_role_mapping])
-        for role_mapping in role_mappings:
-            if role_mapping.get("role_type") not in existing_role:
-                spec = {
-                    "directoryName": directory_name,
-                    "role": role_mapping["role_type"],
-                    "entityType": role_mapping["entity_type"],
-                    "entityValues": role_mapping["values"]
-                }
-                response = self.create(data=spec, endpoint=endpoint)
-                if isinstance(response, str):
-                    raise Exception(response)
-                logger.info(f"Created Role Mapping type '{role_mapping['role_type']}' in the cluster {cluster_info}")
-            else:
-                logger.warning(f"Role Mapping '{role_mapping['role_type']}' already exists in the cluster {cluster_info}")
+    def create_role_mapping(self, directory_name: str, role_mapping: dict):
+        endpoint = f"directories/{directory_name}/role_mappings"
+
+        spec = {
+            "directoryName": directory_name,
+            "role": role_mapping["role_type"],
+            "entityType": role_mapping["entity_type"],
+            "entityValues": role_mapping["values"]
+        }
+        return self.create(data=spec, endpoint=endpoint)

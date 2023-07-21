@@ -1,0 +1,95 @@
+name: Trigger Python Workflows Manually
+on:
+  workflow_dispatch:
+    inputs:
+      file:
+        description: 'Input file'
+        required: true
+      branch:
+        description: 'Branch name where the config file resides'
+        required: true
+      workflow:
+        description: 'Workflow to run'
+        required: true
+        default: "pod-config"
+        type: choice
+        options:
+          - "pod-config"
+          - "imaging"
+          - "create-vm-workloads"
+          - "calm-edgeai-vm-workload"
+      script:
+        description: 'Scripts to run'
+        default: false
+        required: false
+      schema:
+        description: 'Schema to verify the input file against'
+        default: false        
+        required: false        
+
+jobs:
+  create-python-environment:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event.inputs.branch }}
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        #  gives you either a new virtualenv, or restores an old one based on
+        #  the requirements*.txt -file.
+    - uses: syphar/restore-virtualenv@v1
+      id: cache-virtualenv
+    - uses: syphar/restore-pip-download-cache@v1
+      if: steps.cache-virtualenv.outputs.cache-hit != 'true'
+      # the package installation will only be executed when the
+      # requirements*.txt - file has changed.
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        cd framework
+        pip install -r requirements/dev.txt
+      if: steps.cache-virtualenv.outputs.cache-hit != 'true'
+  run-python-workflow:
+    needs: create-python-environment
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.branch }}
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Restore cache
+        uses: syphar/restore-virtualenv@v1
+        id: cache-virtualenv
+      - name: Run python script
+        shell: bash
+        run: |
+          cd framework
+          if ${{ github.event.inputs.script }}; then
+            if ${{ github.event.inputs.schema }}; then
+              python main.py --workflow ${{ github.event.inputs.workflow }} --script ${{ github.event.inputs.script }} --schema ${{ github.event.inputs.schema }} --file ${{ github.event.inputs.file }}
+            else
+              python main.py --workflow ${{ github.event.inputs.workflow }} --script ${{ github.event.inputs.script }} --file ${{ github.event.inputs.file }}
+            fi
+          else
+            python main.py --workflow ${{ github.event.inputs.workflow }} --file ${{ github.event.inputs.file }}
+          fi
+            
+      - name: Git add config and logs
+        if: ${{ !contains(github.event.inputs.branch, 'main') }}
+        run: |
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add .
+          git commit -a -m "Workflow trigger logs"
+      - name: Push the config and logs to the trigger branch
+        if: ${{ !contains(github.event.inputs.branch, 'main') }}
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.event.inputs.branch }}

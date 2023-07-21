@@ -1,9 +1,6 @@
 from typing import List
 from helpers.rest_utils import RestAPIUtil
 from scripts.python.helpers.pc_entity import PcEntity
-from helpers.log_utils import get_logger
-
-logger = get_logger(__name__)
 
 
 class Network(PcEntity):
@@ -58,7 +55,7 @@ class Network(PcEntity):
         dhcp_options = kwargs.get("dhcp_options", {})
         cluster_uuid = kwargs.get("cluster_uuid", None)
         dhcp_server_address = kwargs.get("dhcp_server_address", None)
-        virtual_network_reference = kwargs.get("virtual_network_reference", {})
+        # virtual_network_reference = kwargs.get("virtual_network_reference", {})
         is_external = kwargs.get("is_external", False)
         enable_nat = kwargs.get("enable_nat", True)
 
