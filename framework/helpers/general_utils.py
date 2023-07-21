@@ -3,7 +3,7 @@ import re
 import os
 import cerberus
 import yaml
-from typing import List, Type
+from typing import List, Type, Iterable, Any
 from distutils.file_util import copy_file
 from scripts.python.script import Script
 from functools import wraps
@@ -48,6 +48,20 @@ def validate_ip(field, value, error):
         return False
     return True
 
+
+def validate_subnet(field, value, error):
+    """
+    Function to check if "value" is a valid subnet or not, if not it'll raise error("field")
+    Eg: validate_ip("cvm_ip", "1.1.1.0/24", Exception)
+    """
+    pattern = re.compile\
+        (r'(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?/\d{1,2})')
+    if not pattern.match(value, ):
+        error(field, '"{}" must be a valid Subnet'.format(value))
+        return False
+    return True
+
+
 def validate_ip_list(field, value, error):
     """
     Function to check if value has list of valid ip's or not, if not it'll raise error("field")
@@ -57,6 +71,7 @@ def validate_ip_list(field, value, error):
     for ip in value:
         if not pattern.match(ip, ):
             error(field, '"{}" must be a valid IP address'.format(ip))
+
 
 def contains_whitespace(field, value, error):
     """
@@ -78,6 +93,7 @@ def validate_domain(field, value, error):
         for domain in value:
             if not pattern.match(domain, ):
                 error(field, '"{}" must be a valid domain'.format(domain))
+
 
 def validate_schema(schema: dict, data: dict) -> bool:
     """
@@ -107,6 +123,11 @@ def create_new_directory(path: str):
         raise PermissionError
     except OSError as e:
         raise e
+
+
+def delete_file_util(file_path: str):
+    if os.path.exists(file_path):
+        os.remove(file_path)
 
 
 def copy_file_util(src_path: str, dst_path: str):
@@ -183,3 +204,17 @@ def convert_to_secs(value: int, unit: str):
         return None, "Invalid unit given for interval conversion to seconds"
 
     return value * conversion_multiplier[unit], None
+
+
+def divide_chunks(iterable_to_divide: Iterable[Any], chunk_size: int):
+    """Divide list into chunks of length n
+
+    Args:
+        iterable_to_divide (list): Iterable to divide into chunks of length chunk_size
+        chunk_size (int): Length of the list chunks
+
+    Yields:
+        Chunks of list with length n
+    """
+    for i in range(0, len(iterable_to_divide), chunk_size):
+        yield iterable_to_divide[i:i + chunk_size]

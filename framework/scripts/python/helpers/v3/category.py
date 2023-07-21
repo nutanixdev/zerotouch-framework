@@ -2,9 +2,6 @@ from typing import List
 
 from helpers.rest_utils import RestAPIUtil
 from scripts.python.helpers.pc_entity import PcEntity
-from helpers.log_utils import get_logger
-
-logger = get_logger(__name__)
 
 
 class Category(PcEntity):
@@ -14,11 +11,11 @@ class Category(PcEntity):
         self.resource_type = "/categories"
         super(Category, self).__init__(session=session)
 
-    def add_values(self, name: str, values: List):
-        """
-        Add values to a given PC category
-        """
-        self.batch_values_add(name, values)
+    # def add_values(self, name: str, values: List):
+    #     """
+    #     Add values to a given PC category
+    #     """
+    #     self.batch_values_add(name, values)
 
     def get_values(self, name: str):
         """

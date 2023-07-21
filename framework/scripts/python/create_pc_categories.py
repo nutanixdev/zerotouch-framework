@@ -1,3 +1,5 @@
+import time
+
 from helpers.log_utils import get_logger
 from scripts.python.helpers.v3.category import Category
 from scripts.python.script import Script
@@ -9,23 +11,25 @@ class CreateCategoryPc(Script):
     """
     Class that creates Categories in PC
     """
-    def __init__(self, data: dict):
+    def __init__(self, data: dict, **kwargs):
         self.response = None
         self.data = data
+        self.categories = self.data.get("categories")
         self.pc_session = self.data["pc_session"]
-        super(CreateCategoryPc, self).__init__()
+        super(CreateCategoryPc, self).__init__(**kwargs)
+        self.logger = self.logger or logger
 
     def execute(self, **kwargs):
         try:
             category = Category(self.pc_session)
             existing_categories_list = category.categories_with_values()
 
-            if not self.data.get("categories"):
-                logger.warning(f"Skipping category creation in {self.data['pc_ip']}")
+            if not self.categories:
+                self.logger.warning(f"Skipping category creation in '{self.data['pc_ip']}'")
                 return
 
             category_list = []
-            for category_to_create in self.data["categories"]:
+            for category_to_create in self.categories:
                 name = category_to_create.get("name")
                 description = category_to_create.get("description")
                 values = category_to_create.get("values")
@@ -57,14 +61,36 @@ class CreateCategoryPc(Script):
                     self.exceptions.append(f"Failed to create category {name}: {e}")
 
             if not category_list:
-                logger.warning(f"No categories to create in {self.data['pc_ip']}")
+                self.logger.warning(f"No categories to create in '{self.data['pc_ip']}'")
                 return
 
-            logger.info(f"Batch create Categories in {self.data['pc_ip']}")
+            self.logger.info(f"Batch create Categories in '{self.data['pc_ip']}'")
             category.batch_values_add(category_list)
         except Exception as e:
             self.exceptions.append(e)
 
     def verify(self, **kwargs):
-        # todo how to verify?
-        pass
+        if not self.categories:
+            return
+
+        # Initial status
+        self.results["Create_Categories"] = {}
+
+        # There is no monitor option for creation. Hence, waiting for creation before verification
+        time.sleep(5)
+        category = Category(self.pc_session)
+        existing_categories_list = []
+
+        for category_to_create in self.categories:
+            name = category_to_create.get("name")
+
+            # Initial status
+            self.results["Create_Categories"][name] = "CAN'T VERIFY"
+            existing_categories_list = existing_categories_list or category.categories_with_values()
+            category_exists = next((existing_category for existing_category in existing_categories_list
+                                    if existing_category["name"] == name), None)
+
+            if category_exists:
+                self.results["Create_Categories"][name] = "PASS"
+            else:
+                self.results["Create_Categories"][name] = "FAIL"

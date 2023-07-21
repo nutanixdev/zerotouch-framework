@@ -1,9 +1,5 @@
-import sys
 from helpers.rest_utils import RestAPIUtil
 from scripts.python.helpers.pe_entity_v1 import PeEntityV1
-from helpers.log_utils import get_logger
-
-logger = get_logger(__name__)
 
 
 class Eula(PeEntityV1):
@@ -28,8 +24,9 @@ class Eula(PeEntityV1):
                 return True
         return
 
-    def accept_eula(self, username: str, company_name: str, job_title: str, cluster_info):
-        """Accept End-User License Agreement (EULA)
+    def accept_eula(self, username: str, company_name: str, job_title: str):
+        """
+        Accept End-User License Agreement (EULA)
         """
         endpoint = "accept"
         data = {
@@ -37,8 +34,4 @@ class Eula(PeEntityV1):
             "companyName": company_name,
             "jobTitle": job_title
         }
-        response = self.create(data=data, endpoint=endpoint)
-        if response["value"]:
-            logger.info(f"Accepted End-User License Agreement in {cluster_info}")
-        else:
-            raise Exception(f"Could not Accept End-User License Agreement in {cluster_info}. Error: {response}")
+        return self.create(data=data, endpoint=endpoint)

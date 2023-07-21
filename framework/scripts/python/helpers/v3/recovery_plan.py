@@ -1,13 +1,9 @@
 from copy import deepcopy
 from typing import List
-
 from helpers.rest_utils import RestAPIUtil
 from scripts.python.helpers.pc_entity import PcEntity
-from helpers.log_utils import get_logger
 from scripts.python.helpers.v3.availabilty_zone import AvailabilityZone
 from scripts.python.helpers.v3.vm import VM
-
-logger = get_logger(__name__)
 
 
 class RecoveryPlan(PcEntity):

@@ -10,7 +10,7 @@ BATCH_TIMEOUT = 6 * 60
 MAX_BATCH_API_CALLS = 60
 
 
-class PcBatchOp(object):
+class PcBatchOp:
     """
     This is helper class to do V3 Batch api calls.
     """
@@ -21,7 +21,7 @@ class PcBatchOp(object):
         "api_request_list": []
     }
 
-    def __init__(self, session: RestAPIUtil, base_url: str, **kwargs):
+    def __init__(self, session: RestAPIUtil, base_url: Optional[str] = None, **kwargs):
         """
         Default Constructor for PcBatchOp class
         Args:
@@ -147,8 +147,8 @@ def get_task_uuid_list(api_response_list: List):
         if type(api_response) == str:
             try:
                 api_response = json.loads(api_response)
-            except:
-                raise Exception("Cannot get task list to monitor for the batch call!")
+            except Exception as e:
+                raise Exception(f"Cannot get task list to monitor for the batch call!: {e}")
 
         if api_response.get('status', {}).get('execution_context', {}).get('task_uuid'):
             task_uuid = api_response['status']['execution_context']['task_uuid']

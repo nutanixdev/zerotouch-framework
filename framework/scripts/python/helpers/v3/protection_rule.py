@@ -2,10 +2,7 @@ from copy import deepcopy
 from helpers.general_utils import convert_to_secs
 from helpers.rest_utils import RestAPIUtil
 from scripts.python.helpers.pc_entity import PcEntity
-from helpers.log_utils import get_logger
 from scripts.python.helpers.v3.availabilty_zone import AvailabilityZone
-
-logger = get_logger(__name__)
 
 
 class ProtectionRule(PcEntity):
@@ -135,8 +132,7 @@ class ProtectionRule(PcEntity):
                 if (
                     not (schedule.get("rpo") and schedule.get("rpo_unit"))
                     and schedule.get("snapshot_type")
-                    and (schedule.get("local_retention_policy") or schedule.get("remote_retention_policy")
-                )
+                    and (schedule.get("local_retention_policy") or schedule.get("remote_retention_policy"))
                 ):
                     return (
                         None,

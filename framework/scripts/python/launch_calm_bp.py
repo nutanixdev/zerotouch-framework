@@ -10,10 +10,12 @@ from scripts.python.helpers.v3.application import Application
 
 logger = get_logger(__name__)
 
+
 class LaunchBp(Script):
-    def __init__(self, data: dict):
+    def __init__(self, data: dict, **kwargs):
         self.data = data
-        super(LaunchBp, self).__init__()
+        super(LaunchBp, self).__init__(**kwargs)
+        self.logger = self.logger or logger
 
     def execute(self, **kwargs):
         session = RestAPIUtil(self.data["pc_ip"], user=self.data["pc_username"], pwd=self.data["pc_password"],
@@ -48,15 +50,15 @@ class LaunchBp(Script):
             application_uuid = application_op.get_uuid_by_name(bp['app_name'])
 
             if application_uuid:
-                logger.info("Application is being provisioned")
+                self.logger.info("Application is being provisioned")
                 app_response, status = ApplicationStateMonitor(session,
                                                                application_uuid=application_uuid).monitor()
                 if not status or not app_response:
                     raise Exception("Application deployment failed")
                 else:
-                    logger.info("Application deployment successful")
+                    self.logger.info("Application deployment successful")
             else:
-                logger.warning("Could not fetch application uuid to monitor. Application might or "
+                self.logger.warning("Could not fetch application uuid to monitor. Application might or "
                                "might not be running")
                 raise Exception("Stopped")
 

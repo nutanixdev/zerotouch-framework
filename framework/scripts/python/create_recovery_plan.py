@@ -11,11 +11,13 @@ class CreateRecoveryPlan(Script):
     """
     Class that creates RP
     """
-    def __init__(self, data: dict):
+
+    def __init__(self, data: dict, **kwargs):
         self.task_uuid_list = None
         self.data = data
         self.pc_session = self.data["pc_session"]
-        super(CreateRecoveryPlan, self).__init__()
+        super(CreateRecoveryPlan, self).__init__(**kwargs)
+        self.logger = self.logger or logger
 
     def execute(self, **kwargs):
         try:
@@ -25,7 +27,7 @@ class CreateRecoveryPlan(Script):
                                        for rp in recovery_plan_list if rp.get("spec", {}).get("name")]
 
             if not self.data.get("recovery_plans"):
-                logger.warning(f"Skipping creation of Recovery plans in {self.data['pc_ip']}")
+                self.logger.warning(f"Skipping creation of Recovery plans in {self.data['pc_ip']}")
                 return
 
             source_pc_cluster = PcCluster(self.pc_session)
@@ -35,13 +37,13 @@ class CreateRecoveryPlan(Script):
             }
 
             if not self.data.get("remote_azs"):
-                logger.warning(f"AZs are to be provided in {self.data['pc_ip']}")
+                self.logger.warning(f"AZs are to be provided in {self.data['pc_ip']}")
                 return
 
             rp_list = []
             for rp in self.data["recovery_plans"]:
                 if rp['name'] in recovery_plan_name_list:
-                    logger.warning(f"{rp['name']} already exists in {self.data['pc_ip']}!")
+                    self.logger.warning(f"{rp['name']} already exists in {self.data['pc_ip']}!")
                     continue
 
                 try:
@@ -51,22 +53,44 @@ class CreateRecoveryPlan(Script):
                     self.exceptions.append(f"Failed to create Recovery plan {rp['name']}: {e}")
 
             if not rp_list:
-                logger.warning(f"Provided RPs are already created in {self.data['pc_ip']}")
+                self.logger.warning(f"Provided RPs are already created in {self.data['pc_ip']}")
                 return
 
-            logger.info(f"Batch create Recovery plans in {self.data['pc_ip']}")
+            logger.info(f"Batch create Recovery plans in '{self.data['pc_ip']}'")
             self.task_uuid_list = recovery_plan.batch_op.batch_create(request_payload_list=rp_list)
+
+            if self.task_uuid_list:
+                app_response, status = PcTaskMonitor(self.pc_session,
+                                                     task_uuid_list=self.task_uuid_list).monitor()
+
+                if app_response:
+                    self.exceptions.append(f"Some tasks have failed. {app_response}")
+
+                if not status:
+                    self.exceptions.append(
+                        "Timed out. Creation of Recovery plans in PC didn't happen in the prescribed timeframe")
         except Exception as e:
             self.exceptions.append(e)
 
     def verify(self, **kwargs):
-        if self.task_uuid_list:
-            app_response, status = PcTaskMonitor(self.pc_session,
-                                                 task_uuid_list=self.task_uuid_list).monitor()
+        if not self.data.get("recovery_plans"):
+            return
 
-            if app_response:
-                self.exceptions.append(f"Some tasks have failed. {app_response}")
+        # Initial status
+        self.results["Create_Recovery_plans"] = {}
 
-            if not status:
-                self.exceptions.append(
-                    "Timed out. Creation of Recovery plans in PC didn't happen in the prescribed timeframe")
+        recovery_plan = RecoveryPlan(self.pc_session)
+        recovery_plan_list = []
+        recovery_plan_name_list = []
+        for rp in self.data["recovery_plans"]:
+            # Initial status
+            self.results["Create_Recovery_plans"][rp['name']] = "CAN'T VERIFY"
+
+            recovery_plan_list = recovery_plan_list or recovery_plan.list()
+            recovery_plan_name_list = recovery_plan_name_list or [rp.get("spec", {}).get("name")
+                                                                  for rp in recovery_plan_list if
+                                                                  rp.get("spec", {}).get("name")]
+            if rp['name'] in recovery_plan_name_list:
+                self.results["Create_Recovery_plans"][rp['name']] = "PASS"
+            else:
+                self.results["Create_Recovery_plans"][rp['name']] = "FAIL"

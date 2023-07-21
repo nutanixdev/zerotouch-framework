@@ -4,9 +4,6 @@ from helpers.rest_utils import RestAPIUtil
 from scripts.python.helpers.pc_entity import PcEntity
 from scripts.python.helpers.v3.address_group import AddressGroup
 from scripts.python.helpers.v3.service_group import ServiceGroup
-from helpers.log_utils import get_logger
-
-logger = get_logger(__name__)
 
 
 class SecurityPolicy(PcEntity):

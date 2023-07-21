@@ -1,9 +1,5 @@
 from typing import List
-
 from scripts.python.helpers.pc_entity import PcEntity
-from helpers.log_utils import get_logger
-
-logger = get_logger(__name__)
 
 
 class Task(PcEntity):

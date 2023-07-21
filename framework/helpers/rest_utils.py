@@ -3,6 +3,8 @@ import requests
 import urllib3
 from .log_utils import get_logger
 from requests.exceptions import Timeout, ConnectionError, HTTPError, RequestException
+from requests.packages.urllib3.util.retry import Retry
+from requests.adapters import HTTPAdapter
 from requests.auth import HTTPBasicAuth
 from typing import Optional
 from helpers.exception_utils import RestError, ResponseError
@@ -73,6 +75,29 @@ class RestAPIUtil:
         }
         if user and pwd:
             self.__session.auth = HTTPBasicAuth(user, pwd)
+
+        # Define the retry strategy
+        retry_strategy = Retry(
+            total=3,  # Maximum number of retries (including the initial request)
+            backoff_factor=30,  # Backoff factor between retries, keeping it to 30 seconds
+            status_forcelist=[429, 500, 502, 503, 504],  # HTTP status codes to retry
+            method_whitelist=[
+                    "GET",
+                    "PUT",
+                    "DELETE",
+                    "POST",
+                ]
+        )
+
+        # Create an HTTP adapter with the retry strategy
+        # TODO: add pool connections, pool_maxsize to HTTP ADAPTER
+        http_adapter = HTTPAdapter(
+                max_retries=retry_strategy,
+            )
+        # Mount the HTTP adapter to the session
+        self.__session.mount("http://", http_adapter)
+        self.__session.mount("https://", http_adapter)
+
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     @rest_api_call
@@ -87,7 +112,6 @@ class RestAPIUtil:
         logger.debug("Data")
         logger.debug(data)
         response = self.__session.post(url, headers=headers, data=data, verify=False, **kwargs)
-
         return response
 
     @rest_api_call
@@ -109,10 +133,12 @@ class RestAPIUtil:
         data = {} if not data else data
         url = self.prepare_url(uri)
         headers = {} if not headers else headers
-        data = {} if not data else data
 
         logger.debug("GET request for the URL: " + url)
-        response = self.__session.get(url, headers=headers, data=json.dumps(data), verify=False, **kwargs)
+        if data:
+            response = self.__session.get(url, headers=headers, data=json.dumps(data), verify=False, **kwargs)
+        else:
+            response = self.__session.get(url, headers=headers, verify=False, **kwargs)
         response.raise_for_status()
         return response
 

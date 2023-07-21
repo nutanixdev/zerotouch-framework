@@ -6,12 +6,12 @@ logger = get_logger(__name__)
 
 
 class Script(ABC):
-    def __init__(self):
+    def __init__(self, **kwargs):
+        # If log_file is passed create a new logger and a file handler with the specified log file
+        self.logger = get_logger(kwargs['log_file'], file_name=kwargs['log_file']) if kwargs.get('log_file') else None
         self.name = type(self).__name__
+        self.results = {}
         self.exceptions = []
-        self.num_total_scripts = 0
-        self.num_passed_scripts = 0
-        self.pass_rate = 0.0
 
     def run(self, **kwargs):
         current_thread = threading.current_thread()
@@ -21,18 +21,18 @@ class Script(ABC):
             current_thread.name = f"Thread-{current_thread_name}-{type(self).__name__}"
 
         self.execute(**kwargs)
-        self.verify(**kwargs)
+        self.logger.info(f"Running Verification for the script '{type(self).__name__}'...")
+        try:
+            self.verify(**kwargs)
+        except Exception as e:
+            self.logger.debug(e)
+            self.logger.info(f"Exception occurred during the verification of '{type(self).__name__}'")
 
         if self.exceptions:
             for exception in self.exceptions:
-                logger.error(f"{self.name}: {exception}")
+                self.logger.error(f"{self.name}: {exception}")
 
-        if self.num_total_scripts != 0:
-            self.pass_rate = self.num_passed_scripts / self.num_total_scripts
-        else:
-            self.pass_rate = 100.0
-
-        return self.pass_rate
+        return self.results
 
     @abstractmethod
     def execute(self, **kwargs):

@@ -1,0 +1,62 @@
+name: Trigger Python Workflows from PR
+
+on:
+  pull_request_review:
+    types: [submitted]    
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  FILE: ""
+  WORKFLOW: ""
+
+jobs:
+  set-python-workflow-vars:
+    if: ${{ github.event.review.state == 'approved' }}
+    runs-on: ubuntu-latest
+    outputs:
+      FILE: ${{ steps.set-vars.outputs.FILE }}
+      WORKFLOW: ${{ steps.set-vars.outputs.WORKFLOW }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: tj-actions/changed-files@v35
+        id: changed_files
+        with:
+          json: "true"
+      - name: Print changed files
+        run: |
+          echo "Changed files: ${{ steps.changed_files.outputs.all_changed_files }}"
+      - name: Set imaging if pod-deploy config file has changed
+        if: contains(steps.changed_files.outputs.all_changed_files, 'config/pod-deploy.yml')
+        run: |
+          echo "FILE=config/pod-deploy.yml" >> $GITHUB_ENV
+          echo "WORKFLOW=imaging" >> $GITHUB_ENV
+      - name: Set pod-config if pod-config file has changed
+        if: contains(steps.changed_files.outputs.all_changed_files, 'config/pod-config.yml')
+        run: |
+          echo "FILE=config/pod-config.yml" >> $GITHUB_ENV
+          echo "WORKFLOW=pod-config" >> $GITHUB_ENV
+      - name: Set vm-workloads if create_vm_workloads file changed
+        if: contains(steps.changed_files.outputs.all_changed_files, 'config/create-vm-workloads.yml')
+        run: |
+          echo "FILE=config/create-vm-workloads.yml" >> $GITHUB_ENV
+          echo "WORKFLOW=create-vm-workloads" >> $GITHUB_ENV
+      - name: Set edge-ai-workloads if edge_ai file changed
+        if: contains(steps.changed_files.outputs.all_changed_files, 'config/edge-ai.json')
+        run: |
+          echo "FILE=config/edge-ai.json" >> $GITHUB_ENV
+          echo "WORKFLOW=calm-edgeai-vm-workload" >> $GITHUB_ENV
+      - name: Set file and workflow vars
+        id: set-vars
+        run: |
+          echo "FILE=${{ env.FILE }}" >> "$GITHUB_OUTPUT"
+          echo "WORKFLOW=${{ env.WORKFLOW }}" >> "$GITHUB_OUTPUT"
+
+  call-python-workflow:
+    needs: [set-python-workflow-vars]
+    uses: ./.github/workflows/backend-workflow-calls.yml
+    with:
+      file: ${{ needs.set-python-workflow-vars.outputs.FILE }}
+      branch: ${{ github.event.pull_request.head.ref }}
+      workflow: ${{ needs.set-python-workflow-vars.outputs.WORKFLOW }}
+      pr_user: ${{ github.event.pull_request.user.login }}
+      approved_user: ${{ github.event.review.user.login }}

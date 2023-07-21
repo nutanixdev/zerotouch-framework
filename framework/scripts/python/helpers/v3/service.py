@@ -1,8 +1,5 @@
-from helpers.log_utils import get_logger
 from helpers.rest_utils import RestAPIUtil
 from scripts.python.helpers.pc_entity import PcEntity
-
-logger = get_logger(__name__)
 
 
 class Service(PcEntity):

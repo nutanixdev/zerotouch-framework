@@ -1,7 +1,5 @@
 import os  # no_qa
-from pathlib import Path
 from calm.dsl.builtins import *  # no_qa
-from helpers.general_utils import get_json_file_contents
 
 # Secret Variables
 CENTOS_KEY = read_local_file("centos_private_key")
@@ -25,22 +23,17 @@ AHV_CENTOS_78 = vm_disk_package(
     name="AHV_CENTOS_78", config_file="specs/ahv_centos.yaml"
 )
 
-# Subnet, Cluster reference
-# Find path to the project root
-# we are in root/blueprints/LAMP/
-project_root = Path(__file__).parent.parent.parent.parent
-
-# todo Convert this to Run time variables and pass it from script
-spec = get_json_file_contents(f"{project_root}/config/create-vm-workloads.json")
-ACCOUNT_NAME = spec["account_name"]
-bp_spec = spec["bp_list"]
-
-for bp in bp_spec:
-    if bp["name"] == "LAMP-dsl":
-        subnet_name = bp["subnet"]
-        cluster_name = bp["cluster"]
-    else:
-        raise Exception("Cluster and Subnet not specified")
+# These variables will be injected into this dsl-file from the input configuration file.
+# Do not un-comment the section
+# These are different from launch/ run-time parameters
+# You can use these variables directly in the dsl-code i.e ACCOUNT_NAME etc and ignore editor/ IDE errors on these
+# variables
+INJECTED_VARIABLES = {
+    "ACCOUNT_NAME",
+    "SUBNET_NAME",
+    "CLUSTER_NAME"
+    "PROJECT_NAME"
+}
 
 
 class MYSQLService(Service):
@@ -66,7 +59,7 @@ class MYSQLVMResources(AhvVmResources):
         AhvVmDisk.Disk.Scsi.cloneFromVMDiskPackage(AHV_CENTOS_78, bootable=True)
     ]
 
-    nics = [AhvVmNic.NormalNic.ingress(subnet_name, cluster=cluster_name)]
+    nics = [AhvVmNic.NormalNic.ingress(SUBNET_NAME, cluster=CLUSTER_NAME)]
 
     guest_customization = AhvVmGC.CloudInit(
         filename=os.path.join("specs", "basic_linux_vm_cloudinit.yaml")
@@ -77,7 +70,7 @@ class MYSQLVm(AhvVm):
 
     name = "MYSQL-VM"
     resources = MYSQLVMResources
-    cluster = Ref.Cluster(cluster_name)
+    cluster = Ref.Cluster(CLUSTER_NAME, account_name=ACCOUNT_NAME)
 
 
 class AHVMysqlSubstrate(Substrate):
@@ -107,7 +100,7 @@ class ApacheVmResources(AhvVmResources):
     cores_per_vCPU = 2
     disks = [AhvVmDisk.Disk.Scsi.cloneFromVMDiskPackage(AHV_CENTOS_78, bootable=True)]
 
-    nics = [AhvVmNic.NormalNic.ingress(subnet_name, cluster=cluster_name)]
+    nics = [AhvVmNic.NormalNic.ingress(SUBNET_NAME, cluster=CLUSTER_NAME)]
 
     guest_customization = AhvVmGC.CloudInit(
         filename=os.path.join("specs", "basic_linux_vm_cloudinit.yaml")
@@ -118,7 +111,7 @@ class ApacheVm(AhvVm):
 
     name = "APACHE_PHP-VM-@@{calm_array_index}@@"
     resources = ApacheVmResources
-    cluster = Ref.Cluster(cluster_name)
+    cluster = Ref.Cluster(CLUSTER_NAME, account_name=ACCOUNT_NAME)
 
 
 class AhvApacheSubstrate(Substrate):
@@ -149,7 +142,7 @@ class HAPROXYVmResources(AhvVmResources):
     cores_per_vCPU = 1
     disks = [AhvVmDisk.Disk.Scsi.cloneFromVMDiskPackage(AHV_CENTOS_78, bootable=True)]
 
-    nics = [AhvVmNic.NormalNic.ingress(subnet_name, cluster=cluster_name)]
+    nics = [AhvVmNic.NormalNic.ingress(SUBNET_NAME, cluster=CLUSTER_NAME)]
 
     guest_customization = AhvVmGC.CloudInit(
         filename=os.path.join("specs", "basic_linux_vm_cloudinit.yaml")
@@ -160,7 +153,7 @@ class HAPROXYVm(AhvVm):
 
     name = "HAPROXY-VM"
     resources = HAPROXYVmResources
-    cluster = Ref.Cluster(cluster_name)
+    cluster = Ref.Cluster(CLUSTER_NAME, account_name=ACCOUNT_NAME)
 
 
 class AhvHAPROXYSubstrate(Substrate):
@@ -402,8 +395,8 @@ class LAMP(Blueprint):
 
 
 class BpMetadata(Metadata):
-
     categories = {"AppFamily": "DevOps"}
+    project = Ref.Project(PROJECT_NAME)
 
 
 def main():

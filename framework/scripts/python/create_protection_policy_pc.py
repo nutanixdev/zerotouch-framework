@@ -12,11 +12,13 @@ class CreateProtectionPolicy(Script):
     """
     Class that creates PP
     """
-    def __init__(self, data: dict):
+
+    def __init__(self, data: dict, **kwargs):
         self.task_uuid_list = None
         self.data = data
         self.pc_session = self.data["pc_session"]
-        super(CreateProtectionPolicy, self).__init__()
+        super(CreateProtectionPolicy, self).__init__(**kwargs)
+        self.logger = self.logger or logger
 
     def execute(self, **kwargs):
         try:
@@ -26,7 +28,7 @@ class CreateProtectionPolicy(Script):
                                            for pp in protection_policy_list if pp.get("spec", {}).get("name")]
 
             if not self.data.get("protection_rules"):
-                logger.warning(f"Skipping creation of Protection policies in {self.data['pc_ip']}")
+                self.logger.warning(f"Skipping creation of Protection policies in '{self.data['pc_ip']}'")
                 return
 
             source_pc_cluster = PcCluster(self.pc_session)
@@ -36,7 +38,7 @@ class CreateProtectionPolicy(Script):
             }
 
             if not self.data.get("remote_azs"):
-                logger.warning(f"AZs are to be provided in {self.data['pc_ip']}")
+                self.logger.warning(f"AZs are to be provided in '{self.data['pc_ip']}'")
                 return
 
             remote_pe_clusters = {}
@@ -51,7 +53,7 @@ class CreateProtectionPolicy(Script):
             pp_list = []
             for pp in self.data["protection_rules"]:
                 if pp['name'] in protection_policy_name_list:
-                    logger.warning(f"{pp['name']} already exists in {self.data['pc_ip']}!")
+                    self.logger.warning(f"{pp['name']} Protection Policy already exists in '{self.data['pc_ip']}'!")
                     continue
 
                 try:
@@ -61,22 +63,46 @@ class CreateProtectionPolicy(Script):
                     self.exceptions.append(f"Failed to create Protection policy {pp['name']}: {e}")
 
             if not pp_list:
-                logger.warning(f"Provided PPs are already created in {self.data['pc_ip']}")
+                self.logger.warning(f"Provided PPs are already created in '{self.data['pc_ip']}'")
                 return
 
-            logger.info(f"Batch create Protection policies in {self.data['pc_ip']}")
+            logger.info(f"Batch create Protection policies in '{self.data['pc_ip']}'")
             self.task_uuid_list = protection_policy.batch_op.batch_create(request_payload_list=pp_list)
+
+            # Monitor the tasks
+            if self.task_uuid_list:
+                app_response, status = PcTaskMonitor(self.pc_session,
+                                                     task_uuid_list=self.task_uuid_list).monitor()
+
+                if app_response:
+                    self.exceptions.append(f"Some tasks have failed. {app_response}")
+
+                if not status:
+                    self.exceptions.append(
+                        "Timed out. Creation of Protection policies in PC didn't happen in the prescribed timeframe")
         except Exception as e:
             self.exceptions.append(e)
 
     def verify(self, **kwargs):
-        if self.task_uuid_list:
-            app_response, status = PcTaskMonitor(self.pc_session,
-                                                 task_uuid_list=self.task_uuid_list).monitor()
+        if not self.data.get("protection_rules"):
+            return
 
-            if app_response:
-                self.exceptions.append(f"Some tasks have failed. {app_response}")
+        # Initial status
+        self.results["Create_Protection_policies"] = {}
 
-            if not status:
-                self.exceptions.append(
-                    "Timed out. Creation of Protection policies in PC didn't happen in the prescribed timeframe")
+        protection_policy = ProtectionRule(self.pc_session)
+        protection_policy_list = []
+        protection_policy_name_list = []
+
+        for pp in self.data["protection_rules"]:
+            # Initial status
+            self.results["Create_Protection_policies"][pp['name']] = "CAN'T VERIFY"
+
+            protection_policy_list = protection_policy_list or protection_policy.list()
+            protection_policy_name_list = protection_policy_name_list or [pp.get("spec", {}).get("name")
+                                                                          for pp in protection_policy_list if
+                                                                          pp.get("spec", {}).get("name")]
+            if pp['name'] in protection_policy_name_list:
+                self.results["Create_Protection_policies"][pp['name']] = "PASS"
+            else:
+                self.results["Create_Protection_policies"][pp['name']] = "FAIL"

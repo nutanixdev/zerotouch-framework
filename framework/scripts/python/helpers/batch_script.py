@@ -20,11 +20,49 @@ class BatchScript(Script):
               default value is False
         """
         self.script_list = []
+        self._results = {}
+        # Results key is used to consolidate the results coming from different scripts, batch scripts. If results_key
+        # is passed the return value of the run function would be {"results_key": self._results}, which would be
+        # consolidated into results, by results setter in parent BatchScript.
+        self.results_key = kwargs.get("results_key")
+        # Set max_workers that can run in parallel
+        self.max_workers = kwargs.get("max_workers") or multiprocessing.cpu_count() + 4
+        # If we can run scripts in parallel
         self._parallel = parallel
-        self.num_total_scripts = 0
-        self.num_passed_scripts = 0
-        self.pass_rate = 0.0
-        super(BatchScript, self).__init__()
+        super(BatchScript, self).__init__(**kwargs)
+        self.logger = self.logger or logger
+
+    @property
+    def results(self):
+        return self._results
+
+    def consolidate_results(self, new_item: dict, results: dict = None):
+        if not results:
+            results = self._results
+        for key, value in new_item.items():
+            if key not in results:
+                results[key] = value
+                continue
+            if isinstance(value, dict):
+                results[key] = self.consolidate_results(results=results[key], new_item=value)
+            else:
+                # If the key is already there, replace the values
+                results[key] = value
+
+        return results
+
+    @results.setter
+    def results(self, new_item):
+        if not new_item:
+            return
+        if type(new_item) != dict:
+            # Append all the non-dict return values
+            if "results" not in self._results:
+                self.results["results"] = []
+            self._results["results"].append(new_item)
+        else:
+            # Consolidate all the dict return values
+            self._results = self.consolidate_results(new_item)
 
     def add(self, script):
         """
@@ -67,6 +105,8 @@ class BatchScript(Script):
         else:
             self._sequential_execute()
 
+        return {self.results_key: self._results} if self.results_key else self._results
+
     def _sequential_execute(self):
         """
         Execute all the steps in sequential.
@@ -76,7 +116,8 @@ class BatchScript(Script):
         """
         for script in self.script_list:
             try:
-                script.run()
+                result = script.run()
+                self.results = result
             except Exception as e:
                 logger.error(e)
 
@@ -87,15 +128,10 @@ class BatchScript(Script):
         Returns:
           None
         """
-        # Get the number of available CPU cores
-        num_cores = multiprocessing.cpu_count()
-
-        # Set the value of max_workers based on the number of CPU cores
-        max_workers = num_cores
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             for result in executor.map(lambda script: script.run(), self.script_list):
                 try:
-                    logger.debug(result)
+                    self.results = result
                 except Exception as e:
                     logger.error(e)
 

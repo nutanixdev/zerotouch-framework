@@ -1,4 +1,4 @@
-from .general_utils import validate_ip, contains_whitespace, validate_domain, validate_ip_list
+from .general_utils import validate_ip, contains_whitespace, validate_domain, validate_ip_list,validate_subnet
 
 """
 We are using a popular Python library "cerberus" to define the json/ yml schema
@@ -22,211 +22,193 @@ GLOBAL_NETWORK_SCHEMA = {
     }
 }
 
-IMAGING_SCHEMA = {
-    'pc_ip': {
-        'type': 'string',
-        'required': True,
-        'validator': validate_ip
-    },
-    'pc_username': {
-        'required': True,
-        'type': 'string',
-        'validator': contains_whitespace
-    },
-    'pc_password': {
-        'required': True,
-        'type': 'string',
-        'validator': contains_whitespace
-    },
-    'site_name': {
-        'required': True,
-        'type': 'string'
-    },
-    'blocks_serial_numbers': {
-        'required': False,
-        'type': 'list',
-        'schema': {
-            'type': 'string',
-            'validator': contains_whitespace
-        }
-    },
-    'use_existing_network_settings': {
-        'required': True,
-        'type': 'boolean'
-    },
-    're-image': {
-        'required': True,
-        'type': 'boolean'
-    },
-    "imaging_parameters": {
-        'type': 'dict',
-        'required': False,
-        'schema': {
-            'aos_version': {
-                'required': True,
-                'type': ['float', 'string']
-            },
-            'hypervisor_type': {
-                'required': True,
-                'type': 'string',
-                'allowed': ['kvm', 'esx', 'hyperv']
-            },
-            'hypervisor_version': {
-                'required': True,
-                'type': ['float', 'string']
-            }
-        }
-    },
-    'network': {
-        'type': 'dict',
-        'required': False,
-        'schema': {
-            'mgmt_static_ips': {
-                'required': True,
-                'type': 'list',
-                'empty': True,
-                'schema': {
-                    'type': 'string',
-                    'validator': validate_ip
-                }
-            },
-            'mgmt_netmask': {
-                'required': True,
-                'type': 'string',
-                'empty': True,
-                'validator': validate_ip
-            },
-            'mgmt_gateway': {
-                'required': True,
-                'type': 'string',
-                'empty': True,
-                'validator': validate_ip
-            },
-            'ipmi_netmask': {
-                'required': True,
-                'type': 'string',
-                'empty': True,
-                'validator': validate_ip
-            },
-            'ipmi_gateway': {
-                'required': True,
-                'empty': True,
-                'type': 'string',
-                'validator': validate_ip
-            },
-            'ipmi_static_ips': {
-                'required': True,
-                'type': 'list',
-                'empty': True,
-                'schema': {
-                    'type': 'string',
-                    'validator': validate_ip
-                }
-            }
-        }
-    },
-    'clusters': {
-        'required': True,
-        'type': 'dict',
-        "keyschema": {"type": "string"},
-        "valueschema": {
-            "type": "dict",
-            "schema": {
-                "cluster_size": {
-                    'type': 'integer',
-                    'required': True,
-                },
-                "cluster_vip": {
-                    'type': 'string',
-                    'required': True,
-                    'validator': validate_ip
-                },
-                "cvm_ram": {
-                    'type': 'integer',
-                    'required': True,
-                    'min': 12
-                },
-                "redundancy_factor": {
-                    'type': 'integer',
-                    'required': True,
-                    'allowed': [2, 3]
-                },
-                'node_serials': {
-                    'type': 'list',
-                    'required': False,
-                    'schema': {
-                        'type': 'string',
-                        'validator': contains_whitespace
-                    }
-                },
-                'network': {
-                    'type': 'dict',
-                    'required': False,
-                    'schema': {
-                        'mgmt_static_ips': {
-                            'required': True,
-                            'type': 'list',
-                            'empty': True,
-                            'schema': {
-                                'type': 'string',
-                                'validator': validate_ip
-                            }
-                        },
-                        'mgmt_netmask': {
-                            'required': True,
-                            'type': 'string',
-                            'empty': True,
-                            'validator': validate_ip
-                        },
-                        'mgmt_gateway': {
-                            'required': True,
-                            'type': 'string',
-                            'empty': True,
-                            'validator': validate_ip
-                        },
-                        'ipmi_netmask': {
-                            'required': True,
-                            'type': 'string',
-                            'empty': True,
-                            'validator': validate_ip
-                        },
-                        'ipmi_gateway': {
-                            'required': True,
-                            'empty': True,
-                            'type': 'string',
-                            'validator': validate_ip
-                        },
-                        'ipmi_static_ips': {
-                            'required': True,
-                            'type': 'list',
-                            'empty': True,
-                            'schema': {
-                                'type': 'string',
-                                'validator': validate_ip
-                            }
-                        }
-                    }
-                },
-                'use_existing_network_settings': {
-                    'required': False,
-                    'type': 'boolean'
-                },
-                're-image': {
-                    'required': False,
-                    'type': 'boolean'
-                }
-            }
-        }
-    },
-}
-
-IMAGING_SCHEMA.update(GLOBAL_NETWORK_SCHEMA)
-
 USERNAME_PASSWORD_SCHEMA = {
     'required': True,
     'type': 'string',
     'validator': contains_whitespace
 }
+
+IMAGING_NETWORK = {
+    'type': 'dict',
+    'required': False,
+    'schema': {
+        'mgmt_static_ips': {
+            'required': True,
+            'type': 'list',
+            'empty': True,
+            'schema': {
+                'type': 'string',
+                'validator': validate_ip
+            }
+        },
+        'mgmt_netmask': {
+            'required': True,
+            'type': 'string',
+            'empty': True,
+            'validator': validate_ip
+        },
+        'mgmt_gateway': {
+            'required': True,
+            'type': 'string',
+            'empty': True,
+            'validator': validate_ip
+        },
+        'ipmi_netmask': {
+            'required': True,
+            'type': 'string',
+            'empty': True,
+            'validator': validate_ip
+        },
+        'ipmi_gateway': {
+            'required': True,
+            'empty': True,
+            'type': 'string',
+            'validator': validate_ip
+        },
+        'ipmi_static_ips': {
+            'required': True,
+            'type': 'list',
+            'empty': True,
+            'schema': {
+                'type': 'string',
+                'validator': validate_ip
+            }
+        }
+    }
+}
+
+IMAGING_SCHEMA = {
+    'pod': {
+        'type': 'dict',
+        'required': True,
+        'schema': {
+            'pod_name': {
+                'type': 'string',
+                'required': True
+            },
+            'pod_blocks': {
+                'type': 'list',
+                'required': True,
+                'schema': {
+                    'type': 'dict',
+                    'schema': {
+                        'pod_block_name': {
+                            'type': 'string',
+                            'required': True
+                        },
+                        'pc_ip': {
+                            'type': 'string',
+                            'required': True,
+                            'validator': validate_ip
+                        },
+                        'pc_username': USERNAME_PASSWORD_SCHEMA,
+                        'pc_password': USERNAME_PASSWORD_SCHEMA,
+                        'edge-sites': {
+                            'type': 'list',
+                            'required': True,
+                            'schema': {
+                                'type': 'dict',
+                                'schema': {
+                                    'site_name': {
+                                        'required': True,
+                                        'type': 'string'
+                                    },
+                                    'node_block_serials': {
+                                        'required': False,
+                                        'type': 'list',
+                                        'schema': {
+                                            'type': 'string',
+                                            'validator': contains_whitespace
+                                        }
+                                    },
+                                    'use_existing_network_settings': {
+                                        'required': True,
+                                        'type': 'boolean'
+                                    },
+                                    're-image': {
+                                        'required': True,
+                                        'type': 'boolean'
+                                    },
+                                    'imaging_parameters': {
+                                        'type': 'dict',
+                                        'required': False,
+                                        'schema': {
+                                            'aos_version': {
+                                                'required': True,
+                                                'type': ['float', 'string']
+                                            },
+                                            'hypervisor_type': {
+                                                'required': True,
+                                                'type': 'string',
+                                                'allowed': ['kvm', 'esx', 'hyperv']
+                                            },
+                                            'hypervisor_version': {
+                                                'required': True,
+                                                'type': ['float', 'string']
+                                            }
+                                        }
+                                    },
+                                    'network': IMAGING_NETWORK,
+                                    'clusters': {
+                                        'type': 'list',
+                                        'required': True,
+                                        'schema': {
+                                            'type': 'dict',
+                                            'schema': {
+                                                'cluster_name': {
+                                                    'type': 'string',
+                                                    'required': True,
+                                                },
+                                                'cluster_size': {
+                                                    'type': 'integer',
+                                                    'required': True,
+                                                },
+                                                'cluster_vip': {
+                                                    'type': 'string',
+                                                    'required': True,
+                                                    'validator': validate_ip
+                                                },
+                                                'cvm_ram': {
+                                                    'type': 'integer',
+                                                    'required': True,
+                                                    'min': 12
+                                                },
+                                                'redundancy_factor': {
+                                                    'type': 'integer',
+                                                    'required': True,
+                                                    'allowed': [2, 3]
+                                                },
+                                                'node_serials': {
+                                                    'type': 'list',
+                                                    'required': False,
+                                                    'schema': {
+                                                        'type': 'string',
+                                                        'validator': contains_whitespace
+                                                    }
+                                                },
+                                                'network': IMAGING_NETWORK,
+                                                'use_existing_network_settings': {
+                                                    'required': False,
+                                                    'type': 'boolean'
+                                                },
+                                                're-image': {
+                                                    'required': False,
+                                                    'type': 'boolean'
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+IMAGING_SCHEMA.update(GLOBAL_NETWORK_SCHEMA)
 
 EULA_SCHEMA = {
     'type': 'dict',
@@ -260,7 +242,7 @@ AD_SCHEMA = {
         'directory_type': {
             'type': 'string',
             'required': True,
-            'allowed': ["ACTIVE_DIRECTORY"],
+            'allowed': ['ACTIVE_DIRECTORY'],
             'empty': False
         },
         'ad_name': {
@@ -417,7 +399,7 @@ PE_NETWORKS = {
 
 POD_REMOTE_AZS = {
     'type': 'dict',
-    "keyschema": {"type": "string"},
+    'keyschema': {'type': 'string', 'validator': validate_ip},
     'valueschema': {
         'type': 'dict',
         'schema': {
@@ -434,7 +416,7 @@ POD_REMOTE_AZS = {
 }
 
 POD_CATEGORIES_SCHEMA = {
-    "type": "list",
+    'type': 'list',
     'schema': {
         'type': 'dict',
         'schema': {
@@ -513,15 +495,15 @@ POD_RECOVERY_PLAN_SCHEMA = {
                 'allowed': ['NON_STRETCH', 'STRETCH']
             },
             'network_mappings': {
-                "type": "list",
-                "schema": {
-                    "type": "dict",
-                    "schema": {
-                        "primary": {
-                            "type": "dict",
-                            "schema": {
-                                "test": {
-                                    "type": "dict",
+                'type': 'list',
+                'schema': {
+                    'type': 'dict',
+                    'schema': {
+                        'primary': {
+                            'type': 'dict',
+                            'schema': {
+                                'test': {
+                                    'type': 'dict',
                                     'schema': {
                                         'name': {'type': 'string'},
                                         'gateway_ip': {
@@ -531,8 +513,8 @@ POD_RECOVERY_PLAN_SCHEMA = {
                                         'prefix': {'type': 'integer'}
                                     }
                                 },
-                                "prod": {
-                                    "type": "dict",
+                                'prod': {
+                                    'type': 'dict',
                                     'schema': {
                                         'name': {'type': 'string'},
                                         'gateway_ip': {
@@ -544,11 +526,11 @@ POD_RECOVERY_PLAN_SCHEMA = {
                                 },
                             }
                         },
-                        "recovery": {
-                            "type": "dict",
-                            "schema": {
-                                "test": {
-                                    "type": "dict",
+                        'recovery': {
+                            'type': 'dict',
+                            'schema': {
+                                'test': {
+                                    'type': 'dict',
                                     'schema': {
                                         'name': {'type': 'string'},
                                         'gateway_ip': {
@@ -558,8 +540,8 @@ POD_RECOVERY_PLAN_SCHEMA = {
                                         'prefix': {'type': 'integer'}
                                     }
                                 },
-                                "prod": {
-                                    "type": "dict",
+                                'prod': {
+                                    'type': 'dict',
                                     'schema': {
                                         'name': {'type': 'string'},
                                         'gateway_ip': {
@@ -678,21 +660,21 @@ POD_PROTECTION_RULES_SCHEMA = {
                         },
                         'protection_type': {
                             'type': 'string',
-                            'allowed': ["ASYNC", "SYNC"]
+                            'allowed': ['ASYNC', 'SYNC']
                         },
                         'rpo': {
                             'type': 'integer'
                         },
                         'rpo_unit': {
                             'type': 'string',
-                            'allowed': ["MINUTE", "HOUR", "DAY", "WEEK"]
+                            'allowed': ['MINUTE', 'HOUR', 'DAY', 'WEEK']
                         },
                         'snapshot_type': {
                             'type': 'string',
-                            'allowed': ["CRASH_CONSISTENT", "APPLICATION_CONSISTENT"]
+                            'allowed': ['CRASH_CONSISTENT', 'APPLICATION_CONSISTENT']
                         },
-                        "local_retention_policy": POD_RETENTION_POLCY,
-                        "remote_retention_policy": POD_RETENTION_POLCY
+                        'local_retention_policy': POD_RETENTION_POLCY,
+                        'remote_retention_policy': POD_RETENTION_POLCY
                     }
                 }
             }
@@ -701,7 +683,7 @@ POD_PROTECTION_RULES_SCHEMA = {
 }
 
 POD_SECURITY_POLICIES_SCHEMA = {
-    "type": "list",
+    'type': 'list',
     'schema': {
         'type': 'dict',
         'schema': {
@@ -712,7 +694,7 @@ POD_SECURITY_POLICIES_SCHEMA = {
                 'schema': {
                     'policy_mode': {
                         'type': 'string',
-                        'allowed': ["MONITOR", "APPLY"]
+                        'allowed': ['MONITOR', 'APPLY']
                     },
                     'target_group': {
                         'type': 'dict',
@@ -740,7 +722,7 @@ POD_SECURITY_POLICIES_SCHEMA = {
 }
 
 POD_ADDRESS_GROUP_SCHEMA = {
-    "type": "list",
+    'type': 'list',
     'schema': {
         'type': 'dict',
         'schema': {
@@ -766,7 +748,7 @@ POD_ADDRESS_GROUP_SCHEMA = {
 }
 
 POD_SERVICE_GROUP_SCHEMA = {
-    "type": "list",
+    'type': 'list',
     'schema': {
         'type': 'dict',
         'schema': {
@@ -786,15 +768,15 @@ POD_SERVICE_GROUP_SCHEMA = {
 POD_CLUSTER_SCHEMA = {
     'required': True,
     'type': 'dict',
-    "keyschema": {"type": "string"},
-    "valueschema": {
-        "type": "dict",
-        "schema": {
-            "name": {
+    'keyschema': {'type': 'string', 'validator': validate_ip},
+    'valueschema': {
+        'type': 'dict',
+        'schema': {
+            'name': {
                 'type': 'string',
                 'required': True,
             },
-            "dsip": {
+            'dsip': {
                 'type': 'string',
                 'required': True,
                 'validator': validate_ip
@@ -805,35 +787,192 @@ POD_CLUSTER_SCHEMA = {
             'enable_pulse': PULSE_SCHEMA,
             'directory_services': AD_SCHEMA,
             'networks': PE_NETWORKS,
-            'containers': PE_CONTAINERS
+            'containers': PE_CONTAINERS,
+            'ncm_subnets': {
+                'type': 'list',
+                'required': True,
+                'schema': {
+                    'type': 'string'
+                }
+            },
+            'ncm_users': {
+                'type': 'list',
+                'required': True,
+                'schema': {
+                    'type': 'string'
+                }
+            }
+        }
+    }
+}
+
+NKE_CUSTOM_NODE_CONFIG = {
+    'type': 'dict',
+    'schema': {
+        'num_instances': {
+            'type': 'integer'
+        },
+        'cpu': {
+            'type': 'integer'
+        },
+        'memory_gb': {
+            'type': 'integer'
+        },
+        'disk_gb': {
+            'type': 'integer'
+        }
+    }
+}
+
+POD_NKE_CLUSTER_SCHEMA = {
+    'type': 'list',
+    'schema': {
+        'type': 'dict',
+        'schema': {
+            'cluster': {
+                'type': 'dict',
+                'schema': {
+                    'name': {'type': 'string'}
+                }
+            },
+            'name': {
+                'type': 'string',
+                'required': True,
+            },
+            'cluster_type': {
+                'type': 'string',
+                'required': True,
+                'allowed': ['DEV', 'PROD']
+            },
+            'k8s_version': {
+                'required': True,
+                'type': ['float', 'string']
+            },
+            'host_os': {
+                'required': True,
+                'type': 'string'
+            },
+            'node_subnet': {
+                'type': 'dict',
+                'schema': {
+                    'name': {'type': 'string'}
+                }
+            },
+            'cni': {
+                'type': 'dict',
+                'schema': {
+                    'node_cidr_mask_size': {
+                        'type': 'integer'
+                    },
+                    'service_ipv4_cidr': {
+                        'type': 'string',
+                        'validator': validate_subnet
+                    },
+                    'pod_ipv4_cidr': {
+                        'type': 'string',
+                        'validator': validate_subnet
+                    },
+                    'network_provider': {
+                        'type': 'string',
+                        'allowed': ['Calico', 'Flannel']
+                    }
+                }
+            },
+            'custom_node_configs': {
+                'type': 'dict',
+                'schema': {
+                    'etcd': NKE_CUSTOM_NODE_CONFIG,
+                    'masters': NKE_CUSTOM_NODE_CONFIG,
+                    'workers' : NKE_CUSTOM_NODE_CONFIG
+                }
+            },
+            'storage_class': {
+                'type': 'dict',
+                'schema': {
+                    'pe_username': USERNAME_PASSWORD_SCHEMA,
+                    'pe_password': USERNAME_PASSWORD_SCHEMA,
+                    'default_storage_class': {'type': 'boolean'},
+                    'name': {'type': 'string'},
+                    'reclaim_policy': {
+                        'type': 'string',
+                        'allowed': ['Retain', 'Delete']
+                    },
+                    'storage_container': {'type': 'string'},
+                    'file_system': {
+                        'type': 'string',
+                        'allowed': ['ext4', 'xfs']
+                    },
+                    'flash_mode': {'type': 'boolean'}
+                }
+            }
         }
     }
 }
 
 POD_CONFIG_SCHEMA = {
-    'pods': {
-        'type': 'list',
+    'pod': {
+        'type': 'dict',
         'required': True,
         'schema': {
-            'type': 'dict',
-            'valueschema': {
-                'type': 'dict',
+            'pod_name': {
+                'type': 'string',
+                'required': True
+            },
+            'pod_blocks': {
+                'type': 'list',
+                'required': True,
                 'schema': {
-                    'pc_ip': {
-                        'type': 'string',
-                        'required': True,
-                        'validator': validate_ip
-                    },
-                    'pc_username': USERNAME_PASSWORD_SCHEMA,
-                    'pc_password': USERNAME_PASSWORD_SCHEMA,
-                    'remote_azs': POD_REMOTE_AZS,
-                    'protection_rules': POD_PROTECTION_RULES_SCHEMA,
-                    'recovery_plans': POD_RECOVERY_PLAN_SCHEMA,
-                    "categories": POD_CATEGORIES_SCHEMA,
-                    "address_groups": POD_ADDRESS_GROUP_SCHEMA,
-                    "service_groups": POD_SERVICE_GROUP_SCHEMA,
-                    "security_policies": POD_SECURITY_POLICIES_SCHEMA,
-                    'clusters': POD_CLUSTER_SCHEMA
+                    'type': 'dict',
+                    'schema': {
+                        'pod_block_name': {
+                            'type': 'string',
+                            'required': True
+                        },
+                        'pc_ip': {
+                            'type': 'string',
+                            'required': True,
+                            'validator': validate_ip
+                        },
+                        'pc_username': USERNAME_PASSWORD_SCHEMA,
+                        'pc_password': USERNAME_PASSWORD_SCHEMA,
+                        'ncm_vm_ip': {
+                            'type': 'string',
+                            'required': True,
+                            'validator': validate_ip
+                        },
+                        'ncm_account': {
+                            'type': 'string',
+                            'required': True
+                        },
+                        'ncm_username': USERNAME_PASSWORD_SCHEMA,
+                        'ncm_password': USERNAME_PASSWORD_SCHEMA,
+                        'default_ncm_project_name': {
+                            'type': 'string',
+                            'required': True
+                        },
+                        'remote_azs': POD_REMOTE_AZS,
+                        'protection_rules': POD_PROTECTION_RULES_SCHEMA,
+                        'recovery_plans': POD_RECOVERY_PLAN_SCHEMA,
+                        'categories': POD_CATEGORIES_SCHEMA,
+                        'address_groups': POD_ADDRESS_GROUP_SCHEMA,
+                        'service_groups': POD_SERVICE_GROUP_SCHEMA,
+                        'security_policies': POD_SECURITY_POLICIES_SCHEMA,
+                        'edge_sites': {
+                            'type': 'list',
+                            'required': True,
+                            'schema': {
+                                'type': 'dict',
+                                'schema': {
+                                    'site_name': {
+                                        'type': 'string',
+                                        'required': True
+                                    },
+                                    'clusters': POD_CLUSTER_SCHEMA,
+                                    'nke_clusters': POD_NKE_CLUSTER_SCHEMA
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

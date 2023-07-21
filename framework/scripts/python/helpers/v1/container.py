@@ -1,9 +1,6 @@
 from helpers.rest_utils import RestAPIUtil
 from scripts.python.helpers.pe_entity_v1 import PeEntityV1
-from helpers.log_utils import get_logger
 from scripts.python.helpers.v1.storage_pool import StoragePool
-
-logger = get_logger(__name__)
 
 
 class Container(PeEntityV1):
@@ -13,19 +10,8 @@ class Container(PeEntityV1):
         super(Container, self).__init__(session=session)
 
     def create(self, **kwargs):
-        # check if already exists
-        container_list = self.read()
-
-        for container in container_list:
-            if container.get("name") == kwargs.get("name"):
-                logger.warning("Container already exists!")
-                return
         data = self.get_json_for_create(**kwargs)
-        response = super(Container, self).create(data=data)
-        if response["value"]:
-            logger.info(f"Creation of Storage container {kwargs.get('name')} successful!")
-        else:
-            raise Exception(f"Could not create Storage container. Error: {response}")
+        return super(Container, self).create(data=data)
 
     def get_json_for_create(self, **kwargs):
         """
