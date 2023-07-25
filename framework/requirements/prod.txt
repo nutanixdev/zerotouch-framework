@@ -4,44 +4,123 @@
 #
 #    pip-compile --output-file=requirements/prod.txt requirements/prod.in
 #
-altgraph==0.17.3
-    # via
-    #   macholib
-    #   pyinstaller
-certifi==2022.12.7
+anytree==2.8.0
+    # via -r calm.in
+arrow==0.15.1
+    # via -r calm.in
+asciimatics==1.14.0
+    # via -r calm.in
+attrs==23.1.0
+    # via jsonschema
+bidict==0.18.0
+    # via -r calm.in
+black==22.6.0
+    # via -r calm.in
+cerberus==1.3.4
+    # via -r common.in
+certifi==2023.7.22
     # via requests
-chardet==4.0.0
+charset-normalizer==2.0.12
     # via requests
-click==8.0.1
+click==8.0.4
     # via
-    #   -r requirements/common.in
-    #   click-option-group
-click-option-group==0.5.3
-    # via -r requirements/common.in
-colorama==0.4.6
-    # via rainbow-logging-handler
-colorlog==6.7.0
-    # via -r requirements/common.in
+    #   -r calm.in
+    #   black
+    #   click-completion
+    #   click-didyoumean
+    #   click-repl
+click-completion==0.5.2
+    # via -r calm.in
+click-didyoumean==0.0.3
+    # via -r calm.in
+click-repl==0.2.0
+    # via -r calm.in
+colorama==0.4.1
+    # via
+    #   -r calm.in
+    #   rainbow-logging-handler
+colorlog==5.0.1
+    # via -r calm.in
+contextlib2==0.5.5
+    # via schema
+docopt==0.6.2
+    # via -r calm.in
+future==0.18.3
+    # via asciimatics
 idna==2.10
     # via requests
+importlib-metadata==4.6.0
+    # via -r calm.in
+jinja2==3.0.3
+    # via
+    #   -r calm.in
+    #   click-completion
+json5==0.9.11
+    # via -r common.in
+jsonref==0.2
+    # via -r calm.in
+jsonschema==3.2.0
+    # via -r calm.in
 logutils==0.3.5
     # via rainbow-logging-handler
-macholib==1.16.2
-    # via pyinstaller
-pyinstaller==4.9
-    # via -r requirements/common.in
-pyinstaller-hooks-contrib==2022.15
-    # via pyinstaller
+markupsafe==2.1.3
+    # via jinja2
+mypy-extensions==1.0.0
+    # via black
+pathspec==0.11.1
+    # via black
+peewee==3.10.0
+    # via -r calm.in
+pillow==10.0.0
+    # via asciimatics
+platformdirs==3.9.1
+    # via black
+prompt-toolkit==3.0.39
+    # via click-repl
+ptable==0.9.2
+    # via -r calm.in
+pycryptodome==3.15.0
+    # via -r calm.in
+pyfiglet==0.8.post1
+    # via asciimatics
+pyrsistent==0.19.3
+    # via jsonschema
+python-dateutil==2.8.2
+    # via arrow
+pyyaml==6.0
+    # via -r common.in
 rainbow-logging-handler==2.2.2
-    # via -r requirements/common.in
-requests==2.25.1
+    # via -r common.in
+requests==2.27.0
     # via
-    #   -r requirements/common.in
+    #   -r calm.in
+    #   -r common.in
     #   requests-toolbelt
 requests-toolbelt==0.9.1
-    # via -r requirements/common.in
+    # via -r calm.in
+ruamel-yaml==0.16.12
+    # via -r calm.in
+schema==0.7.1
+    # via -r calm.in
+scrypt==0.8.20
+    # via -r calm.in
+shellingham==1.5.0.post1
+    # via click-completion
+six==1.16.0
+    # via
+    #   anytree
+    #   click-completion
+    #   click-repl
+    #   jsonschema
+    #   python-dateutil
 urllib3==1.26.14
     # via requests
+wcwidth==0.2.6
+    # via
+    #   asciimatics
+    #   prompt-toolkit
+zipp==3.16.2
+    # via importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools
