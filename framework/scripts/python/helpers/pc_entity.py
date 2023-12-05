@@ -1,8 +1,8 @@
 from copy import deepcopy
 from typing import Optional
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.entity import Entity
-from scripts.python.helpers.pc_batch_op import PcBatchOp
+from framework.helpers.rest_utils import RestAPIUtil
+from .entity import Entity
+from .pc_batch_op import PcBatchOp
 
 
 class PcEntity(Entity):
@@ -13,7 +13,7 @@ class PcEntity(Entity):
 
     def __init__(self, session: RestAPIUtil, **kwargs):
         resource_type = self.__BASEURL__ + self.resource_type
-        self.batch_op = PcBatchOp(session, base_url=self.__BASEURL__, resource_type=self.resource_type, kind=self.kind, **kwargs)
+        self.batch_op = PcBatchOp(session, resource_type=self.resource_type, kind=self.kind)
         super(PcEntity, self).__init__(session=session, resource_type=resource_type)
 
     def list(self, **kwargs):
@@ -33,6 +33,8 @@ class PcEntity(Entity):
                 name = entity["spec"]["name"]
             elif entity.get("status", {}).get("name"):
                 name = entity["status"]["name"]
+            elif entity.get("info", {}).get("name"):
+                name = entity["info"]["name"]
             else:
                 continue
             if name == entity_name:

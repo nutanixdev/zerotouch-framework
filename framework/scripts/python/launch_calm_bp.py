@@ -1,18 +1,19 @@
 import logging
 import json
 import os
-from helpers.log_utils import get_logger
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.state_monitor.application_state_monitor import ApplicationStateMonitor
-from scripts.python.script import Script
+from typing import Dict
+from framework.helpers.log_utils import get_logger
+from framework.helpers.rest_utils import RestAPIUtil
+from .helpers.state_monitor.application_state_monitor import ApplicationStateMonitor
+from .script import Script
 from calm.dsl.cli import launch_blueprint_simple
-from scripts.python.helpers.v3.application import Application
+from .helpers.v3.application import Application
 
 logger = get_logger(__name__)
 
 
 class LaunchBp(Script):
-    def __init__(self, data: dict, **kwargs):
+    def __init__(self, data: Dict, **kwargs):
         self.data = data
         super(LaunchBp, self).__init__(**kwargs)
         self.logger = self.logger or logger

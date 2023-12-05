@@ -29,19 +29,24 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.10'
+        python-version: '3.11'
         #  gives you either a new virtualenv, or restores an old one based on
         #  the requirements*.txt -file.
     - uses: syphar/restore-virtualenv@v1
       id: cache-virtualenv
+      with:
+        requirement_files: "**/requirements/*.in"
     - uses: syphar/restore-pip-download-cache@v1
       if: steps.cache-virtualenv.outputs.cache-hit != 'true'
+      with:
+        requirement_files: "**/requirements/*.in"
       # the package installation will only be executed when the
       # requirements*.txt - file has changed.
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        cd framework
+        pip install pip-tools
+        pip-compile --output-file=requirements/dev.txt requirements/dev.in 
         pip install -r requirements/dev.txt
       if: steps.cache-virtualenv.outputs.cache-hit != 'true'
   run-python-workflow:
@@ -54,14 +59,15 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.11'
       - name: Restore cache
         uses: syphar/restore-virtualenv@v1
         id: cache-virtualenv
+        with:
+          requirement_files: "**/requirements/*.in"
       - name: Run python script
         shell: bash
         run: |
-          cd framework
           echo "PR_CREATED_BY: " ${{ inputs.pr_user }} > commit.log
           echo "PR_APPROVED_BY: " ${{ inputs.approved_user }} >> commit.log
           python main.py --workflow ${{ inputs.workflow }} --file ${{ inputs.file }}

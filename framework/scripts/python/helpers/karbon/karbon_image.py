@@ -1,5 +1,6 @@
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.karbon.karbon import Karbon
+from typing import List, Dict
+from framework.helpers.rest_utils import RestAPIUtil
+from .karbon import Karbon
 
 
 class KarbonImage(Karbon):
@@ -16,11 +17,11 @@ class KarbonImage(Karbon):
         self.resource_type = "/acs/image"
         super(KarbonImage, self).__init__(session=session, resource_type=self.resource_type)
 
-    def list(self, **kwargs):
+    def list(self, **kwargs) -> List:
         endpoint = "list"
         return super(KarbonImage, self).read(endpoint=endpoint)
 
-    def download(self, uuid: str):
+    def download(self, uuid: str) -> Dict:
         """
         Download image with uuid
         Args:

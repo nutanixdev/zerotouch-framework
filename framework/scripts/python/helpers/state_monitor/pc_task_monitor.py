@@ -1,8 +1,8 @@
-from typing import List
-from helpers.log_utils import get_logger
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.state_monitor.state_monitor import StateMonitor
-from scripts.python.helpers.v3.task import Task
+from typing import List, Optional, Generator
+from framework.helpers.log_utils import get_logger
+from framework.helpers.rest_utils import RestAPIUtil
+from .state_monitor import StateMonitor
+from ..v3.task import Task
 
 logger = get_logger(__name__)
 
@@ -12,7 +12,7 @@ class PcTaskMonitor(StateMonitor):
     The class to wait for task status to come in expected state
     """
     DEFAULT_CHECK_INTERVAL_IN_SEC = 5
-    DEFAULT_TIMEOUT_IN_SEC = 1800
+    DEFAULT_TIMEOUT_IN_SEC = 600
 
     def __init__(self, session: RestAPIUtil, **kwargs):
         """
@@ -30,7 +30,7 @@ class PcTaskMonitor(StateMonitor):
         self.failed_task_list = []
         self.task_op = Task(self.session)
 
-    def check_status(self):
+    def check_status(self) -> (Optional[str], bool):
         """
         Checks the task is in expected state or not
         Returns:
@@ -66,7 +66,7 @@ class PcTaskMonitor(StateMonitor):
         return response, completed
 
     @staticmethod
-    def __uuid_list_chunks(uuid_list: List, chunk_size=100):
+    def __uuid_list_chunks(uuid_list: List, chunk_size=100) -> Generator[List, None, None]:
         """
         Given list of uuid, return chunks of uuids
         Args:

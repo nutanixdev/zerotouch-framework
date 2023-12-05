@@ -1,5 +1,0 @@
-{%- macro call_config_task(obj) -%}
-CalmTask.ConfigExec(name='{{obj.name}}', config=ref({{obj.config}}))
-{%- endmacro %}
-
-{{ call_config_task(obj) }}

@@ -1,5 +1,5 @@
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.pe_entity_v2 import PeEntityV2
+from framework.helpers.rest_utils import RestAPIUtil
+from ..pe_entity_v2 import PeEntityV2
 
 
 class Cluster(PeEntityV2):

@@ -1,0 +1,29 @@
+name_servers: &name_servers
+  name_servers_list:
+    - valid-ip-1
+    - valid-ip-2
+ntp_servers: &ntp_servers
+  ntp_servers_list:
+    - 0.us.pool.ntp.org
+    - 1.us.pool.ntp.org
+    - 2.us.pool.ntp.org
+
+clusters:
+  # configure the below clusters in the site
+  valid-cluster-01-ip:
+    # Use global pe creds for authentication
+    <<: *pe_creds
+    # Use global NTP, DNS config
+    <<: *ntp_servers
+    <<: *name_servers
+  valid-cluster-02-ip:
+    # can define locally as well
+    pe_username: pe-user
+    pe_password: pe-password
+    # can define locally as well
+    name_servers_list:
+      - valid-ip-3
+      - valid-ip-4
+    ntp_servers_list:
+      - 0.us.pool.ntp.org
+      - 1.us.pool.ntp.org

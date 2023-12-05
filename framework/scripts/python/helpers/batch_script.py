@@ -1,7 +1,8 @@
 import concurrent.futures
 import multiprocessing
-from helpers.log_utils import get_logger
-from scripts.python.script import Script
+from typing import Dict
+from framework.helpers.log_utils import get_logger
+from ..script import Script
 
 logger = get_logger(__name__)
 
@@ -11,7 +12,7 @@ class BatchScript(Script):
     We can group scripts together and execute them in serial or parallel
     """
 
-    def __init__(self, parallel: bool = False, **kwargs):
+    def __init__(self, results_key: str = "", parallel: bool = False, **kwargs):
         """
         Constructor for BatchScript.
         Args:
@@ -24,7 +25,7 @@ class BatchScript(Script):
         # Results key is used to consolidate the results coming from different scripts, batch scripts. If results_key
         # is passed the return value of the run function would be {"results_key": self._results}, which would be
         # consolidated into results, by results setter in parent BatchScript.
-        self.results_key = kwargs.get("results_key")
+        self.results_key = results_key
         # Set max_workers that can run in parallel
         self.max_workers = kwargs.get("max_workers") or multiprocessing.cpu_count() + 4
         # If we can run scripts in parallel
@@ -36,7 +37,7 @@ class BatchScript(Script):
     def results(self):
         return self._results
 
-    def consolidate_results(self, new_item: dict, results: dict = None):
+    def consolidate_results(self, new_item: Dict, results: Dict = None):
         if not results:
             results = self._results
         for key, value in new_item.items():

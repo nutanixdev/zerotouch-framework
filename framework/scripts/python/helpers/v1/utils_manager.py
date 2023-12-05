@@ -1,5 +1,6 @@
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.pe_entity_v1 import PeEntityV1
+from typing import Dict
+from framework.helpers.rest_utils import RestAPIUtil
+from ..pe_entity_v1 import PeEntityV1
 
 
 class UtilsManager(PeEntityV1):
@@ -13,10 +14,10 @@ class UtilsManager(PeEntityV1):
         self.resource_type = "/utils"
         super(UtilsManager, self).__init__(session=session)
 
-    def change_default_system_password(self, new_password, cluster_info: str):
+    def change_default_system_password(self, new_password) -> Dict:
         endpoint = "change_default_system_password"
         data = {
             "oldPassword":  self.DEFAULT_SYSTEM_PASSWORD,
             "newPassword": new_password
         }
-        return self.create(data=data, endpoint=endpoint, timeout=120)
+        return self.create(data=data, endpoint=endpoint)

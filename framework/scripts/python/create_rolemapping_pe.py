@@ -1,11 +1,12 @@
-from helpers.log_utils import get_logger
-from scripts.python.helpers.v1.authentication import AuthN
-from scripts.python.cluster_script import ClusterScript
+from typing import Dict
+from framework.helpers.log_utils import get_logger
+from .helpers.v1.authentication import AuthN
+from .cluster_script import ClusterScript
 
 logger = get_logger(__name__)
 
 
-class CreateRoleMapping(ClusterScript):
+class CreateRoleMappingPe(ClusterScript):
     """
     The Script to create role mapping in PE clusters
     """
@@ -28,11 +29,11 @@ class CreateRoleMapping(ClusterScript):
         }
     ]
 
-    def __init__(self, data: dict, **kwargs):
-        super(CreateRoleMapping, self).__init__(data, **kwargs)
+    def __init__(self, data: Dict, **kwargs):
+        super(CreateRoleMappingPe, self).__init__(data, **kwargs)
         self.logger = self.logger or logger
 
-    def execute_single_cluster(self, cluster_ip: str, cluster_details: dict):
+    def execute_single_cluster(self, cluster_ip: str, cluster_details: Dict):
         # Only for parallel runs
         if self.parallel:
             self.set_current_thread_name(cluster_ip)

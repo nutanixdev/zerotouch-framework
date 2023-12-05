@@ -1,6 +1,6 @@
 from copy import deepcopy
 from typing import Optional
-from scripts.python.helpers.pc_entity import PcEntity
+from ..pc_entity import PcEntity
 
 
 class ServiceGroup(PcEntity):

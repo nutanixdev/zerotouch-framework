@@ -2,7 +2,6 @@
 ncm_vm_ip: valid-ip
 ncm_username: valid-user
 ncm_password: valid-pass
-default_ncm_project_name: default
 
 DEFAULT_ACCOUNT_NAME: &DEFAULT_ACCOUNT_NAME
   ACCOUNT_NAME: NTNX_LOCAL_AZ

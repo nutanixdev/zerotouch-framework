@@ -1,0 +1,9 @@
+pc_ip: valid-pc-ip
+pc_username: pc-user
+pc_password: pc-password
+
+remote_azs:
+  # remote AZ details, only Physical location is supported yet
+  valid-remote-pc-ip:
+    username: remote-pc-user
+    password: remote-pc-password

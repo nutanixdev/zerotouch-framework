@@ -1,6 +1,6 @@
 from copy import deepcopy
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.fc.foundation_central import FoundationCentral
+from framework.helpers.rest_utils import RestAPIUtil
+from .foundation_central import FoundationCentral
 
 __metaclass__ = type
 

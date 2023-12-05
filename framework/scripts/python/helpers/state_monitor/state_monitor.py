@@ -1,6 +1,7 @@
 import time
+from typing import Optional, Union, Dict
 
-from helpers.log_utils import get_logger
+from framework.helpers.log_utils import get_logger
 from abc import abstractmethod, ABC
 
 logger = get_logger(__name__)
@@ -13,9 +14,9 @@ class StateMonitor(ABC):
     DEFAULT_TIMEOUT_IN_SEC = 1800
     DEFAULT_CHECK_INTERVAL_IN_SEC = 5
 
-    def monitor(self, query_retries=True):
+    def monitor(self, query_retries=True) -> (Optional[Union[Dict, str]], bool):
         """
-        Keep waiting until target status is matched. No Exceptions will be raise
+        Keep waiting until target status is matched. No Exceptions will be raised
         when timed out, False is return instead. It is up to the caller to make
         decision about what to do when timed out.
 

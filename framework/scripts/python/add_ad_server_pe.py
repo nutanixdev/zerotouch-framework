@@ -1,28 +1,32 @@
-from helpers.log_utils import get_logger
-from scripts.python.cluster_script import ClusterScript
-from scripts.python.helpers.v1.authentication import AuthN
+from typing import Dict
+from framework.helpers.log_utils import get_logger
+from framework.helpers.rest_utils import RestAPIUtil
+from .cluster_script import ClusterScript
+from .helpers.v1.authentication import AuthN
 
 logger = get_logger(__name__)
 
 
 class AddAdServerPe(ClusterScript):
     """
-    The Script to add name servers to PE clusters
+    The Script to add Active Directory in PE
     """
 
-    def __init__(self, data: dict, **kwargs):
-        self._existing_directories = {}
+    def __init__(self, data: Dict, **kwargs):
         super(AddAdServerPe, self).__init__(data, **kwargs)
         self.logger = self.logger or logger
 
-    def execute_single_cluster(self, cluster_ip: str, cluster_details: dict):
+    def execute_single_cluster(self, cluster_ip: str, cluster_details: Dict):
         # Only for parallel runs
         if self.parallel:
             self.set_current_thread_name(cluster_ip)
 
+        cluster_info = f"'{cluster_ip}/ {cluster_details['cluster_info']['name']}'"
         try:
-            pe_session = cluster_details["pe_session"]
-            cluster_info = f"'{cluster_ip}/ {cluster_details['cluster_info']['name']}'"
+            pe_session = RestAPIUtil(cluster_ip, user="admin",
+                                     pwd=cluster_details['admin_pe_password'],
+                                     port="9440", secured=True) \
+                if cluster_details.get('admin_pe_password') else cluster_details["pe_session"]
 
             authn = AuthN(pe_session)
             authn_payload = cluster_details.get("directory_services")
@@ -40,20 +44,14 @@ class AddAdServerPe(ClusterScript):
                                     f" {cluster_info}")
                 return
 
-            try:
-                self.logger.info(f"Creating new Directory '{authn_payload['ad_name']}'")
-                response = authn.create_directory_services(**authn_payload)
+            self.logger.info(f"Creating new Directory '{authn_payload['ad_name']}'")
+            response = authn.create_directory_services(**authn_payload)
 
-                if isinstance(response, str):
-                    self.exceptions.append(response)
-            except Exception as e:
-                self.exceptions.append(f"{type(self).__name__} failed for the cluster {cluster_info} "
-                                       f"with the error: {e}")
-                return
-
-            self.logger.info(f"'{authn_payload['ad_name']}' Directory created in the cluster {cluster_info}")
+            if isinstance(response, str):
+                self.exceptions.append(response)
         except Exception as e:
-            self.exceptions.append(e)
+            self.exceptions.append(f"{type(self).__name__} failed for the cluster {cluster_info} "
+                                   f"with the error: {e}")
 
     def verify(self, **kwargs):
         # Check if directory services were created

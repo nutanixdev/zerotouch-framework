@@ -1,7 +1,7 @@
 {
     // All the Python workflow runs are grouped by sites
-    // Different workflow operaition logs and configs are grouped by sites
-    // below declared parameters are accessible in all Python workflows
+    // Comments work in json files. Use // followed by text for comments
+    // below declared parameters are accessible in all Python workflows and scripts
     "pc_ip": "valid-ip",
     "pc_username": "pc-user",
     "pc_password": "pc-password",

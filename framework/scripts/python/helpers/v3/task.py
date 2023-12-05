@@ -1,5 +1,5 @@
 from typing import List
-from scripts.python.helpers.pc_entity import PcEntity
+from ..pc_entity import PcEntity
 
 
 class Task(PcEntity):

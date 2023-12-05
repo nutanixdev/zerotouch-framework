@@ -1,7 +1,7 @@
 import logging
-from scripts.python.script import Script
-from helpers.log_utils import get_logger
-from scripts.python.helpers.ssh_cvm import SSH
+from ...script import Script
+from framework.helpers.log_utils import get_logger
+from ..ssh_cvm import SSHCVM
 
 logger = get_logger(__name__)
 
@@ -22,7 +22,7 @@ class UpdateFCHeartbeatInterval(Script):
         self.interval_min = interval_min
         super(UpdateFCHeartbeatInterval, self).__init__()
         self.logger = fc_deployment_logger or logger
-        self.ssh_cvm = SSH(cvm_ip, cvm_username, cvm_password, self.logger)
+        self.ssh_cvm = SSHCVM(cvm_ip, cvm_username, cvm_password)
 
     def execute(self):
         status, error_message = self.ssh_cvm.update_heartbeat_interval_mins(self.interval_min)

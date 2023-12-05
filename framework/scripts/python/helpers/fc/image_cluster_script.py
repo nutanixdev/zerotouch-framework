@@ -1,7 +1,7 @@
 import logging
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.script import Script
-from scripts.python.helpers.fc.imaged_clusters import ImagedCluster
+from framework.helpers.rest_utils import RestAPIUtil
+from ...script import Script
+from .imaged_clusters import ImagedCluster
 
 
 class ImageClusterScript(Script):

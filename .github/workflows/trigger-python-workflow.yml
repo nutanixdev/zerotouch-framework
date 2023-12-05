@@ -45,6 +45,16 @@ jobs:
         run: |
           echo "FILE=config/edge-ai.json" >> $GITHUB_ENV
           echo "WORKFLOW=calm-edgeai-vm-workload" >> $GITHUB_ENV
+      - name: Set deploy-management-pc if pod-management-deploy file has changed
+        if: contains(steps.changed_files.outputs.all_changed_files, 'config/pod-management-deploy.yml')
+        run: |
+          echo "FILE=config/pod-management-deploy.yml" >> $GITHUB_ENV
+          echo "WORKFLOW=deploy-management-pc" >> $GITHUB_ENV
+      - name: Set config-management-pc if pod-management-config file has changed
+        if: contains(steps.changed_files.outputs.all_changed_files, 'config/pod-management-config.yml')
+        run: |
+          echo "FILE=config/pod-management-config.yml" >> $GITHUB_ENV
+          echo "WORKFLOW=config-management-pc" >> $GITHUB_ENV
       - name: Set file and workflow vars
         id: set-vars
         run: |

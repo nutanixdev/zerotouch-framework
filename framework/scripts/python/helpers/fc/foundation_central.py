@@ -1,4 +1,4 @@
-from scripts.python.helpers.entity import Entity
+from ..entity import Entity
 
 
 class FoundationCentral(Entity):

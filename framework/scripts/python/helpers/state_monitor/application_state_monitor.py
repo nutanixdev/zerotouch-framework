@@ -1,6 +1,7 @@
-from helpers.log_utils import get_logger
-from scripts.python.helpers.state_monitor.state_monitor import StateMonitor
-from scripts.python.helpers.v3.application import Application
+from typing import Optional, Dict
+from framework.helpers.log_utils import get_logger
+from .state_monitor import StateMonitor
+from ..v3.application import Application
 
 logger = get_logger(__name__)
 
@@ -30,7 +31,7 @@ class ApplicationStateMonitor(StateMonitor):
         self._unexpected_states = kwargs.get('unexpected_states', ['error'])
         self._application_uuid = kwargs.get('application_uuid')
 
-    def check_status(self):
+    def check_status(self) -> (Optional[Dict], bool):
         """
         Checks the state if "application_uuid" is among "expected_states"
 

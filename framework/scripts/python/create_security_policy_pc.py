@@ -1,17 +1,18 @@
-from helpers.log_utils import get_logger
-from scripts.python.helpers.state_monitor.pc_task_monitor import PcTaskMonitor
-from scripts.python.helpers.v3.security_rule import SecurityPolicy
-from scripts.python.script import Script
+from typing import Dict
+from framework.helpers.log_utils import get_logger
+from .helpers.state_monitor.pc_task_monitor import PcTaskMonitor
+from .helpers.v3.security_rule import SecurityPolicy
+from .script import Script
 
 logger = get_logger(__name__)
 
 
 class CreateNetworkSecurityPolicy(Script):
     """
-    Class that creates Address Groups
+    Class that creates Security policies
     """
 
-    def __init__(self, data: dict, **kwargs):
+    def __init__(self, data: Dict, **kwargs):
         self.task_uuid_list = None
         self.data = data
         self.security_policies = self.data.get("security_policies")
@@ -66,20 +67,20 @@ class CreateNetworkSecurityPolicy(Script):
             return
 
         # Initial status
-        self.results["Create_Protection_policies"] = {}
+        self.results["Create_Security_policies"] = {}
         security_policy = SecurityPolicy(self.pc_session)
         security_policy_list = []
         security_policy_name_list = []
 
         for sg in self.security_policies:
             # Initial status
-            self.results["Create_Protection_policies"][sg['name']] = "CAN'T VERIFY"
+            self.results["Create_Security_policies"][sg['name']] = "CAN'T VERIFY"
 
             security_policy_list = security_policy_list or security_policy.list(length=10000)
             security_policy_name_list = security_policy_name_list or [sp.get("spec").get("name")
                                                                       for sp in security_policy_list if
                                                                       sp.get("spec", {}).get("name")]
             if sg["name"] in security_policy_name_list:
-                self.results["Create_Protection_policies"][sg['name']] = "PASS"
+                self.results["Create_Security_policies"][sg['name']] = "PASS"
             else:
-                self.results["Create_Protection_policies"][sg['name']] = "FAIL"
+                self.results["Create_Security_policies"][sg['name']] = "FAIL"

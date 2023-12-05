@@ -1,0 +1,35 @@
+pe_creds: &pe_creds
+  pe_username: pe-user
+  pe_password: pe-password
+  admin_pe_password: admin-pe-password
+
+cluster_eula: &eula
+  eula:
+    username: Nutanix
+    company_name: Nutanix
+    job_title: Backend Engineer
+
+pulse: &pulse
+  enable_pulse: true
+
+clusters:
+  # configure the below clusters in the site
+  valid-cluster-01-ip:
+    # Use global pe creds
+    <<: *pe_creds
+    # Use global eula config
+    <<: *eula
+    # Use global pulse config
+    <<: *pulse
+  valid-cluster-02-ip:
+    # can define locally as well
+    pe_username: pe-user
+    pe_password: pe-password
+    admin_pe_password: admin-pe-password
+
+    eula:
+      username: Nutanix1
+      company_name: Nutanix
+      job_title: Backend Engineer
+
+    enable_pulse: false

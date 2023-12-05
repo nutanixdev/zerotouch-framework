@@ -1,5 +1,6 @@
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.pc_entity import PcEntity
+from typing import Dict
+from framework.helpers.rest_utils import RestAPIUtil
+from ..pc_entity import PcEntity
 
 
 class CloudTrust(PcEntity):
@@ -10,7 +11,7 @@ class CloudTrust(PcEntity):
         super(CloudTrust, self).__init__(session=session)
 
     @staticmethod
-    def get_payload(cloud_type: str, remote_pc: str, remote_pc_username: str, remote_pc_password: str):
+    def get_payload(cloud_type: str, remote_pc: str, remote_pc_username: str, remote_pc_password: str) -> Dict:
         spec = {
             "name": "",
             "description": "",

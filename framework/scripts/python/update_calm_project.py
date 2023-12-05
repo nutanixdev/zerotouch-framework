@@ -1,14 +1,16 @@
 import os
+from typing import Dict
+
 from calm.dsl.cli.projects import update_project_from_dsl
-from helpers.log_utils import get_logger
-from scripts.python.script import Script
+from framework.helpers.log_utils import get_logger
+from .script import Script
 from jinja2 import Template
 
 logger = get_logger(__name__)
 
 
 class UpdateCalmProject(Script):
-    def __init__(self, data: dict, **kwargs):
+    def __init__(self, data: Dict, **kwargs):
         self.data = data
         super(UpdateCalmProject, self).__init__(**kwargs)
         self.logger = self.logger or logger

@@ -1,9 +1,10 @@
-from helpers.log_utils import get_logger
-from scripts.python.helpers.karbon.karbon_clusters import KarbonCluster, KarbonClusterV1
-from scripts.python.helpers.karbon.karbon_image import KarbonImage
-from scripts.python.helpers.state_monitor.karbon_image_monitor import KarbonImageDownloadMonitor
-from scripts.python.helpers.state_monitor.pc_task_monitor import PcTaskMonitor
-from scripts.python.script import Script
+from typing import Dict
+from framework.helpers.log_utils import get_logger
+from .helpers.karbon.karbon_clusters import KarbonCluster, KarbonClusterV1
+from .helpers.karbon.karbon_image import KarbonImage
+from .helpers.state_monitor.karbon_image_monitor import KarbonImageDownloadMonitor
+from .helpers.state_monitor.pc_task_monitor import PcTaskMonitor
+from .script import Script
 
 logger = get_logger(__name__)
 
@@ -13,7 +14,7 @@ class CreateKarbonClusterPc(Script):
     Class that creates NKE Clusters in PC
     """
 
-    def __init__(self, data: dict, **kwargs):
+    def __init__(self, data: Dict, **kwargs):
         self.task_uuid_list = []
         self.response = None
         self.data = data
@@ -40,7 +41,7 @@ class CreateKarbonClusterPc(Script):
                                              for available_image in available_images if available_image.get("version")}
 
             # First download the os_images in all nke_clusters
-            images_to_download = []
+            images_to_download = set()
             for cluster_to_create in self.data["nke_clusters"]:
                 os_version = cluster_to_create.get("host_os")
                 if os_version not in available_images_version_list:
@@ -48,7 +49,7 @@ class CreateKarbonClusterPc(Script):
 
                 image_obj = available_images_version_list[os_version]
                 if image_obj.get("status") == KarbonImage.AVAILABLE and image_obj.get("uuid"):
-                    images_to_download.append(image_obj["uuid"])
+                    images_to_download.add(image_obj["uuid"])
 
             for image_to_download in images_to_download:
                 self.logger.info(f"Downloading the os-image '{image_to_download}'...")
@@ -87,7 +88,7 @@ class CreateKarbonClusterPc(Script):
                         # create nke cluster
                         self.logger.info(f"Creating new NKE cluster '{name}'")
                         spec = karbon_cluster_v1.get_payload(cluster_to_create)
-                        response = karbon_cluster_v1.create(data=spec, timeout=120)
+                        response = karbon_cluster_v1.create(data=spec)
 
                         if response.get("task_uuid"):
                             self.task_uuid_list.append(response.get("task_uuid"))
@@ -125,7 +126,7 @@ class CreateKarbonClusterPc(Script):
             name = cluster_to_create.get("name")
 
             # Initial status
-            self.results["NKE_Clusters"][name] = "CAN'T VERIFY"
+            self.results["NKE_Clusters"][name] = {}
 
             existing_clusters_list = existing_clusters_list or karbon_cluster.list()
             existing_cluster_detail_list = existing_cluster_detail_list or {
@@ -140,4 +141,4 @@ class CreateKarbonClusterPc(Script):
                 else:
                     self.results["NKE_Clusters"][name] = "FAIL"
             else:
-                self.results["NKE_Clusters"] = {name: "FAIL"}
+                self.results["NKE_Clusters"][name] = "FAIL"

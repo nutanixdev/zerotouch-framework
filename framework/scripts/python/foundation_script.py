@@ -4,18 +4,19 @@ import datetime
 import time
 import json
 from copy import deepcopy
-from helpers.log_utils import get_logger
-from helpers.general_utils import divide_chunks
-from helpers.rest_utils import RestAPIUtil
-from helpers.helper_functions import get_aos_url_mapping, get_hypervisor_url_mapping
-from scripts.python.helpers.fc.imaged_nodes import ImagedNode
-from scripts.python.helpers.fc.imaged_clusters import ImagedCluster
-from scripts.python.script import Script
-from scripts.python.helpers.fc.image_cluster_script import ImageClusterScript
-from scripts.python.helpers.fc.monitor_fc_deployment import MonitorDeployment
-from scripts.python.helpers.batch_script import BatchScript
-from scripts.python.helpers.fc.update_fc_heartbeat_interval import UpdateFCHeartbeatInterval
-from scripts.python.helpers.fc.enable_one_node import EnableOneNode
+from typing import Dict
+from framework.helpers.log_utils import get_logger
+from framework.helpers.general_utils import divide_chunks
+from framework.helpers.rest_utils import RestAPIUtil
+from framework.helpers.helper_functions import get_aos_url_mapping, get_hypervisor_url_mapping
+from .helpers.fc.imaged_nodes import ImagedNode
+from .helpers.fc.imaged_clusters import ImagedCluster
+from .script import Script
+from .helpers.fc.image_cluster_script import ImageClusterScript
+from .helpers.fc.monitor_fc_deployment import MonitorDeployment
+from .helpers.batch_script import BatchScript
+from .helpers.fc.update_fc_heartbeat_interval import UpdateFCHeartbeatInterval
+from .helpers.fc.enable_one_node import EnableOneNode
 
 
 logger = get_logger(__name__)
@@ -23,7 +24,7 @@ logger = get_logger(__name__)
 
 class FoundationScript(Script):
 
-    def __init__(self, data: dict):
+    def __init__(self, data: Dict):
         self.data = data
         self.mgmt_static_ips = {}
         self.ipmi_static_ips = {}
@@ -68,7 +69,7 @@ class FoundationScript(Script):
                 ip_category, cluster_name, required_ips, num_ips)
             return error
 
-    def get_free_ip(self, ip_dict: dict, common_ip_dict: dict = None):
+    def get_free_ip(self, ip_dict: Dict, common_ip_dict: dict = None):
         """get free ip from ip_dict based on availability
 
         Args:
@@ -100,7 +101,7 @@ class FoundationScript(Script):
         elif redundancy_factor == 3 and cluster_size < 5:
             self.exceptions.append('With redundancy factor {0}, cluster size must be 5 or more and you selected {1} which is not compatible!'.format(redundancy_factor, cluster_size))
 
-    def get_cluster_ip_mappings(self, cluster_info: dict, cluster_name: str):
+    def get_cluster_ip_mappings(self, cluster_info: Dict, cluster_name: str):
         """Populate static ip dictionary with the provided ip range for each cluster or site
 
         Args:
@@ -152,7 +153,7 @@ class FoundationScript(Script):
         else:
             return None, "Not enough available nodes found in block serials."
 
-    def update_node_details(self, node_list: list, cluster_name: str, cluster_info: dict):
+    def update_node_details(self, node_list: list, cluster_name: str, cluster_info: Dict):
         """Update the node details with provided site details
 
         Args:
@@ -233,7 +234,7 @@ class FoundationScript(Script):
             # todo: Improve error logging, by checking if this node is assigned to different cluster or not discovered in FC
             return None, "Not enough available nodes found in Foundation Central for given node_serails: {0}".format(node_serial_list)
 
-    def get_cluster_data(self, cluster_name: str, cluster_info: dict, block_node_list: list = None):
+    def get_cluster_data(self, cluster_name: str, cluster_info: Dict, block_node_list: list = None):
         """Create Cluster data for each cluster
 
         Args:
@@ -378,7 +379,7 @@ class FoundationScript(Script):
                 self.logger.info("There are no nodes to image.")
                 return None, cluster_data_list
 
-    def monitor_fc_deployment(self, imaged_cluster_uuid_dict: dict, fc_deployment_logger=None):
+    def monitor_fc_deployment(self, imaged_cluster_uuid_dict: Dict, fc_deployment_logger=None):
         """Monitor FC deployment(s)
 
         Args:
@@ -396,16 +397,19 @@ class FoundationScript(Script):
         failed_count = 0
         passed_count = 0
         inprogress_count = 0
-        total_deployments = len(deployment_result)
-        result = {"total_deployments": total_deployments, "passed_count": passed_count,
-                  "failed_count": failed_count, "in-progess": inprogress_count}
-        for cluster_name, deplotment_status in deployment_result.items():
-            if deplotment_status["result"] == "FAILED":
+        total_cluster_deployments = len(deployment_result)
+        result = {"total_cluster_deployments": total_cluster_deployments, "passed_count": passed_count,
+                  "failed_count": failed_count, "in_progess_count": inprogress_count, "cluster_access_validation": []}
+        for cluster_name, deployment_status in deployment_result.items():
+            if deployment_status["result"] == "FAILED":
                 result["failed_count"] += 1
-            elif deplotment_status["result"] == "COMPLETED":
+            elif deployment_status["result"] == "COMPLETED":
                 result["passed_count"] += 1
-            elif deplotment_status["result"] == "PENDING":
-                result["in-progess"] += 1
+            elif deployment_status["result"] == "PENDING":
+                result["in_progess_count"] += 1
+            if deployment_status["cluster_vip_access"]:
+                result["cluster_access_validation"].append(
+                        {cluster_name: deployment_status["cluster_vip_access"]})
         return result
 
     def start_fc_deployment(self, fc_deployment_list: list, fc_deployment_logger=None):
@@ -516,15 +520,16 @@ class FoundationScript(Script):
                 # TODO: Check the nodes which all passed and deploy only those nodes
                 #       Remove the failed nodes and deploy the rest of the nodes
                 return False, "Imaging Failed. Please check the result"
-            elif result["in-progess"] >= 1:
+            elif result["in_progess_count"] >= 1:
                 return False, "Imaging is still in-progess for long time. Please check the result."
             # Update the heartbeat interval, so the nodes are dicovered soon in the Foundation Central
             else:
                 self.logger.debug("Updating heartbeat interval...")
                 self.update_heartbeat_interval(imaging_nodes_list, fc_deployment_logger=fc_deployment_logger)
                 # Enabling one node is not required in production
-                self.logger.debug("Enabling one node support...")
-                self.enable_one_node(imaging_nodes_list, fc_deployment_logger)
+                if self.data["test_enable_one_node"]:
+                    self.logger.debug("Enabling one node support...")
+                    self.enable_one_node(imaging_nodes_list, fc_deployment_logger)
             self.logger.info("Sleep 5 mins for the nodes to be discovered")
             time.sleep(5 * 60)
         self.logger.info("Imaging nodes completed")

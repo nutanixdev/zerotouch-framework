@@ -1,6 +1,7 @@
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.pe_entity_v1 import PeEntityV1
-from scripts.python.helpers.v1.storage_pool import StoragePool
+from typing import Dict
+from framework.helpers.rest_utils import RestAPIUtil
+from ..pe_entity_v1 import PeEntityV1
+from ..v1.storage_pool import StoragePool
 
 
 class Container(PeEntityV1):
@@ -9,11 +10,11 @@ class Container(PeEntityV1):
         self.session = session
         super(Container, self).__init__(session=session)
 
-    def create(self, **kwargs):
+    def create(self, **kwargs) -> Dict:
         data = self.get_json_for_create(**kwargs)
         return super(Container, self).create(data=data)
 
-    def get_json_for_create(self, **kwargs):
+    def get_json_for_create(self, **kwargs) -> Dict:
         """
         Helper function to generate container config spec(json) for creation.
 

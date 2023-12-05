@@ -1,7 +1,7 @@
-from helpers.log_utils import get_logger
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.pc_v1.genesis import Genesis
-from scripts.python.helpers.state_monitor.state_monitor import StateMonitor
+from framework.helpers.log_utils import get_logger
+from framework.helpers.rest_utils import RestAPIUtil
+from ..pc_v1.genesis import Genesis
+from .state_monitor import StateMonitor
 
 logger = get_logger(__name__)
 
@@ -15,13 +15,13 @@ class KarbonEnabledMonitor(StateMonitor):
 
     def __init__(self, session: RestAPIUtil):
         """
-        The constructor for TaskMonitor
+        The constructor for KarbonEnabledMonitor
         Args:
         session: request pc session to query the API
         """
         self.session = session
 
-    def check_status(self):
+    def check_status(self) -> (None, bool):
         """
         Checks the task is in expected state or not
         Returns:

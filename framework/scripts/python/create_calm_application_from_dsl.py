@@ -3,26 +3,26 @@ import os
 import uuid
 import importlib.util
 from pathlib import Path
-from typing import Union
+from typing import Union, Dict
 from calm.dsl.api import get_api_client
 from calm.dsl.builtins import SimpleBlueprint, Ref, VmBlueprint, create_blueprint_payload, get_dsl_metadata_map
 from calm.dsl.builtins.models.metadata_payload import get_metadata_class_from_module
 from calm.dsl.builtins.models import metadata_payload as global_metadata_payload
 from calm.dsl.cli.bps import get_blueprint_class_from_module, create_blueprint, get_app, launch_blueprint_simple
 from calm.dsl.config import get_context
-from helpers.log_utils import get_logger
-from scripts.python.script import Script
+from framework.helpers.log_utils import get_logger
+from .script import Script
 
 logger = get_logger(__name__)
 
 
 class CreateAppFromDsl(Script):
-    def __init__(self, data: dict, **kwargs):
+    def __init__(self, data: Dict, **kwargs):
         self.data = data
         super(CreateAppFromDsl, self).__init__(**kwargs)
         self.logger = self.logger or logger
 
-    def compile_blueprint(self, bp_file: Union[str, Path], project: dict):
+    def compile_blueprint(self, bp_file: Union[str, Path], project: Dict):
         """
         There is already a compile_blueprint function in bps. But the problem is, our inputs are fed from an input file
         and these variables have to be populated into calm-dsl file. There are few options
@@ -122,7 +122,7 @@ class CreateAppFromDsl(Script):
             payload = UserMetadata.get_dict()
         return payload
 
-    def create_calm_app(self, client, bp: dict, project: dict):
+    def create_calm_app(self, client, bp: Dict, project: Dict):
         """
         This function uses calm dsl functions to create calm application.
         We use our modified compile method to compile the BP payload

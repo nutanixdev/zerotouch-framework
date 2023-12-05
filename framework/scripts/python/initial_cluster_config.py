@@ -1,39 +1,41 @@
 import time
-from scripts.python.cluster_script import ClusterScript
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.v1.utils_manager import UtilsManager
-from scripts.python.helpers.v1.eula import Eula
-from scripts.python.helpers.v1.pulse import Pulse
-from scripts.python.helpers.v2.cluster import Cluster as PeCluster
-from helpers.log_utils import get_logger
+from typing import Dict
+from .cluster_script import ClusterScript
+from framework.helpers.rest_utils import RestAPIUtil
+from .helpers.v1.utils_manager import UtilsManager
+from .helpers.v1.eula import Eula
+from .helpers.v1.pulse import Pulse
+from .helpers.v2.cluster import Cluster as PeCluster
+from framework.helpers.log_utils import get_logger
 
 logger = get_logger(__name__)
 
 
 class InitialClusterConfig(ClusterScript):
     """
+    Change default PE password
     Accept Eula
     Enable Pulse
     """
     DEFAULT_USERNAME = "admin"
     DEFAULT_SYSTEM_PASSWORD = "Nutanix/4u"
 
-    def __init__(self, data: dict, **kwargs):
+    def __init__(self, data: Dict, **kwargs):
         super(InitialClusterConfig, self).__init__(data, **kwargs)
         self.logger = self.logger or logger
 
     def change_default_password(self, pe_session: RestAPIUtil, new_pe_password: str, cluster_info):
         default_system_password = UtilsManager(pe_session)
-        response = default_system_password.change_default_system_password(new_pe_password, cluster_info)
+        response = default_system_password.change_default_system_password(new_pe_password)
 
         if response["value"]:
             self.logger.info(f"Default System password updated with new password in {cluster_info}")
         else:
-            raise Exception(f"Could not change the system password in {cluster_info}. Error: {response}")
+            raise Exception(f"Could not change the PE password in {cluster_info}. Error: {response}")
         # Waiting for password sync
         time.sleep(30)
 
-    def accept_eula(self, pe_session: RestAPIUtil, data: dict, cluster_info):
+    def accept_eula(self, pe_session: RestAPIUtil, data: Dict, cluster_info):
         eula = Eula(pe_session)
 
         if eula.is_eula_accepted():
@@ -57,14 +59,16 @@ class InitialClusterConfig(ClusterScript):
 
         pulse.update_pulse(enable=enable_pulse)
 
-    def execute_single_cluster(self, cluster_ip: str, cluster_details: dict):
+    def execute_single_cluster(self, cluster_ip: str, cluster_details: Dict):
         # Only for parallel runs
         if self.parallel:
             self.set_current_thread_name(cluster_ip)
 
-        pe_session = cluster_details["pe_session"]
+        new_pe_password = cluster_details.get('admin_pe_password') or cluster_details.get("pe_password")
 
-        new_pe_password = cluster_details.get("pe_password")
+        pe_session = RestAPIUtil(cluster_ip, user=self.DEFAULT_USERNAME,
+                                 pwd=new_pe_password,
+                                 port="9440", secured=True)
 
         if new_pe_password == self.DEFAULT_SYSTEM_PASSWORD:
             self.logger.error(f"New Password specified is same as default password for the cluster ...")

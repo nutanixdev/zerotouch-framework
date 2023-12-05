@@ -1,0 +1,24 @@
+pc_ip: valid-pc-ip
+pc_username: pc-user
+pc_password: pc-password
+
+pe_creds: &pe_creds
+  pe_username: pe-user
+  pe_password: pe-password
+
+clusters:
+  # configure the below clusters in the site
+  valid-cluster-01-ip:
+    # Use global pe creds for authentication
+    <<: *pe_creds
+    dsip: valid-ip
+  valid-cluster-02-ip:
+    # can define locally as well
+    pe_username: pe-user
+    pe_password: pe-password
+
+    dsip: valid-ip
+  valid-cluster-03-ip:
+    # Use global pe creds for authentication
+    <<: *pe_creds
+    dsip: valid-ip
