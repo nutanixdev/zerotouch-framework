@@ -1,17 +1,18 @@
 import time
-from helpers.log_utils import get_logger
-from scripts.python.helpers.v3.service_group import ServiceGroup
-from scripts.python.script import Script
+from typing import Dict
+from framework.helpers.log_utils import get_logger
+from .helpers.v3.service_group import ServiceGroup
+from .script import Script
 
 logger = get_logger(__name__)
 
 
 class CreateServiceGroups(Script):
     """
-    Class that creates Address Groups
+    Class that creates Service Groups
     """
 
-    def __init__(self, data: dict, **kwargs):
+    def __init__(self, data: Dict, **kwargs):
         self.task_uuid_list = None
         self.data = data
         self.service_groups = self.data.get("service_groups")

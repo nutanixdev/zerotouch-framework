@@ -1,6 +1,7 @@
-from scripts.python.helpers.v2.cluster import Cluster as PeCluster
-from scripts.python.cluster_script import ClusterScript
-from helpers.log_utils import get_logger
+from typing import Dict
+from .helpers.v2.cluster import Cluster as PeCluster
+from .cluster_script import ClusterScript
+from framework.helpers.log_utils import get_logger
 
 logger = get_logger(__name__)
 
@@ -9,12 +10,11 @@ class UpdateDsip(ClusterScript):
     """
     Update DSIP for the input PE clusters
     """
-
-    def __init__(self, data: dict, **kwargs):
+    def __init__(self, data: Dict, **kwargs):
         super(UpdateDsip, self).__init__(data, **kwargs)
         self.logger = self.logger or logger
 
-    def execute_single_cluster(self, cluster_ip: str, cluster_details: dict):
+    def execute_single_cluster(self, cluster_ip: str, cluster_details: Dict):
         # Only for parallel runs
         if self.parallel:
             self.set_current_thread_name(cluster_ip)

@@ -2,14 +2,15 @@ import threading
 import multiprocessing
 import concurrent.futures
 from abc import abstractmethod
-from helpers.log_utils import get_logger
-from scripts.python.script import Script
+from typing import Dict
+from framework.helpers.log_utils import get_logger
+from .script import Script
 
 logger = get_logger(__name__)
 
 
 class ClusterScript(Script):
-    def __init__(self, data: dict, parallel: bool = True, **kwargs):
+    def __init__(self, data: Dict, parallel: bool = True, **kwargs):
         self.data = data
         # pass the Cluster Objects
         # create_pe_pc helper function can be used
@@ -39,7 +40,7 @@ class ClusterScript(Script):
                 self.exceptions.append(e)
 
     @abstractmethod
-    def execute_single_cluster(self, cluster_ip: str, cluster_details: dict):
+    def execute_single_cluster(self, cluster_ip: str, cluster_details: Dict):
         pass
 
     def verify(self, **kwargs):

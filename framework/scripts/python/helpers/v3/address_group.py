@@ -1,6 +1,6 @@
 from copy import deepcopy
-from typing import Optional, List
-from scripts.python.helpers.pc_entity import PcEntity
+from typing import Optional, List, Dict
+from ..pc_entity import PcEntity
 
 
 class AddressGroup(PcEntity):
@@ -10,7 +10,7 @@ class AddressGroup(PcEntity):
         self.resource_type = "/address_groups"
         super(AddressGroup, self).__init__(module)
 
-    def get_uuid_by_name(self, entity_name: Optional[str] = None, entity_data: Optional[dict] = None, **kwargs):
+    def get_uuid_by_name(self, entity_name: Optional[str] = None, entity_data: Optional[dict] = None, **kwargs) -> str:
         kwargs.pop("filter", None)
         filter_criteria = f"name=={entity_name}"
         response = self.list(filter=filter_criteria, **kwargs)
@@ -19,7 +19,7 @@ class AddressGroup(PcEntity):
             if entity.get("address_group", {}).get("name") == entity_name:
                 return entity.get("uuid")
 
-    def create_address_group_spec(self, ag_info):
+    def create_address_group_spec(self, ag_info) -> Dict:
         spec = self._get_default_spec()
         # Get the name
         self._build_spec_name(spec, ag_info["name"])
@@ -29,7 +29,7 @@ class AddressGroup(PcEntity):
         self._build_spec_subnets(spec, ag_info.get("subnets", []))
         return spec
 
-    def _get_default_spec(self):
+    def _get_default_spec(self) -> Dict:
         return deepcopy({
             "name": None,
             "description": "",
@@ -55,6 +55,6 @@ class AddressGroup(PcEntity):
         payload["ip_address_block_list"] = ip_address_block_list
 
     @staticmethod
-    def _get_ip_address_block(ip, prefix):
+    def _get_ip_address_block(ip: str, prefix: str) -> Dict:
         spec = {"ip": ip, "prefix_length": prefix}
         return spec

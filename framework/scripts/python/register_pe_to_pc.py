@@ -1,10 +1,11 @@
-from helpers.log_utils import get_logger
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.state_monitor.pc_register_monitor import PcRegisterMonitor
-from scripts.python.helpers.v1.multicluster import MultiCluster
-from scripts.python.helpers.v2.cluster import Cluster as PeCluster
-from scripts.python.cluster_script import ClusterScript
-from scripts.python.helpers.v3.cluster import Cluster as PcCluster
+from typing import Dict
+from framework.helpers.log_utils import get_logger
+from framework.helpers.rest_utils import RestAPIUtil
+from .helpers.state_monitor.pc_register_monitor import PcRegisterMonitor
+from .helpers.v1.multicluster import MultiCluster
+from .helpers.v2.cluster import Cluster as PeCluster
+from .cluster_script import ClusterScript
+from .helpers.v3.cluster import Cluster as PcCluster
 
 logger = get_logger(__name__)
 
@@ -15,7 +16,7 @@ class RegisterToPc(ClusterScript):
     """
     SYNC_TIME = 300
 
-    def __init__(self, data: dict, **kwargs):
+    def __init__(self, data: Dict, **kwargs):
         self.data = data
         self.pc_ip = self.data["pc_ip"]
         self.pc_session = self.data["pc_session"]
@@ -23,7 +24,7 @@ class RegisterToPc(ClusterScript):
         super(RegisterToPc, self).__init__(data, **kwargs)
         self.logger = self.logger or logger
 
-    def execute_single_cluster(self, cluster_ip: str, cluster_details: dict):
+    def execute_single_cluster(self, cluster_ip: str, cluster_details: Dict):
         # Only for parallel runs
         if self.parallel:
             self.set_current_thread_name(cluster_ip)
@@ -93,9 +94,8 @@ class RegisterToPc(ClusterScript):
                                                      pe_uuids=self.pe_uuids).monitor()
 
             if not status:
-                if not status:
-                    self.exceptions.append(
-                        "Timed out. Registration of clusters to PC didn't happen in the prescribed timeframe")
+                self.exceptions.append(
+                    "Timed out. Registration of clusters to PC didn't happen in the prescribed timeframe")
 
         # Check which clusters failed
         for cluster_ip, cluster_details in self.pe_clusters.items():

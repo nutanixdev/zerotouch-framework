@@ -1,14 +1,18 @@
 import time
 import logging
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.script import Script
-from scripts.python.helpers.fc.imaged_clusters import ImagedCluster
+from framework.helpers.rest_utils import RestAPIUtil
+from ...script import Script
+from .imaged_clusters import ImagedCluster
+from ..v2.cluster import Cluster as PeCluster
 
 
 class MonitorDeployment(Script):
     """
     Monitor Deployments in Foundation Central
     """
+    DEFAULT_USERNAME = "admin"
+    DEFAULT_SYSTEM_PASSWORD = "Nutanix/4u"
+
     def __init__(self, pc_session: RestAPIUtil, cluster_name: str, imaged_cluster_uuid: str, fc_deployment_logger: logging.getLogger):
         """
         Args:
@@ -30,7 +34,6 @@ class MonitorDeployment(Script):
         state = ""
         delay = 60
         timeout = time.time() + (3 * 60 * 60)
-        self.logger.warning(self.imaged_cluster_uuid)
         while state not in ["COMPLETED", "FAILED"]:
             response = self.imaging.read(self.imaged_cluster_uuid)
             stopped = response["cluster_status"]["imaging_stopped"]
@@ -58,7 +61,45 @@ class MonitorDeployment(Script):
         self.results = {self.cluster_name: {"result": state, "status": status, "imaged_cluster_uuid": self.imaged_cluster_uuid}}
 
     def verify(self):
-        pass
+        """
+        Verify if the cluster vip is accessible after deployment
+        """
+        result_image = self.imaging.read(self.imaged_cluster_uuid)
+        cluster_vip = result_image["cluster_external_ip"]
+        if cluster_vip:
+            self.results[self.cluster_name]["cluster_vip"] = cluster_vip
+            if result_image["cluster_status"]["imaging_stopped"]:
+                if result_image["cluster_status"]["aggregate_percent_complete"] == 100:
+                    self.results[self.cluster_name]["cluster_vip_access"] = \
+                        "PASS" if self.check_cluster_vip_access(cluster_vip) else f"Failed to access Cluster VIP {cluster_vip}"
+                else:
+                    self.results[self.cluster_name]["cluster_vip_access"] = "Deployment Failed"
+            else:
+                self.results[self.cluster_name]["cluster_vip_access"] = "Deployment In-Progress"
+
+    def check_cluster_vip_access(self, cluster_vip: str):
+        """
+        Check if the Cluster Vip is accessible
+
+        Args:
+            cluster_vip (str): IP Address of the Cluster VIP
+
+        Returns:
+            boolean: Returns True if Cluster VIP is accessible else False
+        """
+        default_pe_session = RestAPIUtil(cluster_vip, user=self.DEFAULT_USERNAME,
+                                         pwd=self.DEFAULT_SYSTEM_PASSWORD,
+                                         port="9440", secured=True)
+        try:
+            cluster_obj = PeCluster(default_pe_session)
+            self.logger.info("Checking if Cluster VIP is accessible and throws unauthorized error")
+            cluster_obj.read(endpoint="cluster")
+        except Exception as e:
+            self.logger.warning(e)
+            if "401 Client Error: UNAUTHORIZED" in e.message:
+                return True
+            else:
+                return False
 
     def _get_deployment_status(self, progress: dict, message: str = ""):
         """Get the status of node and cluster progress

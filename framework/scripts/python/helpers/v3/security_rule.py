@@ -1,9 +1,9 @@
 from copy import deepcopy
 
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.pc_entity import PcEntity
-from scripts.python.helpers.v3.address_group import AddressGroup
-from scripts.python.helpers.v3.service_group import ServiceGroup
+from framework.helpers.rest_utils import RestAPIUtil
+from ..pc_entity import PcEntity
+from ..v3.address_group import AddressGroup
+from ..v3.service_group import ServiceGroup
 
 
 class SecurityPolicy(PcEntity):

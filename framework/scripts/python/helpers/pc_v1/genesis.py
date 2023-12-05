@@ -1,8 +1,8 @@
 import json
 from typing import List
 
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.pc_entity import Entity
+from framework.helpers.rest_utils import RestAPIUtil
+from ..pc_entity import Entity
 
 
 class Genesis(Entity):
@@ -37,7 +37,31 @@ class Genesis(Entity):
             raise Exception("Cannot fetch Karbon status")
         return result.get(".return")
 
-    def enable_karbon(self):
+    def is_fc_enabled(self) -> List:
+        """
+        For PC cluster only
+        Get the FC service status
+
+        Returns -> list:
+          example:
+          [false, "Service: FoundationCentralService is not enabled."]
+          [true, ""]
+        """
+        json_data = {
+            ".oid": "ClusterManager",
+            ".method": "is_service_enabled",
+            ".kwargs": {"service_name": "FoundationCentralService"}
+        }
+        payload = {"value": json.dumps(json_data)}
+        response = self.read(data=payload, method="POST")
+
+        if response.get("value"):
+            result = json.loads(response.get("value"))
+        else:
+            raise Exception("Cannot fetch Foundation Central status")
+        return result.get(".return")
+
+    def enable_karbon(self) -> List:
         """
         Enable karbon service
         Returns:
@@ -62,6 +86,32 @@ class Genesis(Entity):
             result = json.loads(response.get("value"))
         else:
             raise Exception("Error while enabling Karbon")
+        return result.get(".return")
+
+    def enable_fc(self):
+        """
+        Enable FC service
+        Returns:
+          list: Api response, example
+            [true, null]
+        """
+        json_data = {".oid": "ClusterManager",
+                     ".method": "enable_service",
+                     ".kwargs": {
+                         "service_list_json":
+                             json.dumps({
+                                 "service_list": [
+                                     "FoundationCentralService"
+                                 ]
+                             })
+                     }}
+
+        payload = {"value": json.dumps(json_data)}
+        response = self.read(data=payload, method="POST")
+        if response.get("value"):
+            result = json.loads(response.get("value"))
+        else:
+            raise Exception("Error while enabling Foundation Central")
         return result.get(".return")
 
     def list(self, **kwargs):

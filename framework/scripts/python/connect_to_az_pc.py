@@ -1,7 +1,8 @@
-from helpers.log_utils import get_logger
-from scripts.python.helpers.state_monitor.pc_task_monitor import PcTaskMonitor
-from scripts.python.helpers.v3.cloud_trust import CloudTrust
-from scripts.python.script import Script
+from typing import Dict
+from framework.helpers.log_utils import get_logger
+from .helpers.state_monitor.pc_task_monitor import PcTaskMonitor
+from .helpers.v3.cloud_trust import CloudTrust
+from .script import Script
 
 logger = get_logger(__name__)
 
@@ -11,7 +12,7 @@ class ConnectToAz(Script):
     Class that connects to AZs
     """
 
-    def __init__(self, data: dict, **kwargs):
+    def __init__(self, data: Dict, **kwargs):
         self.task_uuid_list = []
         self.data = data
         self.pc_session = self.data["pc_session"]

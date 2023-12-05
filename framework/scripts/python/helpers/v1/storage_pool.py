@@ -1,6 +1,6 @@
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.pe_entity_v1 import PeEntityV1
-from helpers.log_utils import get_logger
+from framework.helpers.rest_utils import RestAPIUtil
+from ..pe_entity_v1 import PeEntityV1
+from framework.helpers.log_utils import get_logger
 
 logger = get_logger(__name__)
 

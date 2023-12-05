@@ -1,7 +1,7 @@
 from typing import List
 
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.pc_entity import PcEntity
+from framework.helpers.rest_utils import RestAPIUtil
+from ..pc_entity import PcEntity
 
 
 class Category(PcEntity):
@@ -17,7 +17,7 @@ class Category(PcEntity):
     #     """
     #     self.batch_values_add(name, values)
 
-    def get_values(self, name: str):
+    def get_values(self, name: str) -> List:
         """
         Get the values of the category.
         Args:
@@ -34,7 +34,7 @@ class Category(PcEntity):
         values = self.list(use_base_url=True, endpoint=endpoint)
         return values
 
-    def categories_with_values(self):
+    def categories_with_values(self) -> List:
         category_entity_list = self.list()
         for category in category_entity_list:
             category["values"] = [value.get("value")

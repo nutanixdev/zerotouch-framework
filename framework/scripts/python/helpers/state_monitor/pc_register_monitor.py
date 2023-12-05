@@ -1,7 +1,8 @@
-from helpers.log_utils import get_logger
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.state_monitor.state_monitor import StateMonitor
-from scripts.python.helpers.v3.cluster import Cluster as PcCluster
+from typing import List
+from framework.helpers.log_utils import get_logger
+from framework.helpers.rest_utils import RestAPIUtil
+from .state_monitor import StateMonitor
+from ..v3.cluster import Cluster as PcCluster
 
 logger = get_logger(__name__)
 
@@ -11,7 +12,7 @@ class PcRegisterMonitor(StateMonitor):
     The class to wait for blueprint launch status to come in expected state
     """
     DEFAULT_CHECK_INTERVAL_IN_SEC = 30
-    DEFAULT_TIMEOUT_IN_SEC = 10 * 60
+    DEFAULT_TIMEOUT_IN_SEC = 5 * 60
 
     def __init__(self, session: RestAPIUtil, **kwargs):
         """
@@ -24,7 +25,7 @@ class PcRegisterMonitor(StateMonitor):
         self.session = session
         self._pe_uuids = kwargs.get('pe_uuids')
 
-    def check_status(self):
+    def check_status(self) -> (List, bool):
         """
         Check whether newly registered PE's show up in PC
 

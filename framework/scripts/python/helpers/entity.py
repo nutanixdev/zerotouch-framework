@@ -2,9 +2,9 @@ import copy
 from base64 import b64encode
 from typing import Union, List, Dict
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
-from helpers.rest_utils import RestAPIUtil
-from helpers.general_utils import intersection
-from helpers.log_utils import get_logger
+from framework.helpers.rest_utils import RestAPIUtil
+from framework.helpers.general_utils import intersection
+from framework.helpers.log_utils import get_logger
 
 logger = get_logger(__name__)
 
@@ -37,7 +37,7 @@ class Entity:
         data=None,
         endpoint=None,
         query=None,
-        timeout=30,
+        timeout=None,
     ):
         uri = self.resource + "/{0}".format(uuid) if uuid else self.resource
         if endpoint:
@@ -46,9 +46,15 @@ class Entity:
             uri = self._build_url_with_query(uri, query)
 
         if method == "GET":
-            resp = self.session.get(uri, timeout=timeout)
+            if timeout:
+                resp = self.session.get(uri, timeout=timeout)
+            else:
+                resp = self.session.get(uri)
         elif method == "POST":
-            resp = self.session.post(uri, data=data, timeout=timeout)
+            if timeout:
+                resp = self.session.post(uri, data=data, timeout=timeout)
+            else:
+                resp = self.session.post(uri, data=data)
         else:
             raise "Invalid method"
 
@@ -62,33 +68,50 @@ class Entity:
         endpoint=None,
         query=None,
         jsonify=True,
-        timeout=30
+        timeout=None
     ):
         uri = self.resource + "/{0}".format(endpoint) if endpoint else self.resource
         if query:
             uri = self._build_url_with_query(uri, query)
-        return self.session.post(
-            uri,
-            data=data,
-            jsonify=jsonify,
-            timeout=timeout
-        )
+        if timeout:
+            resp = self.session.post(
+                uri,
+                data=data,
+                jsonify=jsonify,
+                timeout=timeout
+            )
+        else:
+            resp = self.session.post(
+                uri,
+                data=data,
+                jsonify=jsonify
+            )
+
+        return resp
 
     def update(
         self,
         data=None,
         endpoint=None,
         query=None,
-        timeout=30
+        timeout=None
     ):
         uri = self.resource + "/{0}".format(endpoint) if endpoint else self.resource
         if query:
             uri = self._build_url_with_query(uri, query)
-        return self.session.put(
-            uri,
-            data=data,
-            timeout=timeout
-        )
+        if timeout:
+            resp = self.session.put(
+                uri,
+                data=data,
+                timeout=timeout
+            )
+        else:
+            resp = self.session.put(
+                uri,
+                data=data
+            )
+
+        return resp
 
     def list(
         self,
@@ -96,14 +119,17 @@ class Entity:
         use_base_url=False,
         data=None,
         custom_filters=None,
-        timeout=30,
+        timeout=None,
         entity_type=None
     ) -> Union[List, Dict]:
         uri = self.resource if use_base_url else self.resource + "/list"
         if endpoint:
             uri = uri + "/{0}".format(endpoint)
 
-        resp = self.session.post(uri, data=data, timeout=timeout)
+        if timeout:
+            resp = self.session.post(uri, data=data, timeout=timeout)
+        else:
+            resp = self.session.post(uri, data=data)
 
         entity_type = entity_type if entity_type else self.entity_type
         if custom_filters:
@@ -185,9 +211,10 @@ class Entity:
             "data": data,
             "headers": headers,
             "files": {'file': ('blob', open(source, 'rb'), 'application/json')},
-            "timeout": timeout,
             "jsonify": False
         }
+        if timeout:
+            kwargs["timeout"] = timeout
         response = self.session.post(uri=uri, **kwargs)
         return response
 

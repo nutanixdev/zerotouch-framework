@@ -1,6 +1,6 @@
 from typing import Type, List, Callable
-from scripts.python.script import Script
-from helpers.general_utils import run_script
+from framework.scripts.python.script import Script
+from .general_utils import run_script
 from .log_utils import get_logger
 
 logger = get_logger(__name__)

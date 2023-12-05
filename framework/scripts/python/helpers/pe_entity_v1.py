@@ -1,5 +1,5 @@
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.entity import Entity
+from framework.helpers.rest_utils import RestAPIUtil
+from .entity import Entity
 
 
 class PeEntityV1(Entity):

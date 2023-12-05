@@ -1,8 +1,9 @@
 from copy import deepcopy
-from helpers.general_utils import convert_to_secs
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.pc_entity import PcEntity
-from scripts.python.helpers.v3.availabilty_zone import AvailabilityZone
+from typing import Dict, List
+from framework.helpers.general_utils import convert_to_secs
+from framework.helpers.rest_utils import RestAPIUtil
+from ..pc_entity import PcEntity
+from ..v3.availabilty_zone import AvailabilityZone
 
 
 class ProtectionRule(PcEntity):
@@ -20,7 +21,7 @@ class ProtectionRule(PcEntity):
             "schedules": self._build_spec_schedules,
         }
 
-    def get_payload(self, pr_spec: dict, source_pe_clusters: dict, remote_pe_clusters: dict):
+    def get_payload(self, pr_spec: Dict, source_pe_clusters: Dict, remote_pe_clusters: Dict) -> Dict:
         """
         Payload for creating a Protection Rule
         """
@@ -53,26 +54,26 @@ class ProtectionRule(PcEntity):
         )
 
     @staticmethod
-    def _build_spec_name(payload, name):
+    def _build_spec_name(payload: Dict, name: str) -> (Dict, None):
         payload["spec"]["name"] = name
         return payload, None
 
     @staticmethod
-    def _build_spec_desc(payload, desc):
+    def _build_spec_desc(payload: Dict, desc: str) -> (Dict, None):
         payload["spec"]["description"] = desc
         return payload, None
 
     @staticmethod
-    def _build_spec_start_time(payload, start_time):
+    def _build_spec_start_time(payload: Dict, start_time: str) -> (Dict, None):
         payload["spec"]["resources"]["start_time"] = start_time
         return payload, None
 
     @staticmethod
-    def _build_spec_protected_categories(payload, categories):
+    def _build_spec_protected_categories(payload: Dict, categories: List) -> (Dict, None):
         payload["spec"]["resources"]["category_filter"]["params"] = categories
         return payload, None
 
-    def _build_spec_schedules(self, payload, schedules):
+    def _build_spec_schedules(self, payload: Dict, schedules: List) -> (Dict, None):
         ordered_az_list = []
         az_connectivity_list = []
 

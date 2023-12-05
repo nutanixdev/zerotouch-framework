@@ -1,9 +1,0 @@
-pip==23.0
-pip-tools==6.12.2
-pytest==6.2.4
-pytest-cov==2.12.1
-requests_mock==1.9.3
-flake8==3.9.2
-paramiko==3.1.0
--r common.in
--r calm.in

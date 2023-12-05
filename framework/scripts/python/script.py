@@ -1,6 +1,6 @@
 import threading
 from abc import abstractmethod, ABC
-from helpers.log_utils import get_logger
+from framework.helpers.log_utils import get_logger
 
 logger = get_logger(__name__)
 
@@ -20,6 +20,7 @@ class Script(ABC):
             current_thread_name = current_thread.name.split("-")[-1]
             current_thread.name = f"Thread-{current_thread_name}-{type(self).__name__}"
 
+        logger.info(f"Calling the script '{type(self).__name__}'...")
         self.execute(**kwargs)
         self.logger.info(f"Running Verification for the script '{type(self).__name__}'...")
         try:
@@ -32,6 +33,7 @@ class Script(ABC):
             for exception in self.exceptions:
                 self.logger.error(f"{self.name}: {exception}")
 
+        self.logger.info(self.results)
         return self.results
 
     @abstractmethod

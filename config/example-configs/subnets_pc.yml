@@ -1,0 +1,49 @@
+pc_ip: valid-pc-ip
+pc_username: pc-user
+pc_password: pc-password
+
+pe_networks: &pe_networks
+  name: "vlan-110"
+  subnet_type: VLAN # only VLAN is supported yet
+  vlan_id: 110
+  network_ip: valid-ip
+  network_prefix: 24
+  default_gateway_ip: valid-ip
+  # virtual_switch: "vs0" # Optional. If not specified, the first virtual switch will be used
+  # comment pool_list section if there are no pools for the subnet
+  pool_list:
+    - range: "valid-ip-start valid-ip-end" # Eg "10.10.10.31 10.10.10.40"
+  #  comment dhcp_options section if you don't want dhcp. Over-riding dhcp is not supported yet
+  dhcp_options:
+    domain_name_server_list: [ 10.10.10.10 ]
+    domain_search_list: [ eng.company.com ]
+    domain_name: eng.company.com
+
+clusters:
+  # configure the below clusters in the site
+  valid-cluster-01-ip:
+    # Use global pe creds for authentication
+    <<: *pe_creds
+    networks:
+      # Use global network config
+      - <<: *pe_networks
+  valid-cluster-02-ip:
+    # can define locally as well
+    pe_username: pe-user
+    pe_password: pe-password
+    # can define locally as well
+    networks:
+      - name: "vlan-110"
+        subnet_type: VLAN # only VLAN is supported yet
+        vlan_id: 110
+        network_ip: valid-ip
+        network_prefix: 24
+        default_gateway_ip: valid-ip
+        # comment pool_list section if there are no pools for the subnet
+        pool_list:
+          - range: "valid-ip-start valid-ip-end" # Eg "10.10.10.31 10.10.10.40"
+        #  comment dhcp_options section if you don't want dhcp. Over-riding dhcp is not supported yet
+        dhcp_options:
+          domain_name_server_list: [ 10.10.10.10 ]
+          domain_search_list: [ eng.company.com ]
+          domain_name: eng.company.com

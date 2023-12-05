@@ -1,9 +1,10 @@
-from helpers.log_utils import get_logger
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.state_monitor.pc_task_monitor import PcTaskMonitor
-from scripts.python.helpers.v3.cluster import Cluster as PcCluster
-from scripts.python.helpers.v3.protection_rule import ProtectionRule
-from scripts.python.script import Script
+from typing import Dict
+from framework.helpers.log_utils import get_logger
+from framework.helpers.rest_utils import RestAPIUtil
+from .helpers.state_monitor.pc_task_monitor import PcTaskMonitor
+from .helpers.v3.cluster import Cluster as PcCluster
+from .helpers.v3.protection_rule import ProtectionRule
+from .script import Script
 
 logger = get_logger(__name__)
 
@@ -13,7 +14,7 @@ class CreateProtectionPolicy(Script):
     Class that creates PP
     """
 
-    def __init__(self, data: dict, **kwargs):
+    def __init__(self, data: Dict, **kwargs):
         self.task_uuid_list = None
         self.data = data
         self.pc_session = self.data["pc_session"]

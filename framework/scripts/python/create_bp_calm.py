@@ -1,20 +1,19 @@
 from pathlib import Path
-from typing import Union
-
+from typing import Union, Dict
 from calm.dsl.api import get_api_client
 from calm.dsl.builtins import SimpleBlueprint, Ref, VmBlueprint, create_blueprint_payload, get_dsl_metadata_map
 from calm.dsl.builtins.models.metadata_payload import get_metadata_payload
 from calm.dsl.cli import create_app
 from calm.dsl.cli.bps import get_blueprint_module_from_file, get_blueprint_class_from_module, create_blueprint
 from calm.dsl.config import get_context
-from helpers.log_utils import get_logger
-from scripts.python.script import Script
+from framework.helpers.log_utils import get_logger
+from .script import Script
 
 logger = get_logger(__name__)
 
 
 class CreateBp(Script):
-    def __init__(self, data: dict, **kwargs):
+    def __init__(self, data: Dict, **kwargs):
         self.data = data
         super(CreateBp, self).__init__(**kwargs)
         self.logger = self.logger or logger
@@ -89,7 +88,7 @@ class CreateBp(Script):
                 try:
                     client = get_api_client()
 
-                    payload = getattr(create_app, "bp_payload")
+                    # payload = getattr(create_app, "bp_payload")
                     bp_payload = self.compile_blueprint(bp_file=bp_file, project_name=self.data.get("project_name"))
                     if bp_payload is None:
                         err_msg = "User blueprint not found in {}".format(bp_file)

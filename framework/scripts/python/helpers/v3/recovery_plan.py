@@ -1,9 +1,9 @@
 from copy import deepcopy
-from typing import List
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.pc_entity import PcEntity
-from scripts.python.helpers.v3.availabilty_zone import AvailabilityZone
-from scripts.python.helpers.v3.vm import VM
+from typing import List, Dict
+from framework.helpers.rest_utils import RestAPIUtil
+from ..pc_entity import PcEntity
+from ..v3.availabilty_zone import AvailabilityZone
+from ..v3.vm import VM
 
 
 class RecoveryPlan(PcEntity):
@@ -24,7 +24,7 @@ class RecoveryPlan(PcEntity):
             "floating_ip_assignments": self._build_spec_floating_ip_assignments,
         }
 
-    def get_payload(self, rp_spec: dict, source_pe_clusters: dict):
+    def get_payload(self, rp_spec: Dict, source_pe_clusters: Dict) -> Dict:
         """
         Payload for creating a Recovery plan
         """
@@ -57,16 +57,16 @@ class RecoveryPlan(PcEntity):
         )
 
     @staticmethod
-    def _build_spec_name(payload, name):
+    def _build_spec_name(payload: Dict, name: str) -> (Dict, None):
         payload["spec"]["name"] = name
         return payload, None
 
     @staticmethod
-    def _build_spec_desc(payload, desc):
+    def _build_spec_desc(payload: Dict, desc: str) -> (Dict, None):
         payload["spec"]["description"] = desc
         return payload, None
 
-    def _build_spec_stages(self, payload, stages):
+    def _build_spec_stages(self, payload: Dict, stages: List) -> (Dict, None):
         stage_list = []
         for stage in stages:
             stage_spec = {
@@ -105,7 +105,7 @@ class RecoveryPlan(PcEntity):
         payload["spec"]["resources"]["stage_list"] = stage_list
         return payload, None
 
-    def _build_network_mapping_spec(self, config, network_type, are_network_stretched=False):
+    def _build_network_mapping_spec(self, config: Dict, network_type: str, are_network_stretched=False) -> Dict:
         ntw_spec = {}
         custom_ip_specs = []
 
@@ -114,7 +114,7 @@ class RecoveryPlan(PcEntity):
             for ip_config in config["custom_ip_config"]:
                 vm_ref, err = self.get_vm_reference_spec(ip_config["vm"])
                 if err:
-                    return None, err
+                    raise err
                 custom_ip_spec = {
                     "vm_reference": vm_ref,
                     "ip_config_list": [{"ip_address": ip_config["ip"]}],
@@ -153,7 +153,7 @@ class RecoveryPlan(PcEntity):
 
         return ntw_spec
 
-    def _build_spec_network_mappings(self, payload: dict, network_mappings: List):
+    def _build_spec_network_mappings(self, payload: Dict, network_mappings: List) -> (Dict, None):
 
         # set flag to apply these settings to all network mappings
         are_network_stretched = False
@@ -239,7 +239,7 @@ class RecoveryPlan(PcEntity):
         ] = network_mapping_specs
         return payload, None
 
-    def _build_spec_primary_location(self, payload, primary_location):
+    def _build_spec_primary_location(self, payload: Dict, primary_location: Dict) -> (Dict, None):
         primary_location_index = payload["spec"]["resources"]["parameters"][
             "primary_location_index"
         ]
@@ -290,7 +290,7 @@ class RecoveryPlan(PcEntity):
         ] = spec
         return payload, None
 
-    def _build_spec_floating_ip_assignments(self, payload, floating_ip_assignments):
+    def _build_spec_floating_ip_assignments(self, payload: Dict, floating_ip_assignments: List) -> (Dict, None):
         floating_ip_assignment_specs = []
         for config in floating_ip_assignments:
             floating_ip_assignment_spec = {"availability_zone_url": config[
@@ -347,7 +347,7 @@ class RecoveryPlan(PcEntity):
         ] = floating_ip_assignment_specs
         return payload, None
 
-    def get_vm_reference_spec(self, vm_config: dict):
+    def get_vm_reference_spec(self, vm_config: Dict) -> (Dict, None):
         uuid = vm_config.get("uuid", "")
         name = vm_config.get("name", "")
         if ("name" not in vm_config) and ("uuid" not in vm_config):

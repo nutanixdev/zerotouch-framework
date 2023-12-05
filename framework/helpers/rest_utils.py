@@ -7,9 +7,22 @@ from requests.packages.urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 from requests.auth import HTTPBasicAuth
 from typing import Optional
-from helpers.exception_utils import RestError, ResponseError
+from .exception_utils import RestError, ResponseError
 
 logger = get_logger(__name__)
+pool_maxsize = 20
+pool_connections = 20
+pool_block = True
+
+
+class TimeoutHTTPAdapter(HTTPAdapter):
+    def __init__(self, *args, **kwargs):
+        super(TimeoutHTTPAdapter, self).__init__(*args, **kwargs)
+
+    def send(self, request, **kwargs):
+        if not kwargs.get("timeout"):
+            kwargs["timeout"] = (3, 150)
+        return super().send(request, **kwargs)
 
 
 def rest_api_call(func):
@@ -23,6 +36,7 @@ def rest_api_call(func):
     """
 
     def make_call(*args, **kwargs):
+        r = None
         try:
             r = func(*args, **kwargs)
             if r.headers.get('Content-Type') == 'application/json':
@@ -39,9 +53,22 @@ def rest_api_call(func):
             logger.debug(response)
             r.raise_for_status()
         except HTTPError as errh:
-            if str(errh.response.status_code).startswith("5") or str(errh.response.status_code).startswith("4"):
-                logger.error(response)
-            raise RestError(message=str(errh), error="HTTPError")
+            status_code = r.status_code if hasattr(r, "status_code") else 500
+
+            if status_code == "401":
+                err_msg = "Unauthorized. Please check your credentials."
+            elif hasattr(r, "json") and callable(getattr(r, "json")):
+                try:
+                    err_msg = r.json()
+                except Exception:
+                    err_msg = errh
+            elif hasattr(r, "text"):
+                err_msg = r.text
+            else:
+                err_msg = errh
+
+            logger.error(err_msg)
+            raise RestError(message=str(err_msg), error="HTTPError")
         except ConnectionError as errc:
             raise RestError(message=str(errc), error="ConnectionError")
         except Timeout as errt:
@@ -79,7 +106,7 @@ class RestAPIUtil:
         # Define the retry strategy
         retry_strategy = Retry(
             total=3,  # Maximum number of retries (including the initial request)
-            backoff_factor=30,  # Backoff factor between retries, keeping it to 30 seconds
+            backoff_factor=1.5,  # Backoff factor between retries, keeping it to 1.5 seconds
             status_forcelist=[429, 500, 502, 503, 504],  # HTTP status codes to retry
             method_whitelist=[
                     "GET",
@@ -91,8 +118,12 @@ class RestAPIUtil:
 
         # Create an HTTP adapter with the retry strategy
         # TODO: add pool connections, pool_maxsize to HTTP ADAPTER
-        http_adapter = HTTPAdapter(
+        http_adapter = TimeoutHTTPAdapter(
+                # timeout=(3, 150),
                 max_retries=retry_strategy,
+                pool_block=pool_block,
+                pool_connections=pool_connections,
+                pool_maxsize=pool_maxsize,
             )
         # Mount the HTTP adapter to the session
         self.__session.mount("http://", http_adapter)
@@ -109,7 +140,6 @@ class RestAPIUtil:
         logger.debug("POST request for the URL: " + url)
         data = json.dumps(data) if jsonify else data
 
-        logger.debug("Data")
         logger.debug(data)
         response = self.__session.post(url, headers=headers, data=data, verify=False, **kwargs)
         return response
@@ -123,8 +153,9 @@ class RestAPIUtil:
         logger.debug("PUT request for the URL: " + url)
         data = json.dumps(data) if jsonify else data
 
+        if data:
+            logger.debug(data)
         response = self.__session.put(url, headers=headers, data=data, verify=False, **kwargs)
-        response.raise_for_status()
         return response
 
     @rest_api_call
@@ -136,10 +167,10 @@ class RestAPIUtil:
 
         logger.debug("GET request for the URL: " + url)
         if data:
+            logger.debug(data)
             response = self.__session.get(url, headers=headers, data=json.dumps(data), verify=False, **kwargs)
         else:
             response = self.__session.get(url, headers=headers, verify=False, **kwargs)
-        response.raise_for_status()
         return response
 
     def prepare_url(self, uri):

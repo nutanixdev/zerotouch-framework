@@ -1,0 +1,13 @@
+pc_ip: valid-pc-ip
+pc_username: pc-user
+pc_password: pc-password
+
+categories:
+  # Scenario 1, add values to an existing category
+  - name: AppType # name of existing category
+    description: "AppType CalmAppliance"
+    values: [ "CalmAppliance" ]
+  # Scenario 2, create a new category with values
+  - name: AZ01-DR-01
+    description: "AZ01-DR-01 RPO1h"
+    values: [ "RPO1h" ]

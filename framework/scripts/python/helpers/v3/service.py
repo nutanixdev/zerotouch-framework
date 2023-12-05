@@ -1,9 +1,13 @@
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.pc_entity import PcEntity
+from framework.helpers.rest_utils import RestAPIUtil
+from ..pc_entity import PcEntity
 
 
 class Service(PcEntity):
     kind = "service"
+
+    ENABLED = "ENABLED"
+    ENABLING = "ENABLING"
+    DISABLED = "DISABLED"
 
     def __init__(self, session: RestAPIUtil):
         self.resource_type = "/services"
@@ -52,6 +56,22 @@ class Service(PcEntity):
         endpoint = f"{name}/status"
         response = self.read(endpoint=endpoint)
         return response.get("service_enablement_status")
+
+    def get_oss_status(self):
+        """
+        Get the service status
+        Returns:
+          str, for example, ENABLED, ENABLING
+        """
+        return self._get_service_status("oss")
+
+    def enable_oss(self):
+        """
+        Enable objects service
+        Returns:
+          {"task_uuid": "9063a53d-e043-4c2c-807b-fd8de3168604"}
+        """
+        return self._enable_service("oss")
 
     def _enable_service(self, name: str):
         """

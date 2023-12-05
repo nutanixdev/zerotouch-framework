@@ -1,6 +1,6 @@
-from typing import List
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.pc_entity import PcEntity
+from typing import List, Dict
+from framework.helpers.rest_utils import RestAPIUtil
+from ..pc_entity import PcEntity
 
 
 class Network(PcEntity):
@@ -14,13 +14,13 @@ class Network(PcEntity):
     def batch_create_network(self, subnet_create_payload_list: List):
         return self.batch_op.batch_create(request_payload_list=subnet_create_payload_list)
 
-    def get_uuid_by_name(self, cluster_name: str, subnet_name: str, **kwargs):
+    def get_uuid_by_name(self, cluster_name: str, subnet_name: str, **kwargs) -> str:
         filter_criteria = f"cluster_name=={cluster_name};name=={subnet_name}"
         kwargs["filter"] = filter_criteria
         return super(Network, self).get_uuid_by_name(subnet_name, **kwargs)
 
     @staticmethod
-    def create_subnet_payload(**kwargs):
+    def create_subnet_payload(**kwargs) -> Dict:
         """
         Create Subnet Payload
         Args:
@@ -48,6 +48,7 @@ class Network(PcEntity):
         subnet_type = kwargs.get("subnet_type", "VLAN")
         vlan_id = kwargs.get("vlan_id", None)
         subnet_ip = kwargs.get("network_ip", None)
+        vs_uuid = kwargs.get("vs_uuid", None)
         vpc_id = kwargs.get("vpc_id", None)
         prefix_length = kwargs.get("network_prefix", None)
         default_gateway_ip = kwargs.get("default_gateway_ip", None)
@@ -76,6 +77,9 @@ class Network(PcEntity):
 
         if vlan_id:
             payload["spec"]["resources"].update({"vlan_id": vlan_id})
+
+        if vs_uuid is not None:
+            payload["spec"]["resources"].update({"virtual_switch_uuid": vs_uuid})
 
         if vpc_id:
             payload["spec"]["resources"].update(
@@ -123,7 +127,7 @@ class Network(PcEntity):
             payload["spec"]["resources"]["ip_config"] = ip_config
         return payload
 
-    def create_pc_subnet_payload(self, **kwargs):
+    def create_pc_subnet_payload(self, **kwargs) -> Dict:
         """
         Build subnet create payload for PC
         Args:

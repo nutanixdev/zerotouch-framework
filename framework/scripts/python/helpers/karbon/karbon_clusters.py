@@ -1,8 +1,9 @@
 from copy import deepcopy
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.karbon.karbon import Karbon
-from scripts.python.helpers.v3.cluster import Cluster
-from scripts.python.helpers.v3.network import Network
+from typing import Dict, List, Optional
+from framework.helpers.rest_utils import RestAPIUtil
+from .karbon import Karbon
+from ..v3.cluster import Cluster
+from ..v3.network import Network
 
 
 class KarbonClusterV1(Karbon):
@@ -22,7 +23,7 @@ class KarbonClusterV1(Karbon):
             "storage_class": self._build_spec_storage_class,
         }
 
-    def get_payload(self, cluster_spec: dict):
+    def get_payload(self, cluster_spec: Dict) -> Dict:
         """
         Payload for creating a karbon cluster
         """
@@ -49,7 +50,7 @@ class KarbonClusterV1(Karbon):
 
         return spec
 
-    def _get_default_spec(self):
+    def _get_default_spec(self) -> Dict:
         return deepcopy(
             {
                 "name": "",
@@ -64,17 +65,17 @@ class KarbonClusterV1(Karbon):
         )
 
     @staticmethod
-    def _build_spec_name(payload, value):
+    def _build_spec_name(payload: Dict, value) -> (Dict, None):
         payload["name"] = value
         return payload, None
 
     @staticmethod
-    def _build_spec_k8s_version(payload, value):
+    def _build_spec_k8s_version(payload: Dict, value) -> (Dict, None):
         payload["version"] = value
         return payload, None
 
     @staticmethod
-    def _build_spec_cni(payload, config):
+    def _build_spec_cni(payload: Dict, config: Dict) -> (Dict, None):
         cni = {
             "node_cidr_mask_size": config["node_cidr_mask_size"],
             "service_ipv4_cidr": config["service_ipv4_cidr"],
@@ -90,7 +91,7 @@ class KarbonClusterV1(Karbon):
         payload["cni_config"] = cni
         return payload, None
 
-    def _build_spec_node_configs(self, payload, config):
+    def _build_spec_node_configs(self, payload: Dict, config: Dict) -> (Dict, None):
         self.type_is_dev = self.cluster_type != "PROD"
         control_plane_virtual_ip = self.control_plane_virtual_ip
         for key, value in config.items():
@@ -118,7 +119,7 @@ class KarbonClusterV1(Karbon):
 
         return payload, None
 
-    def _build_spec_storage_class(self, payload, config):
+    def _build_spec_storage_class(self, payload: Dict, config: Dict) -> (Dict, None):
         storage_class = {
             "default_storage_class": config.get("default_storage_class"),
             "name": config["name"],
@@ -135,7 +136,7 @@ class KarbonClusterV1(Karbon):
         payload["storage_class_config"] = storage_class
         return payload, None
 
-    def _generate_resource_spec(self, config, resource_type):
+    def _generate_resource_spec(self, config: Dict, resource_type: str) -> (Dict, None):
 
         config, err = self.validate_resources(config, resource_type)
         if err:
@@ -164,7 +165,7 @@ class KarbonClusterV1(Karbon):
 
     # todo need to change this
     @staticmethod
-    def validate_resources(resources, resource_type):
+    def validate_resources(resources: Dict, resource_type: str) -> (Optional[Dict], Optional[str]):
         if (
             resource_type == "master"
             and resources.get("num_instances")
@@ -188,5 +189,5 @@ class KarbonCluster(Karbon):
         self.resource_type = "/acs/k8s/cluster/"
         super(KarbonCluster, self).__init__(session=session, resource_type=self.resource_type)
 
-    def list(self, **kwargs):
+    def list(self, **kwargs) -> List:
         return super(KarbonCluster, self).list(data={})

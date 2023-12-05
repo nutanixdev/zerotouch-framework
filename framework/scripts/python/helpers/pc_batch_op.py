@@ -1,12 +1,12 @@
 import copy
 import json
 from typing import List, Optional
-from helpers.log_utils import get_logger
-from helpers.rest_utils import RestAPIUtil
+from framework.helpers.log_utils import get_logger
+from framework.helpers.rest_utils import RestAPIUtil
 
 logger = get_logger(__name__)
 
-BATCH_TIMEOUT = 6 * 60
+BATCH_TIMEOUT = (5, 6 * 60)
 MAX_BATCH_API_CALLS = 60
 
 
@@ -21,14 +21,13 @@ class PcBatchOp:
         "api_request_list": []
     }
 
-    def __init__(self, session: RestAPIUtil, base_url: Optional[str] = None, **kwargs):
+    def __init__(self, session: RestAPIUtil, **kwargs):
         """
         Default Constructor for PcBatchOp class
         Args:
-          cluster (Cluster): Cluster object
-          kwargs:
-            base_url (str): URL_BASE of the Entity
-            kind (str): V3_KIND of the Entity
+          session: PC session object
+          base_url (str): URL_BASE of the Entity
+          kind (str): V3_KIND of the Entity
         """
         self.session = session
         # Batch APIs are failing for "api/nutanix/v3" hence adding an escape character for /v
@@ -152,6 +151,10 @@ def get_task_uuid_list(api_response_list: List):
 
         if api_response.get('status', {}).get('execution_context', {}).get('task_uuid'):
             task_uuid = api_response['status']['execution_context']['task_uuid']
+            task_uuid_list.append(task_uuid)
+        # In some cases only task_uuid is returned in response
+        elif api_response.get('task_uuid', {}):
+            task_uuid = api_response["task_uuid"]
             task_uuid_list.append(task_uuid)
 
     return task_uuid_list

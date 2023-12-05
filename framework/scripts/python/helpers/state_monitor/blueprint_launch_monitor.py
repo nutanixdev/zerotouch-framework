@@ -1,7 +1,8 @@
-from helpers.log_utils import get_logger
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.state_monitor.state_monitor import StateMonitor
-from scripts.python.helpers.v3.blueprint import Blueprint
+from typing import Optional, Dict
+from framework.helpers.log_utils import get_logger
+from framework.helpers.rest_utils import RestAPIUtil
+from .state_monitor import StateMonitor
+from ..v3.blueprint import Blueprint
 
 logger = get_logger(__name__)
 
@@ -28,7 +29,7 @@ class BlueprintLaunchMonitor(StateMonitor):
         self.blueprint_uuid = kwargs.get('blueprint_uuid')
         self.request_id = kwargs.get('request_id')
 
-    def check_status(self):
+    def check_status(self) -> (Optional[Dict], bool):
         """
         Checks the state of blueprint launch if expected state or not
         Returns:

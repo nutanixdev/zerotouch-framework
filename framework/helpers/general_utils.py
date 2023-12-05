@@ -3,14 +3,48 @@ import re
 import os
 import cerberus
 import yaml
-from typing import List, Type, Iterable, Any
+import glob
+from datetime import datetime
+from typing import List, Type, Iterable, Any, IO, Dict
 from distutils.file_util import copy_file
-from scripts.python.script import Script
+from framework.scripts.python.script import Script
 from functools import wraps
 from .log_utils import get_logger
 from .exception_utils import JsonError, YamlError
 
 logger = get_logger(__name__)
+
+
+class Loader(yaml.SafeLoader):
+    """YAML Loader with `!include` constructor."""
+
+    def __init__(self, stream: IO) -> None:
+        """Initialise Loader."""
+
+        try:
+            self._root = os.path.split(stream.name)[0]
+        except AttributeError:
+            self._root = os.path.curdir
+
+        super().__init__(stream)
+
+
+def construct_include(loader: Loader, node: yaml.Node) -> Any:
+    """Include file referenced at node."""
+
+    filename = os.path.abspath(os.path.join(loader._root, loader.construct_scalar(node)))
+    extension = os.path.splitext(filename)[1].lstrip('.')
+
+    with open(filename, 'r') as f:
+        if extension in ('yaml', 'yml'):
+            return yaml.load(f, Loader)
+        elif extension in ('json', ):
+            return json.load(f)
+        else:
+            return ''.join(f.readlines())
+
+
+yaml.add_constructor('!include', construct_include, Loader)
 
 
 def get_json_file_contents(file: str) -> dict:
@@ -32,7 +66,7 @@ def get_yml_file_contents(file: str) -> dict:
     logger.info(f"Reading contents of the file: [{file}]")
     with open(file, 'r') as f:
         try:
-            return yaml.safe_load(f)
+            return yaml.load(f, Loader=Loader)
         except Exception as e:
             raise YamlError(str(e))
 
@@ -143,16 +177,15 @@ def copy_file_util(src_path: str, dst_path: str):
         logger.error("An error occurred while copying the file.")
         raise e
     else:
-        logger.info("File copied successfully!")
+        logger.info(f"File '{dst_path}' copied successfully!")
 
 
-def run_script(scripts: List[Type[Script]], data: dict):
+def run_script(scripts: List[Type[Script]], data: Dict):
     """
     Provided list of "scripts", this function runs individual script using "run" and then runs "verify"
     """
     for script in scripts:
-        logger.info(f"Calling the script '{script.__name__}'...")
-        script_obj = script(data)
+        script_obj = script(data=data)
         try:
             script_obj.run()
         except Exception as e:
@@ -184,8 +217,8 @@ def enforce_data_arg(func):
     """
 
     @wraps(func)
-    def wrapper(data):
-        return func(data)
+    def wrapper(data, **kwargs):
+        return func(data, **kwargs)
 
     return wrapper
 
@@ -218,3 +251,51 @@ def divide_chunks(iterable_to_divide: Iterable[Any], chunk_size: int):
     """
     for i in range(0, len(iterable_to_divide), chunk_size):
         yield iterable_to_divide[i:i + chunk_size]
+
+
+def create_log_dir_push_logs(dir_to_create: str, data: Dict):
+    timestamp = datetime.utcnow().strftime("%Y-%m-%d-%H_%M_%S")
+
+    # as we are using mkdir -p, this will create the branch directory, along with logs directory as well
+    logs_directory = os.path.join(dir_to_create, "logs")
+    create_new_directory(logs_directory)
+
+    # push logs to the branch
+    source = data['project_root']
+    log_files = glob.glob(os.path.join(source, "*.log"))
+    html_files = glob.glob(os.path.join(source, "*.html"))
+
+    for log_file in log_files:
+        _, log_file_name = os.path.split(log_file)
+        destination = os.path.join(logs_directory, f"{timestamp}_{log_file_name}")
+        try:
+            copy_file_util(log_file, destination)
+        except Exception as e:
+            raise Exception(e)
+        finally:
+            delete_file_util(log_file)
+
+    for html_file in html_files:
+        _, html_file_name = os.path.split(html_file)
+        destination = os.path.join(logs_directory, f"{timestamp}_{html_file_name}")
+        try:
+            copy_file_util(html_file, destination)
+        except Exception as e:
+            raise Exception(e)
+        finally:
+            delete_file_util(html_file)
+
+    config_directory = os.path.join(dir_to_create, "configs")
+    create_new_directory(config_directory)
+
+    # push input configs to the branch
+    files = data["input_files"]
+
+    for file in files:
+        _, file_name = os.path.split(file)
+        destination = os.path.join(config_directory, f"{timestamp}_{file_name}")
+        try:
+            if os.path.exists(file):
+                copy_file_util(file, destination)
+        except Exception as e:
+            raise Exception(e)

@@ -1,20 +1,22 @@
-import glob
 import os
 import pathlib
 import sys
-from datetime import datetime
-from helpers.general_utils import validate_schema, get_json_file_contents, create_new_directory, \
-    copy_file_util, enforce_data_arg, get_yml_file_contents, delete_file_util
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.v2.cluster import Cluster as PeCluster
-from helpers.log_utils import get_logger
+from typing import Optional, Dict
+from .general_utils import validate_schema, get_json_file_contents, copy_file_util, enforce_data_arg, \
+    get_yml_file_contents, delete_file_util, create_log_dir_push_logs
+from .rest_utils import RestAPIUtil
+from framework.scripts.python.helpers.v2.cluster import Cluster as PeCluster
+from .log_utils import get_logger
+from json2table import convert
 
 logger = get_logger(__name__)
 
-LOGS_DIRECTORY = "workflow_runs"
+RUNS = "runs"
+WORKFLOW_RUNS_DIRECTORY = "workflow-runs"
+SCRIPT_RUNS_DIRECTORY = "script-runs"
 FRAMEWORK_DIRECTORY = "framework"
 GLOBAL_CONFIG_NAME = "global.json"
-SITES_CONFIG_DIRECTORY = "config"
+CONFIG_DIRECTORY = "config"
 
 """
 These are the functions that are part of pre_run_actions and post_run_actions in main.py
@@ -66,7 +68,7 @@ def get_input_data(data: dict) -> None:
     Read data from input file and global.json
     """
     try:
-        global_config_file = f"{data['project_root']}/{SITES_CONFIG_DIRECTORY}/{GLOBAL_CONFIG_NAME}"
+        global_config_file = f"{data['project_root']}/{CONFIG_DIRECTORY}/{GLOBAL_CONFIG_NAME}"
         data.update(get_json_file_contents(global_config_file))
         files = data["input_files"]
 
@@ -93,8 +95,7 @@ def validate_input_data(data: dict):
     valid_input = validate_schema(schema, data)
 
     if not valid_input:
-        logger.error("The entered input parameters is/are invalid. Please check the errors and try again!")
-        sys.exit(1)
+        raise Exception("The entered input parameters is/are invalid. Please check the errors and try again!")
 
 
 @enforce_data_arg
@@ -133,7 +134,7 @@ def get_hypervisor_url_mapping(data: dict) -> None:
 @enforce_data_arg
 def save_pod_logs(data: dict):
     """
-    Create a new directory and save logs
+    Create a new directory and save logs for pod runs
     """
     if not data.get("pod", {}).get("pod_name"):
         raise Exception("Pod name is not specified!")
@@ -142,84 +143,40 @@ def save_pod_logs(data: dict):
 
     logger.info("Pushing pod logs...")
     # create a new directory
-    timestamp = datetime.utcnow().strftime("%Y-%m-%d-%H_%M_%S")
-
-    new_log_directory = os.path.join(data['project_root'], "pod-runs", pod_name)
-
-    # as we are using mkdir -p, this will create the branch directory, along with logs directory as well
-    logs_directory = os.path.join(new_log_directory, "logs")
-    create_new_directory(logs_directory)
-
-    # push logs to the branch
-    source = os.path.join(data['project_root'], FRAMEWORK_DIRECTORY)
-    log_files = glob.glob(os.path.join(source, "*.log"))
-
-    for log_file in log_files:
-        _, log_file_name = os.path.split(log_file)
-        destination = os.path.join(logs_directory, f"{timestamp}_{log_file_name}")
-        try:
-            copy_file_util(log_file, destination)
-        except Exception as e:
-            raise Exception(e)
-        finally:
-            delete_file_util(log_file)
-
-    config_directory = os.path.join(new_log_directory, "configs")
-    create_new_directory(config_directory)
-
-    # push input configs to the branch
-    files = data["input_files"]
-
-    for file in files:
-        _, file_name = os.path.split(file)
-        destination = os.path.join(config_directory, f"{timestamp}_{file_name}")
-        copy_file_util(file, destination)
+    new_log_directory = os.path.join(data['project_root'], RUNS, "pod-runs", pod_name)
+    create_log_dir_push_logs(new_log_directory, data)
 
 
 @enforce_data_arg
 def save_logs(data: dict):
     """
-    Create a new directory and save logs
+    Create a new directory and save logs for workflow and script runs
     """
     logger.info("Pushing logs...")
-    # create a new site directory
-    timestamp = datetime.utcnow().strftime("%Y-%m-%d-%H_%M_%S")
-
-    new_log_directory = os.path.join(data['project_root'], LOGS_DIRECTORY)
+    # create a new directory for logs
     if data.get('workflow_type'):
-        new_log_directory = os.path.join(new_log_directory, data["workflow_type"])
-
-    # as we are using mkdir -p, this will create the branch directory, along with logs directory as well
-    logs_directory = os.path.join(new_log_directory, "logs")
-    create_new_directory(logs_directory)
-
-    # push logs to the branch
-    source = f"{data['project_root']}/{FRAMEWORK_DIRECTORY}"
-    log_files = glob.glob(os.path.join(source, "*.log"))
-
-    for log_file in log_files:
-        _, log_file_name = os.path.split(log_file)
-        destination = os.path.join(logs_directory, f"{timestamp}_{log_file_name}")
-        copy_file_util(log_file, destination)
-        delete_file_util(log_file)
-
-    config_directory = os.path.join(new_log_directory, "configs")
-    create_new_directory(config_directory)
-
-    # push input configs to the branch
-    files = data["input_files"]
-
-    for file in files:
-        _, file_name = os.path.split(file)
-        destination = os.path.join(config_directory, f"{timestamp}_{file_name}")
-        copy_file_util(file, destination)
+        new_log_directory = os.path.join(data['project_root'], RUNS, WORKFLOW_RUNS_DIRECTORY)
+    else:
+        new_log_directory = os.path.join(data['project_root'], SCRIPT_RUNS_DIRECTORY)
+    create_log_dir_push_logs(new_log_directory, data)
 
 
+@enforce_data_arg
+def generate_html_from_json(data):
+    if data.get("json_output"):
+        build_direction = "LEFT_TO_RIGHT"
+        table_attributes = {"style": "width:100%", "class": "table table-striped", "border": "1", "cellspacing": "0"}
+        html = convert(data["json_output"], build_direction=build_direction, table_attributes=table_attributes)
+        with open("results.html", "w") as f:
+            f.write(html)
+
+
+@enforce_data_arg
 def replace_config_files(data: dict):
     """
     Replace modified config files
     """
-    example_configs_dir = os.path.join(data['project_root'], SITES_CONFIG_DIRECTORY, "example-configs")
+    example_configs_dir = os.path.join(data['project_root'], CONFIG_DIRECTORY, "example-configs")
     # replace input configs with example configs
     files = data["input_files"]
 
@@ -227,14 +184,13 @@ def replace_config_files(data: dict):
         _, file_name = os.path.split(file)
         source = os.path.join(example_configs_dir, file_name)
         if os.path.exists(source):
-            destination = os.path.join(data['project_root'], SITES_CONFIG_DIRECTORY, file_name)
+            destination = os.path.join(data['project_root'], CONFIG_DIRECTORY, file_name)
             copy_file_util(source, destination)
-        else:
             delete_file_util(file)
 
 
 @enforce_data_arg
-def create_pc_objects(data: dict):
+def create_pc_objects(data: dict, global_data: Optional[Dict] = None):
     """
     This function will create necessary Pc object that can be used by the scripts
     This script does the below actions:
@@ -256,15 +212,20 @@ def create_pc_objects(data: dict):
         'pc_ip': '10.1.1.1',
         'pc_username': 'admin',
         'pc_password': 'nutanix/4u',
-        'pc_session': <helpers.rest_utils.RestAPIUtil object at 0x1092a9570>
+        'pc_session': <framework.helpers.rest_utils.RestAPIUtil object at 0x1092a9570>
     }
     """
 
+    global_data = global_data if global_data else {}
     # If Pc details are passed, create PC session
-    if data.get("pc_ip") and data.get("pc_username") and data.get("pc_password"):
-        data["pc_session"] = RestAPIUtil(data["pc_ip"], user=data["pc_username"],
-                                         pwd=data["pc_password"],
-                                         port="9440", secured=True)
+    if data.get("pc_ip") and \
+        (data.get("pc_username") or global_data.get("pc_username")) and \
+        (data.get("pc_password") or global_data.get("pc_password")):
+        data["pc_session"] = RestAPIUtil(data["pc_ip"],
+                                         user=data.get("pc_username") or global_data.get("pc_username"),
+                                         pwd=data.get("pc_password") or global_data.get("pc_password"),
+                                         port="9440",
+                                         secured=True)
 
 
 @enforce_data_arg
@@ -299,7 +260,7 @@ def create_pe_objects(data: dict):
             '10.1.1.110': {
                 'dsip': '',
                 'cluster_info': {'name': 'cluster-01'},
-                'pe_session': <helpers.rest_utils.RestAPIUtil object at 0x1092a99f0>
+                'pe_session': <framework.helpers.rest_utils.RestAPIUtil object at 0x1092a99f0>
             }
         }
     }
@@ -334,16 +295,16 @@ def create_pe_objects(data: dict):
 
         # Create PE session with cluster_ip
         pe_session = RestAPIUtil(cluster_ip, user=pe_username, pwd=pe_password, port="9440", secured=True)
-        cluster_op = PeCluster(pe_session)
-        try:
-            cluster_op.get_cluster_info()
-            # Add cluster info by default
-            cluster_info.update(cluster_op.cluster_info)
-        except Exception as e:
-            logger.warning("Unable to connect to PE")
-
-        if not cluster_op.cluster_info:
-            logger.warning(f"Couldn't fetch Cluster information for the cluster {cluster_ip}")
+        # cluster_op = PeCluster(pe_session)
+        # try:
+        #     cluster_op.get_cluster_info()
+        #     # Add cluster info by default
+        #     cluster_info.update(cluster_op.cluster_info)
+        # except Exception:
+        #     logger.warning("Unable to connect to PE")
+        #
+        # if not cluster_op.cluster_info:
+        #     logger.warning(f"Couldn't fetch Cluster information for the cluster {cluster_ip}")
 
         # Add cluster details
         clusters_map[cluster_ip] = cluster_details

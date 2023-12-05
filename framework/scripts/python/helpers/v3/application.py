@@ -1,5 +1,5 @@
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.pc_entity import PcEntity
+from framework.helpers.rest_utils import RestAPIUtil
+from ..pc_entity import PcEntity
 
 
 class Application(PcEntity):

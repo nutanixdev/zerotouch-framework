@@ -1,8 +1,8 @@
 import time
-
-from helpers.log_utils import get_logger
-from scripts.python.helpers.v3.category import Category
-from scripts.python.script import Script
+from typing import Dict
+from framework.helpers.log_utils import get_logger
+from .helpers.v3.category import Category
+from .script import Script
 
 logger = get_logger(__name__)
 
@@ -11,7 +11,7 @@ class CreateCategoryPc(Script):
     """
     Class that creates Categories in PC
     """
-    def __init__(self, data: dict, **kwargs):
+    def __init__(self, data: Dict, **kwargs):
         self.response = None
         self.data = data
         self.categories = self.data.get("categories")

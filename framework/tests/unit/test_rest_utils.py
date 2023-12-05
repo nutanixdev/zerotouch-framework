@@ -1,7 +1,7 @@
 import pytest
 import requests_mock
 from unittest import mock
-from helpers.rest_utils import *
+from framework.helpers.rest_utils import *
 from .test_data import REST_ARGS, REST_URI, GET_RESPONSE, POST_RESPONSE, API_HEADERS
 
 

@@ -1,0 +1,39 @@
+pc_ip: valid-pc-ip
+pc_username: pc-user
+pc_password: pc-password
+
+protection_rules:
+  - name: AZ01-AZ02-Calm
+    desc: "Example Protection Rule for CalmAppliance"
+    protected_categories:
+      AppType:
+        - CalmAppliance
+    schedules:
+      - source:
+          # Source should always be Local AZ i.e local block PC
+          availability_zone: valid-local-block-pc-ip
+          cluster: source-cluster # regional BCDR cluster
+        destination:
+          availability_zone: valid-local-block-pc-ip/valid-remote-pc-ip
+          cluster: destination-cluster
+        protection_type: ASYNC # ASYNC/ SYNC
+        # if protection_type is SYNC
+        #auto_suspend_timeout: 10
+        # if protection_type is ASYNC
+        rpo: 1
+        rpo_unit: HOUR # MINUTE/HOUR/DAY/WEEK
+        snapshot_type: "CRASH_CONSISTENT" # APPLICATION_CONSISTENT/CRASH_CONSISTENT
+        local_retention_policy:
+          # For Linear Retention type (Retains the n most recent snapshots. A value of 12 means that the 12 most recent snapshots are retained)
+          num_snapshots: 1
+          # For Roll-up retention type (Maintains a rolling window of snapshots for every schedule, starting with the hourly schedule and ending with the schedule created for the specified retention period)
+          #rollup_retention_policy:
+          #snapshot_interval_type: YEARLY # DAILY/WEEKLY/MONTHLY/YEARLY
+          #multiple: 2
+        remote_retention_policy:
+          # For Linear Retention type
+          num_snapshots: 1
+          # For Roll-up retention type
+          #rollup_retention_policy:
+          #snapshot_interval_type: YEARLY # HOURLY/DAILY/WEEKLY/MONTHLY/YEARLY
+          #multiple: 2

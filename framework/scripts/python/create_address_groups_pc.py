@@ -1,8 +1,8 @@
 import time
-
-from helpers.log_utils import get_logger
-from scripts.python.helpers.v3.address_group import AddressGroup
-from scripts.python.script import Script
+from typing import Dict
+from framework.helpers.log_utils import get_logger
+from .helpers.v3.address_group import AddressGroup
+from .script import Script
 
 logger = get_logger(__name__)
 
@@ -12,7 +12,7 @@ class CreateAddressGroups(Script):
     Class that creates Address Groups
     """
 
-    def __init__(self, data: dict, **kwargs):
+    def __init__(self, data: Dict, **kwargs):
         self.task_uuid_list = None
         self.data = data
         self.address_groups = self.data.get("address_groups")

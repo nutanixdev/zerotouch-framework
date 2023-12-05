@@ -1,5 +1,6 @@
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.pe_entity_v1 import PeEntityV1
+from typing import Dict
+from framework.helpers.rest_utils import RestAPIUtil
+from ..pe_entity_v1 import PeEntityV1
 
 
 class MultiCluster(PeEntityV1):
@@ -13,9 +14,9 @@ class MultiCluster(PeEntityV1):
         Get cluster external state
         """
         endpoint = "cluster_external_state"
-        return self.read(endpoint=endpoint, timeout=90)
+        return self.read(endpoint=endpoint)
 
-    def register_pe_to_pc(self, pc_ip, pc_username, pc_password):
+    def register_pe_to_pc(self, pc_ip, pc_username, pc_password) -> Dict:
         data = {
           "ipAddresses": [pc_ip],
           "username": pc_username,
@@ -23,9 +24,9 @@ class MultiCluster(PeEntityV1):
         }
 
         endpoint = "add_to_multicluster"
-        return self.create(data=data, endpoint=endpoint, timeout=120)
+        return self.create(data=data, endpoint=endpoint)
 
-    def deregister_pe_from_pc(self, pc_ip, pc_username, pc_password):
+    def deregister_pe_from_pc(self, pc_ip, pc_username, pc_password) -> Dict:
         data = {
           "ipAddresses": [pc_ip],
           "username": pc_username,

@@ -1,12 +1,13 @@
-import select
 import paramiko
 import time
-from helpers.log_utils import get_logger
+from .ssh_entity import SSHEntity
+from framework.helpers.log_utils import get_logger
 
 logger = get_logger(__name__)
 
-class SSH:
-    def __init__(self, cvm_ip, cvm_username, cvm_password, fc_logger = None):
+
+class SSHCVM(SSHEntity):
+    def __init__(self, cvm_ip, cvm_username, cvm_password):
         """
         Args:
             cvm_ip (str): CVM IP
@@ -16,152 +17,8 @@ class SSH:
         self.cvm_ip = cvm_ip
         self.cvm_username = cvm_username
         self.cvm_password = cvm_password
-        self.logger = fc_logger or logger
-    
-    def get_ssh_connection(self, ip, username, password):
-        try:
-            # Open new SSH client
-            ssh_obj = paramiko.SSHClient()
-            # Disable host key check
-            ssh_obj.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh_obj.connect(ip, username=username, password=password)
-            return ssh_obj
-        except Exception as e:
-            self.logger.error(e)
-
-    def close_ssh_connection(self, ssh_obj: paramiko.SSHClient):
-        """Close SSH connection
-
-        Args:
-            ssh_obj (paramiko.SSHClient): ssh client object
-        """
-        try:
-            ssh_obj.close()
-        except Exception as e:
-            self.logger.error(f"Error while closing SSH connection: {e}")
-
-    def execute_command(self, ssh_obj: paramiko.SSHClient, command, timeout = 60):
-        """
-        Execute command in non-interactive mode
-        """
-        self.logger.info(command)
-        stdin, stdout, stderr = ssh_obj.exec_command(command, timeout)
-        # get the shared channel for stdout/stderr/stdin
-        channel = stdout.channel
-
-        # we do not need stdin.
-        stdin.close()
-        # indicate that we're not going to write to that channel anymore
-        channel.shutdown_write()
-
-        # set buffer size
-        bufsize = 4096
-        # read stdout/stderr in order to prevent read block hangs
-        stdout_chunks, stderr_chunks = "", ""
-        stdout_chunks += stdout.channel.recv(bufsize).decode('utf-8')
-        stderr_chunks += stderr.channel.recv(bufsize).decode('utf-8')
-
-        # stop if channel was closed prematurely, and there is no data in the buffers.
-        while not channel.closed or channel.recv_ready() or channel.recv_stderr_ready():
-            got_chunk = False
-            readq, _, _ = select.select([stdout.channel], [], [], timeout)
-            for c in readq:
-                if c.recv_ready(): 
-                    stdout_chunks += stdout.channel.recv(bufsize).decode('utf-8')
-                    got_chunk = True
-                if c.recv_stderr_ready(): 
-                    stderr_chunks += stderr.channel.recv_stderr(bufsize).decode('utf-8')  
-                    got_chunk = True
-
-            if not got_chunk \
-                and stdout.channel.exit_status_ready() \
-                and not stderr.channel.recv_stderr_ready() \
-                and not stdout.channel.recv_ready(): 
-                stdout.channel.shutdown_read()  
-                # close the channel
-                stdout.channel.close()
-                break
-
-        # close all the pseudofiles
-        stdout.close()
-        stderr.close()
-        return stdout_chunks, stderr_chunks
-
-    def get_interactive_shell(self, ssh_obj: paramiko.SSHClient):
-        """Get the interactive shell
-
-        Args:
-            ssh_obj (paramiko.SSHClient): paramiko SSHClient object
-
-        Returns:
-            obj: Interactive shell
-        """
-        try:
-            return ssh_obj.invoke_shell()
-        except Exception as e:
-            self.logger.error("Error while getting interactive channel: {0} for CMV {1}".format(e, self.cvm_ip))
-            return None
-
-    def execute_on_interactive_channel(self, interactive_channel, command, pattern):
-        """Execute commands in interactive channel
-
-        Args:
-            interactive_channel (obj): paramiko SSHClient shell object
-            command (str): Command to execute
-            pattern (str): Pattern match to exit the 
-
-        Returns:
-            _type_: _description_
-        """
-        try:
-            response = ""
-            timeout = 60
-            self.send_to_interactive_channel(command=command,
-                                            interactive_channel=interactive_channel,
-                                            timeout=timeout)
-            wait_time = timeout
-            poll_frequency = 0.1
-            while wait_time > 0:
-                response += self.receive_from_interactive_channel(
-                interactive_channel=interactive_channel)
-                if pattern in response:
-                    self.logger.debug("response>> '{response}'".format(response=response))
-                    return response
-                time.sleep(poll_frequency)
-                wait_time -= poll_frequency
-            else:
-                self.logger.error("Error: Time out waiting for command '{0}' in CVM {1}".format(command, self.cvm_ip))
-                return response
-        except Exception as e:
-            self.logger.error("Error while executing command '{0}' in CMV {1}. Error: {2}".format(command, self.cvm_ip, e))
-
-    def send_to_interactive_channel(self, interactive_channel: paramiko.SSHClient.invoke_shell, command, timeout=60):
-        wait_time = timeout
-        poll_frequency = 0.1
-        try:
-            interactive_channel.settimeout(timeout)
-            while not interactive_channel.send_ready():
-                if wait_time <= 0:
-                    self.logger.error("Error: Time out waiting for command '{0}' in CVM {1}".format(command, self.cvm_ip))
-                time.sleep(poll_frequency)
-                wait_time -= poll_frequency
-
-            # At this point, the channel should be ready
-            interactive_channel.send("{command}{sep}".format(command=command,
-                                                            sep="\n"))
-        except Exception as e:
-            self.logger.error("Command '{0}' execution failed in CMV {1}. Error: {2}".format(command, self.cvm_ip, e))
-
-    def receive_from_interactive_channel(self, interactive_channel: paramiko.SSHClient.invoke_shell):
-        response = ""
-        bufsize = 4096
-        response += interactive_channel.recv(bufsize).decode('utf-8')
-        try:
-            while interactive_channel.recv_ready():
-                response += interactive_channel.recv(bufsize).decode('utf-8')
-        except Exception as e:
-            self.logger.error("Exception receiving response in CVM {0}.Error: {1}".format(self.cvm_ip, e))
-        return response
+        super(SSHCVM, self).__init__(cvm_ip, cvm_username, cvm_password)
+        self.logger = logger
 
     def stop_foundation(self, int_chan: paramiko.SSHClient):
         """Stop Foundation in CVM
@@ -180,8 +37,7 @@ class SSH:
         start_time = time.time()
         while not stop_foundation:
             if time.time() - start_time > time_to_wait:
-                self.logger.error("Waited for %s mins, task not finished"
-                    % (time_to_wait / 60, self.receive_from_interactive_channel(int_chan)))
+                self.logger.error("Waited for %s mins, task not finished" % (time_to_wait / 60))
             receive = self.receive_from_interactive_channel(int_chan)
             self.logger.debug(receive)
             if receive is not None and receive != "":
@@ -206,8 +62,7 @@ class SSH:
         time_to_wait = 180
         while True:
             if time.time() - start_time > time_to_wait:
-                self.logger.error("Waited for %s mins, task not finished"
-                    % (time_to_wait / 60, self.receive_from_interactive_channel(int_chan)))
+                self.logger.error("Waited for %s mins, task not finished" % (time_to_wait / 60))
             receive = self.receive_from_interactive_channel(int_chan)
             self.logger.debug(receive)
             if receive is not None and receive != "" and message in receive:
@@ -262,7 +117,7 @@ class SSH:
                     error_message = f"{self.cvm_ip}: Failed to stop foundation"
             except Exception as e:
                 self.logger.error(f"{self.cvm_ip} - Error: {e}")
-                error_message =  e
+                error_message = e
             finally:
                 int_chan.close()
         except Exception as e:
@@ -289,7 +144,7 @@ class SSH:
                 sed_command = 's/"hardware_attributes": {/"hardware_attributes": { "one_node_cluster": true,/'
                 file_path = "/etc/nutanix/hardware_config.json"
                 enable_one_node_config_cmd = f"source /etc/profile; sudo sed -i '{sed_command}' '{file_path}'"
-                self.logger.warning(f"Executing Command: {enable_one_node_config_cmd}")
+                self.logger.debug(f"Executing Command: {enable_one_node_config_cmd}")
                 out, err = self.execute_command(ssh_obj, enable_one_node_config_cmd)
                 if out or err:
                     error_message = f"{self.cvm_ip} - Error Updating hardware config file: {out} {err}"
@@ -307,7 +162,7 @@ class SSH:
                             error_message = f"{self.cvm_ip}: Failed to stop foundation"
                     except Exception as e:
                         self.logger.error(f"{self.cvm_ip} - Error: {e}")
-                        error_message =  e
+                        error_message = e
                     finally:
                         int_chan.close()
             elif out:
@@ -321,3 +176,192 @@ class SSH:
         finally:
             self.close_ssh_connection(ssh_obj)
         return status, error_message
+
+    def delete_software(self, version: str, software_type: str):
+        """
+        Delete software uploaded to PE
+        Args:
+            version (str): Version to delete
+            software_type (str): Software type
+            eg, NOS, PRISM_CENTRAL, PRISM_CENTRAL_DEPLOY
+
+        Returns:
+            tuple: status (bool), error_message (str)
+        """
+        ssh_obj = self.get_ssh_connection(self.cvm_ip, self.cvm_username, self.cvm_password)
+        cmd = "source /etc/profile; ncli software delete software-type={} name={}".format(software_type, version)
+        output, err = self.execute_command(ssh_obj=ssh_obj, command=cmd)
+        self.logger.debug(output)
+        self.logger.debug(err)
+        if "successfully deleted" in output.lower() or "successfully deleted" in err.lower():
+            return True
+        return False
+
+    def check_software_exists(self, version: str, software_type: str):
+        """
+        Check if software exists in PE
+        Args:
+            version (str): Version to delete
+            software_type (str): Software type
+            eg, NOS, PRISM_CENTRAL, PRISM_CENTRAL_DEPLOY
+
+        Returns:
+            bool: True if software exists, else False
+        """
+        # status, error_message = False, None
+        ssh_obj = self.get_ssh_connection(self.cvm_ip, self.cvm_username, self.cvm_password)
+        cmd = "source /etc/profile; ncli software ls software-type={} name={}".format(software_type, version)
+        output, err = self.execute_command(ssh_obj=ssh_obj, command=cmd)
+        self.logger.debug(output)
+        self.logger.debug(err)
+        if "completed" in output.lower() or "completed" in err.lower():
+            return True
+        else:
+            return False
+
+    def upload_software(self, metadata_file_path, file_path, software_type, timeout=2000):
+        """
+        Upload Software to PE
+        Args:
+            metadata_file_path(str): the metadata file path
+            file_path(str): the path of the tar ball file
+            software_type (str): Software type
+            eg, NOS, PRISM_CENTRAL, PRISM_CENTRAL_DEPLOY
+        Returns:
+            tuple: status(bool), error_message(str)
+        """
+        self.logger.info(f"Uploading Software type {software_type}")
+        status, error_message = False, None
+        ssh_obj = self.get_ssh_connection(self.cvm_ip, self.cvm_username, self.cvm_password)
+        cmd = "source /etc/profile; ncli software upload software-type={} meta-file-path={} file-path={}".\
+              format(software_type, metadata_file_path, file_path)
+        output, err = self.execute_command(ssh_obj=ssh_obj, command=cmd, timeout=timeout)
+        if "completed" in output.lower() or err.lower():
+            self.logger.info(output)
+            status = True
+        return status, error_message
+
+    def download_files(self, url_list, timeout=300):
+        """
+        The function to download a list of files
+        Args:
+            url_list(list<str>): The list of the urls
+            timeout(int): Command timeout
+
+        Returns:
+            dict: The command output
+        """
+        self.logger.info(f"Downloading files from URL(s): {url_list}")
+        status = False
+        ssh_obj = self.get_ssh_connection(self.cvm_ip, self.cvm_username, self.cvm_password)
+        cmd = ";".join(["wget {} 2>/dev/null".format(url) for url in url_list])
+        cmd = "source /etc/profile;{}".format(cmd)
+        _, err = self.execute_command(ssh_obj=ssh_obj, command=cmd, timeout=timeout)
+        if err:
+            return status, err
+        return True, None
+
+    def upload_pc_deploy_software(self, pc_version: str, metadata_file_url: str, file_url: str,
+                                  md5sum: str = None, delete_existing_software: bool = False):
+        """Upload PC Software to PE
+
+        Args:
+            pc_version (str): PC Version name
+            metadata_file_url (str): Metadata file URL path to download
+            file_url (str): PC tar file URL path to upload
+            md5sum (_type_, optional): md5sum to check if file already exists. Defaults to None.
+            delete_existing_software (bool, optional): Delete if same pc version is already uploaded.
+                                                  Defaults to False.
+
+        Returns:
+            tuple: status(bool), error_message(str)
+        """
+        metadata_file_path = "/home/nutanix/{}".format(metadata_file_url.split("/")[-1])
+        file_path = "/home/nutanix/{}".format(file_url.split("/")[-1])
+        software_type = "PRISM_CENTRAL_DEPLOY"
+        download_file = False
+        # If file already exists check the MD5SUM, if it doesn't match download files to CVM
+        if self.is_file_exist(file_path) and self.is_file_exist(metadata_file_path):
+            if md5sum:
+                self.logger.info(f"Checking MD5SUM of file: {file_path}")
+                cvm_file_md5sum = self.get_md5sum_from_file_in_cvm(file_path)
+                if md5sum == cvm_file_md5sum.split()[0]:
+                    self.logger.warning(f"md5sum of file match with the file in CVM {file_path}. Skipping file download.")
+                else:
+                    self.logger.warning(f"md5sum of file does not match with the file in CVM {file_path}. Proceeding to download.")
+                    download_file = True
+            else:
+                download_file = True
+        else:
+            download_file = True
+
+        # Dowmload the files
+        if download_file:
+            self.logger.info("Downloading metadata & tar files...")
+            self.download_files(url_list=[metadata_file_url, file_url])
+            if not self.is_file_exist(file_path) and not self.is_file_exist(metadata_file_url):
+                return False, "Failed to download files to CMV"
+            else:
+                self.logger.debug("Downloaded file exists in the CVM")
+                # Compare md5sum if md5sum is provided - additional check
+                if md5sum:
+                    cvm_file_md5sum = self.get_md5sum_from_file_in_cvm(file_path)
+                    if md5sum == cvm_file_md5sum.split()[0]:
+                        self.logger.info(f"md5sum of file match with the file '{file_path}' downloaed in CVM")
+                    else:
+                        return False, f"md5sum of file does not match with the file '{file_path}' downloaded in CVM"
+
+        if self.check_software_exists(version=pc_version, software_type=software_type):
+            self.logger.info("Software Already exists")
+            if delete_existing_software:
+                # Delete any old software from PE
+                status = self.delete_software(version=pc_version, software_type=software_type)
+                if status:
+                    self.logger.info(f"Successfully deleted software {pc_version}")
+                else:
+                    self.logger.error(f"Failed to deleted software {pc_version}")
+                # Upload software to PE
+                return self.upload_software(metadata_file_path, file_path, software_type=software_type, timeout=2000)
+            return True, None
+        else:
+            self.logger.info("Upload software")
+            return self.upload_software(metadata_file_path, file_path, software_type=software_type, timeout=2000)
+
+    def is_file_exist(self, file_path):
+        """
+        Check if a file exists in the specified path
+        Args:
+            file_path (str): file path
+        Returns:
+            bool: True if file exist, else False
+        """
+        self.logger.info(f"Check if a file '{file_path}' exists in the specified path")
+        ssh_obj = self.get_ssh_connection(self.cvm_ip, self.cvm_username, self.cvm_password)
+        cmd = "source /etc/profile; ls %s" % file_path
+        try:
+            _, err = self.execute_command(ssh_obj=ssh_obj, command=cmd)
+            if err:
+                return False
+            return True
+        except Exception as e:
+            self.logger.error(e)
+            return False
+
+    def get_md5sum_from_file_in_cvm(self, file_path):
+        """
+        returns md5sum from pcvm file
+        Args:
+            file_path(str): file path to check md5sum
+        Returns: md5sum
+        """
+        cmd = f"source /etc/profile; md5sum {file_path}"
+        md5sum_response = "None"
+        try:
+            ssh_obj = self.get_ssh_connection(self.cvm_ip, self.cvm_username, self.cvm_password)
+            out, _ = self.execute_command(ssh_obj=ssh_obj, command=cmd, timeout=200)
+            if out:
+                self.logger.info(f"Md5sum of file {file_path} is {out}")
+                return out
+        except Exception as e:
+            self.logger.error(e)
+        return md5sum_response

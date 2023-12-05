@@ -1,8 +1,10 @@
-from helpers.log_utils import get_logger
-from scripts.python.helpers.state_monitor.pc_task_monitor import PcTaskMonitor
-from scripts.python.helpers.v3.cluster import Cluster as PcCluster
-from scripts.python.helpers.v3.network import Network
-from scripts.python.script import Script
+from typing import Dict
+from framework.helpers.log_utils import get_logger
+from .helpers.pc_groups_op import PcGroupsOp
+from .helpers.state_monitor.pc_task_monitor import PcTaskMonitor
+from .helpers.v3.cluster import Cluster as PcCluster
+from .helpers.v3.network import Network
+from .script import Script
 
 logger = get_logger(__name__)
 
@@ -12,7 +14,7 @@ class CreateSubnetsPc(Script):
     Class that creates subnets in PC
     """
 
-    def __init__(self, data: dict, **kwargs):
+    def __init__(self, data: Dict, **kwargs):
         self.task_uuid_list = []
         self.data = data
         self.pc_session = self.data["pc_session"]
@@ -46,11 +48,16 @@ class CreateSubnetsPc(Script):
 
                     if len(subnets_response) > 0:
                         self.logger.warning(f"Skipping Subnet creation. Subnet {subnet_info['name']} with vlanId "
-                                       f"{subnet_info['vlan_id']}, already exists in the cluster {cluster_name}")
+                                            f"{subnet_info['vlan_id']}, already exists in the cluster {cluster_name}")
                     else:
 
                         try:
                             # add cluster_uuid
+                            if subnet_info.get("virtual_switch"):
+                                cluster_dvs_list = PcGroupsOp(self.pc_session).list_dvs(cluster_uuid)
+                                vs_uuid = next((dvs.get("uuid") for dvs in cluster_dvs_list if
+                                                dvs.get("name") == subnet_info["virtual_switch"]), None)
+                                subnet_info["vs_uuid"] = vs_uuid
                             payload = network.create_pc_subnet_payload(cluster_uuid=cluster_uuid, **subnet_info)
                             subnets_to_create.append(payload)
                         except Exception as e:
@@ -64,8 +71,11 @@ class CreateSubnetsPc(Script):
             self.task_uuid_list = network.batch_create_network(subnets_to_create)
 
             if self.task_uuid_list:
-                app_response, status = PcTaskMonitor(self.pc_session,
-                                                     task_uuid_list=self.task_uuid_list).monitor()
+                pc_task_monitor = PcTaskMonitor(self.pc_session,
+                                                task_uuid_list=self.task_uuid_list)
+                pc_task_monitor.DEFAULT_CHECK_INTERVAL_IN_SEC = 10
+                pc_task_monitor.DEFAULT_TIMEOUT_IN_SEC = 600
+                app_response, status = pc_task_monitor.monitor()
 
                 if app_response:
                     self.exceptions.append(f"Some tasks have failed. {app_response}")
@@ -101,4 +111,5 @@ class CreateSubnetsPc(Script):
                         self.results["clusters"][cluster_ip]["Create_subnets"][subnet_info['name']] = "FAIL"
             except Exception as e:
                 self.logger.debug(e)
-                self.logger.info(f"Exception occurred during the verification of '{type(self).__name__}' for {cluster_ip}")
+                self.logger.info(
+                    f"Exception occurred during the verification of '{type(self).__name__}' for {cluster_ip}")

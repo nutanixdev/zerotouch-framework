@@ -1,6 +1,6 @@
 from typing import Optional
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.pc_entity import PcEntity
+from framework.helpers.rest_utils import RestAPIUtil
+from ..pc_entity import PcEntity
 
 
 class AvailabilityZone(PcEntity):
@@ -11,7 +11,7 @@ class AvailabilityZone(PcEntity):
         self.session = session
         super(AvailabilityZone, self).__init__(session=session)
 
-    def get_mgmt_url_by_name(self, entity_name: Optional[str] = None, **kwargs):
+    def get_mgmt_url_by_name(self, entity_name: Optional[str] = None, **kwargs) -> str:
         filter_criteria = f"name=={entity_name}"
         kwargs["filter"] = filter_criteria
         entity = super(AvailabilityZone, self).get_entity_by_name(entity_name, **kwargs)

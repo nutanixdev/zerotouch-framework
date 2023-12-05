@@ -1,5 +1,5 @@
-from helpers.rest_utils import RestAPIUtil
-from scripts.python.helpers.pe_entity_v1 import PeEntityV1
+from framework.helpers.rest_utils import RestAPIUtil
+from ..pe_entity_v1 import PeEntityV1
 
 
 class Pulse(PeEntityV1):

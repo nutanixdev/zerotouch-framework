@@ -1,7 +1,8 @@
-from helpers.log_utils import get_logger
-from scripts.python.helpers.pc_v1.genesis import Genesis
-from scripts.python.helpers.state_monitor.karbon_enabled_monitor import KarbonEnabledMonitor
-from scripts.python.script import Script
+from typing import Dict
+from framework.helpers.log_utils import get_logger
+from .helpers.pc_v1.genesis import Genesis
+from .helpers.state_monitor.karbon_enabled_monitor import KarbonEnabledMonitor
+from .script import Script
 
 logger = get_logger(__name__)
 
@@ -10,7 +11,7 @@ class EnableKarbon(Script):
     """
     Class that enables Karbon/ NKE
     """
-    def __init__(self, data: dict, **kwargs):
+    def __init__(self, data: Dict, **kwargs):
         self.status = False
         self.data = data
         self.pc_session = self.data["pc_session"]
