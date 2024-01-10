@@ -18,17 +18,13 @@ class ClusterScript(Script):
         self.parallel = parallel
         super(ClusterScript, self).__init__(**kwargs)
         self.results["clusters"] = {}
+        # Set the value of max_workers based on the number of CPU cores
+        self.max_workers = multiprocessing.cpu_count() + 4
 
     def execute(self, **kwargs):
         if self.parallel:
-            # Get the number of available CPU cores
-            num_cores = multiprocessing.cpu_count()
-
-            # Set the value of max_workers based on the number of CPU cores
-            max_workers = num_cores + 4
-
             try:
-                with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as executor:
                     executor.map(self.execute_single_cluster, self.pe_clusters.keys(), self.pe_clusters.values())
             except Exception as e:
                 self.exceptions.append(e)
@@ -39,11 +35,23 @@ class ClusterScript(Script):
             except Exception as e:
                 self.exceptions.append(e)
 
+    def verify(self, **kwargs):
+        if self.parallel:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                executor.map(self.verify_single_cluster, self.pe_clusters.keys(), self.pe_clusters.values())
+        else:
+            try:
+                for cluster_ip, cluster_details in self.pe_clusters.items():
+                    self.verify_single_cluster(cluster_ip, cluster_details)
+            except Exception as e:
+                self.exceptions.append(e)
+
     @abstractmethod
     def execute_single_cluster(self, cluster_ip: str, cluster_details: Dict):
         pass
 
-    def verify(self, **kwargs):
+    @abstractmethod
+    def verify_single_cluster(self, cluster_ip: str, cluster_details: Dict):
         pass
 
     def set_current_thread_name(self, cluster_ip: str):

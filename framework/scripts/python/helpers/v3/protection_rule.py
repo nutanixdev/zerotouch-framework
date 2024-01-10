@@ -37,6 +37,7 @@ class ProtectionRule(PcEntity):
     def _get_default_spec():
         return deepcopy(
             {
+                "api_version": "3.1.0",
                 "metadata": {"kind": "protection_rule"},
                 "spec": {
                     "resources": {
@@ -81,35 +82,38 @@ class ProtectionRule(PcEntity):
 
         # create ordered_availability_zone_list
         for schedule in schedules:
+            local_az_flag = (schedule.get("source", {}).get("availability_zone") ==
+                             schedule.get("destination", {}).get("availability_zone"))
+            az_pc = AvailabilityZone(self.session)
+
             if schedule.get("source") and schedule["source"] not in ordered_az_list:
-                if schedule["source"].get("availability_zone"):
-                    az_pc = AvailabilityZone(self.session)
-                    schedule["source"]["availability_zone_url"] = az_pc.get_mgmt_url_by_name("Local AZ")
-                else:
-                    raise Exception("Unknown AZ specified in the schedule!")
-                if schedule["source"].get("cluster") and schedule["source"].get("availability_zone"):
-                    cluster = schedule["source"].pop("cluster")
-                    pc_ip = schedule["source"].pop("availability_zone")
-                    schedule["source"]["cluster_uuid"] = self.source_pe_clusters[pc_ip][cluster]
+                schedule["source"]["availability_zone_url"] = az_pc.get_mgmt_url_by_name("Local AZ")
+                pc_ip = schedule["source"].pop("availability_zone")
+
+                if schedule["source"].get("clusters"):
+                    clusters = schedule["source"].pop("clusters")
+                    schedule["source"]["cluster_uuid_list"] = []
+                    for cluster in clusters:
+                        schedule["source"]["cluster_uuid_list"].append(self.source_pe_clusters[pc_ip][cluster])
                 else:
                     raise Exception("Unknown cluster specified in the schedule!")
                 ordered_az_list.append(schedule["source"])
 
             if schedule.get("destination") and schedule["destination"] not in ordered_az_list:
-                if schedule["destination"].get("availability_zone"):
-                    az_pc = AvailabilityZone(self.session)
+                if local_az_flag:
+                    schedule["destination"]["availability_zone_url"] = az_pc.get_mgmt_url_by_name("Local AZ")
+                else:
                     schedule["destination"]["availability_zone_url"] = az_pc.get_mgmt_url_by_name(
                         f"PC_{schedule['destination']['availability_zone']}")
-                else:
-                    raise Exception("Unknown AZ specified in the schedule!")
+                pc_ip = schedule["destination"].pop("availability_zone")
 
-                if schedule["destination"].get("cluster") and schedule["destination"].get("availability_zone"):
+                if schedule["destination"].get("cluster"):
                     cluster = schedule["destination"].pop("cluster")
-                    pc_ip = schedule["destination"].pop("availability_zone")
                     schedule["destination"]["cluster_uuid"] = self.remote_pe_clusters[pc_ip][cluster]
                 else:
                     raise Exception("Unknown cluster specified in the schedule!")
                 ordered_az_list.append(schedule["destination"])
+
         payload["spec"]["resources"]["ordered_availability_zone_list"] = ordered_az_list
 
         # create availability_zone_connectivity_list from schedules

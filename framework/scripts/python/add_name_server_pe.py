@@ -37,29 +37,28 @@ class AddNameServersPe(ClusterScript):
         except Exception as e:
             self.exceptions.append(e)
 
-    def verify(self, **kwargs):
-        for cluster_ip, cluster_details in self.pe_clusters.items():
-            try:
-                if not cluster_details.get("name_servers_list"):
-                    continue
+    def verify_single_cluster(self, cluster_ip: str, cluster_details: Dict):
+        try:
+            if not cluster_details.get("name_servers_list"):
+                return
 
+            # Initial status
+            self.results["clusters"][cluster_ip] = {"NameServers": {}}
+
+            # Use v1 with PE url
+            pe_session = cluster_details["pe_session"]
+            pe_cluster = Cluster(pe_session)
+            current_name_servers_list = []
+
+            for name_server in cluster_details["name_servers_list"]:
                 # Initial status
-                self.results["clusters"][cluster_ip] = {"NameServers": {}}
+                self.results["clusters"][cluster_ip]["NameServers"][name_server] = "CAN'T VERIFY"
 
-                # Use v1 with PE url
-                pe_session = cluster_details["pe_session"]
-                pe_cluster = Cluster(pe_session)
-                current_name_servers_list = []
-
-                for name_server in cluster_details["name_servers_list"]:
-                    # Initial status
-                    self.results["clusters"][cluster_ip]["NameServers"][name_server] = "CAN'T VERIFY"
-
-                    current_name_servers_list = current_name_servers_list or pe_cluster.get_name_servers()
-                    if name_server in current_name_servers_list:
-                        self.results["clusters"][cluster_ip]["NameServers"][name_server] = "PASS"
-                    else:
-                        self.results["clusters"][cluster_ip]["NameServers"][name_server] = "FAIL"
-            except Exception as e:
-                self.logger.debug(e)
-                self.logger.info(f"Exception occurred during the verification of '{type(self).__name__}' for {cluster_ip}")
+                current_name_servers_list = current_name_servers_list or pe_cluster.get_name_servers()
+                if name_server in current_name_servers_list:
+                    self.results["clusters"][cluster_ip]["NameServers"][name_server] = "PASS"
+                else:
+                    self.results["clusters"][cluster_ip]["NameServers"][name_server] = "FAIL"
+        except Exception as e:
+            self.logger.debug(e)
+            self.logger.info(f"Exception occurred during the verification of '{type(self).__name__}' for {cluster_ip}")

@@ -92,47 +92,46 @@ class InitialClusterConfig(ClusterScript):
         except Exception as e:
             self.exceptions.append(f"Update_pulse failed for the cluster {cluster_info} with the error: {e}")
 
-    def verify(self):
-        for cluster_ip, cluster_details in self.pe_clusters.items():
+    def verify_single_cluster(self, cluster_ip: str, cluster_details: Dict):
+        try:
+            pe_session = cluster_details["pe_session"]
+
+            self.results["clusters"][cluster_ip] = {
+                "Change_Default_password": "CAN'T VERIFY",
+                "Accept_Eula": "CAN'T VERIFY",
+                "Update_Pulse": "CAN'T VERIFY"
+            }
+
+            # Check if password is changed
             try:
-                pe_session = cluster_details["pe_session"]
+                endpoint = "cluster"
+                default_pe_session = RestAPIUtil(cluster_ip, user=self.DEFAULT_USERNAME,
+                                                 pwd=self.DEFAULT_SYSTEM_PASSWORD,
+                                                 port="9440", secured=True)
+                cluster_obj = PeCluster(default_pe_session)
+                cluster_obj.read(endpoint=endpoint)
+            except Exception:
+                # if it fails, i.e default password doesn't work, password is changed
+                self.results["clusters"][cluster_ip]["Change_Default_password"] = "PASS"
 
-                self.results["clusters"][cluster_ip] = {
-                    "Change_Default_password": "CAN'T VERIFY",
-                    "Accept_Eula": "CAN'T VERIFY",
-                    "Update_Pulse": "CAN'T VERIFY"
-                }
+            # Check if Eula is accepted
+            eula = Eula(pe_session)
 
-                # Check if password is changed
-                try:
-                    endpoint = "cluster"
-                    default_pe_session = RestAPIUtil(cluster_ip, user=self.DEFAULT_USERNAME,
-                                                     pwd=self.DEFAULT_SYSTEM_PASSWORD,
-                                                     port="9440", secured=True)
-                    cluster_obj = PeCluster(default_pe_session)
-                    cluster_obj.read(endpoint=endpoint)
-                except Exception:
-                    # if it fails, i.e default password doesn't work, password is changed
-                    self.results["clusters"][cluster_ip]["Change_Default_password"] = "PASS"
+            if eula.is_eula_accepted():
+                self.results["clusters"][cluster_ip]["Accept_Eula"] = "PASS"
+            else:
+                self.results["clusters"][cluster_ip]["Accept_Eula"] = "FAIL"
 
-                # Check if Eula is accepted
-                eula = Eula(pe_session)
-
-                if eula.is_eula_accepted():
-                    self.results["clusters"][cluster_ip]["Accept_Eula"] = "PASS"
+            if cluster_details.get("enable_pulse", None) is not None:
+                # Check if Pulse is updated
+                pulse = Pulse(session=pe_session)
+                # get current status
+                current_status = pulse.read().get("enable")
+                if current_status == cluster_details.get("enable_pulse"):
+                    self.results["clusters"][cluster_ip]["Update_Pulse"] = "PASS"
                 else:
-                    self.results["clusters"][cluster_ip]["Accept_Eula"] = "FAIL"
-
-                if cluster_details.get("enable_pulse", None) is not None:
-                    # Check if Pulse is updated
-                    pulse = Pulse(session=pe_session)
-                    # get current status
-                    current_status = pulse.read().get("enable")
-                    if current_status == cluster_details.get("enable_pulse"):
-                        self.results["clusters"][cluster_ip]["Update_Pulse"] = "PASS"
-                    else:
-                        self.results["clusters"][cluster_ip]["Update_Pulse"] = "FAIL"
-            except Exception as e:
-                self.logger.debug(e)
-                self.logger.info(f"Exception occurred during the verification of '{type(self).__name__}' for "
-                                 f"{cluster_ip}")
+                    self.results["clusters"][cluster_ip]["Update_Pulse"] = "FAIL"
+        except Exception as e:
+            self.logger.debug(e)
+            self.logger.info(f"Exception occurred during the verification of '{type(self).__name__}' for "
+                             f"{cluster_ip}")

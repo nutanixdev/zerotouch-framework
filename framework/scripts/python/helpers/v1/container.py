@@ -83,3 +83,9 @@ class Container(PeEntityV1):
             json["affinityHostUuid"] = affinity_host_uuid
 
         return json
+
+    def enable_compression(self):
+        pass
+
+    def enable_erasure_coding(self):
+        pass

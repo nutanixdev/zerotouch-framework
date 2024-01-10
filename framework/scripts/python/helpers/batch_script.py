@@ -56,7 +56,7 @@ class BatchScript(Script):
     def results(self, new_item):
         if not new_item:
             return
-        if type(new_item) != dict:
+        if not isinstance(new_item, dict):
             # Append all the non-dict return values
             if "results" not in self._results:
                 self.results["results"] = []
@@ -106,7 +106,7 @@ class BatchScript(Script):
         else:
             self._sequential_execute()
 
-        return {self.results_key: self._results} if self.results_key else self._results
+        return {self.results_key: self.results} if self.results_key else self.results
 
     def _sequential_execute(self):
         """

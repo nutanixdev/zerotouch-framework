@@ -26,7 +26,7 @@ class SSHEntity:
     def get_ssh_connection(self, ip, username, password):
         try:
             # Open new SSH client
-            
+
             ssh_obj = paramiko.SSHClient()
             # Disable host key check
             ssh_obj.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -46,12 +46,12 @@ class SSHEntity:
         except Exception as e:
             self.logger.error(f"Error while closing SSH connection: {e}")
 
-    def execute_command(self, ssh_obj: paramiko.SSHClient, command, timeout = 60):
+    def execute_command(self, ssh_obj: paramiko.SSHClient, command, timeout=60):
         """
         Execute command in non-interactive mode
         """
         self.logger.debug(command)
-        stdin, stdout, stderr = ssh_obj.exec_command(command, timeout)
+        stdin, stdout, stderr = ssh_obj.exec_command(command, timeout, get_pty=True)
         # get the shared channel for stdout/stderr/stdin
         channel = stdout.channel
 
@@ -71,18 +71,18 @@ class SSHEntity:
             got_chunk = False
             readq, _, _ = select.select([stdout.channel], [], [], timeout)
             for c in readq:
-                if c.recv_ready(): 
+                if c.recv_ready():
                     stdout_chunks += stdout.channel.recv(bufsize).decode('utf-8')
                     got_chunk = True
-                if c.recv_stderr_ready(): 
-                    stderr_chunks += stderr.channel.recv_stderr(bufsize).decode('utf-8')  
+                if c.recv_stderr_ready():
+                    stderr_chunks += stderr.channel.recv_stderr(bufsize).decode('utf-8')
                     got_chunk = True
 
             if not got_chunk \
                 and stdout.channel.exit_status_ready() \
                 and not stderr.channel.recv_stderr_ready() \
-                and not stdout.channel.recv_ready(): 
-                stdout.channel.shutdown_read()  
+                and not stdout.channel.recv_ready():
+                stdout.channel.shutdown_read()
                 # close the channel
                 stdout.channel.close()
                 break
@@ -122,13 +122,13 @@ class SSHEntity:
             response = ""
             timeout = 60
             self.send_to_interactive_channel(command=command,
-                                            interactive_channel=interactive_channel,
-                                            timeout=timeout)
+                                             interactive_channel=interactive_channel,
+                                             timeout=timeout)
             wait_time = timeout
             poll_frequency = 0.1
             while wait_time > 0:
                 response += self.receive_from_interactive_channel(
-                interactive_channel=interactive_channel)
+                    interactive_channel=interactive_channel)
                 if pattern in response:
                     self.logger.debug("response>> '{response}'".format(response=response))
                     return response
@@ -153,7 +153,7 @@ class SSHEntity:
 
             # At this point, the channel should be ready
             interactive_channel.send("{command}{sep}".format(command=command,
-                                                            sep="\n"))
+                                                             sep="\n"))
         except Exception as e:
             self.logger.error("Command '{0}' execution failed in {1}. Error: {2}".format(command, self.ip, e))
 

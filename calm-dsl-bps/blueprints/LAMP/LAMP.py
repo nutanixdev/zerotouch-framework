@@ -3,8 +3,8 @@ from calm.dsl.builtins import *  # no_qa
 
 # Secret Variables
 CENTOS_KEY = read_local_file("centos_private_key")
-MYSQL_PASSWORD = read_local_file(
-    "MYSQL_PASSWORD"
+Mongo_PASSWORD = read_local_file(
+    "MONGO_PASSWORD"
 )
 
 # Credentials
@@ -31,32 +31,35 @@ AHV_CENTOS_78 = vm_disk_package(
 INJECTED_VARIABLES = {
     "ACCOUNT_NAME",
     "SUBNET_NAME",
-    "CLUSTER_NAME"
-    "PROJECT_NAME"
+    "CLUSTER_NAME",
+    "PROJECT_NAME",
+    "IMAGE_NAME",
+    "CATEGORIES"
 }
 
 
-class MYSQLService(Service):
+class MONGOService(Service):
     @action
     def PackageInstall(name="Package Install"):
 
         CalmTask.Exec.ssh(
-            name="Install MySQL",
+            name="Install Mongo",
             filename=os.path.join(
-                "scripts", "PackageInstallMySQL.sh"
+                "scripts", "PackageInstallMongo.sh"
             ),
             cred=ref(CENTOS_CRED),
-            target=ref(MYSQLService),
+            target=ref(MONGOService),
         )
 
 
-class MYSQLVMResources(AhvVmResources):
+class MongoVMResources(AhvVmResources):
 
-    memory = 4
-    vCPUs = 2
-    cores_per_vCPU = 2
+    memory = 2
+    vCPUs = 1
+    cores_per_vCPU = 1
     disks = [
-        AhvVmDisk.Disk.Scsi.cloneFromVMDiskPackage(AHV_CENTOS_78, bootable=True)
+        AhvVmDisk.Disk.Scsi.cloneFromImageService(IMAGE_NAME, bootable=True)
+        # AhvVmDisk.Disk.Scsi.cloneFromVMDiskPackage(AHV_CENTOS_78, bootable=True)
     ]
 
     nics = [AhvVmNic.NormalNic.ingress(SUBNET_NAME, cluster=CLUSTER_NAME)]
@@ -66,19 +69,20 @@ class MYSQLVMResources(AhvVmResources):
     )
 
 
-class MYSQLVm(AhvVm):
+class MongoVm(AhvVm):
 
-    name = "MYSQL-VM"
-    resources = MYSQLVMResources
+    name = "Mongo-VM"
+    resources = MongoVMResources
     cluster = Ref.Cluster(CLUSTER_NAME, account_name=ACCOUNT_NAME)
+    categories = {"AppTier": "DB"} | CATEGORIES
 
 
-class AHVMysqlSubstrate(Substrate):
+class AHVMongoSubstrate(Substrate):
 
     os_type = "Linux"
     provider_type = "AHV_VM"
     account = Ref.Account(ACCOUNT_NAME)
-    provider_spec = MYSQLVm
+    provider_spec = MongoVm
     provider_spec_editables = read_spec(
         os.path.join("specs", "basic_linux_vm_editables.yaml")
     )
@@ -95,10 +99,13 @@ class AHVMysqlSubstrate(Substrate):
 
 class ApacheVmResources(AhvVmResources):
 
-    memory = 4
-    vCPUs = 2
-    cores_per_vCPU = 2
-    disks = [AhvVmDisk.Disk.Scsi.cloneFromVMDiskPackage(AHV_CENTOS_78, bootable=True)]
+    memory = 2
+    vCPUs = 1
+    cores_per_vCPU = 1
+    disks = [
+        # AhvVmDisk.Disk.Scsi.cloneFromVMDiskPackage(AHV_CENTOS_78, bootable=True)
+        AhvVmDisk.Disk.Scsi.cloneFromImageService(IMAGE_NAME, bootable=True)
+    ]
 
     nics = [AhvVmNic.NormalNic.ingress(SUBNET_NAME, cluster=CLUSTER_NAME)]
 
@@ -112,6 +119,7 @@ class ApacheVm(AhvVm):
     name = "APACHE_PHP-VM-@@{calm_array_index}@@"
     resources = ApacheVmResources
     cluster = Ref.Cluster(CLUSTER_NAME, account_name=ACCOUNT_NAME)
+    categories = {"AppTier": "APP"} | CATEGORIES
 
 
 class AhvApacheSubstrate(Substrate):
@@ -137,10 +145,13 @@ class AhvApacheSubstrate(Substrate):
 
 class HAPROXYVmResources(AhvVmResources):
 
-    memory = 4
-    vCPUs = 2
+    memory = 2
+    vCPUs = 1
     cores_per_vCPU = 1
-    disks = [AhvVmDisk.Disk.Scsi.cloneFromVMDiskPackage(AHV_CENTOS_78, bootable=True)]
+    disks = [
+        # AhvVmDisk.Disk.Scsi.cloneFromVMDiskPackage(AHV_CENTOS_78, bootable=True)
+        AhvVmDisk.Disk.Scsi.cloneFromImageService(IMAGE_NAME, bootable=True)
+    ]
 
     nics = [AhvVmNic.NormalNic.ingress(SUBNET_NAME, cluster=CLUSTER_NAME)]
 
@@ -154,6 +165,7 @@ class HAPROXYVm(AhvVm):
     name = "HAPROXY-VM"
     resources = HAPROXYVmResources
     cluster = Ref.Cluster(CLUSTER_NAME, account_name=ACCOUNT_NAME)
+    categories = {"AppTier": "WEB"} | CATEGORIES
 
 
 class AhvHAPROXYSubstrate(Substrate):
@@ -179,7 +191,7 @@ class AhvHAPROXYSubstrate(Substrate):
 
 class APACHEService(Service):
 
-    dependencies = [ref(MYSQLService)]
+    dependencies = [ref(MONGOService)]
 
     @action
     def PackageInstall(name="Package Install"):
@@ -195,14 +207,14 @@ class APACHEService(Service):
         )
 
 
-class MYSQLPackage(Package):
+class MONGOPackage(Package):
 
-    services = [ref(MYSQLService)]
+    services = [ref(MONGOService)]
 
     @action
     def __install__():
 
-        MYSQLService.PackageInstall(name="Package Install")
+        MONGOService.PackageInstall(name="Package Install")
 
 
 class HAPROXYService(Service):
@@ -233,14 +245,14 @@ class APACHEPackage(Package):
         APACHEService.PackageInstall(name="Package Install")
 
 
-class AhvMYSQLDeployment(Deployment):
+class AhvMongoDeployment(Deployment):
 
     min_replicas = "1"
     max_replicas = "1"
     default_replicas = "1"
 
-    packages = [ref(MYSQLPackage)]
-    substrate = ref(AHVMysqlSubstrate)
+    packages = [ref(MONGOPackage)]
+    substrate = ref(AHVMongoSubstrate)
 
 
 class HAPROXYPackage(Package):
@@ -255,9 +267,9 @@ class HAPROXYPackage(Package):
 
 class AhvApacheDeployment(Deployment):
 
-    min_replicas = "2"
-    max_replicas = "4"
-    default_replicas = "2"
+    min_replicas = "1"
+    max_replicas = "2"
+    default_replicas = "1"
 
     packages = [ref(APACHEPackage)]
     substrate = ref(AhvApacheSubstrate)
@@ -281,13 +293,13 @@ class AhvHAProxyDeployment(Deployment):
 class Nutanix(Profile):
 
     deployments = [
-        AhvMYSQLDeployment,
+        AhvMongoDeployment,
         AhvApacheDeployment,
         AhvHAProxyDeployment,
     ]
 
-    MYSQL_PASSWORD = CalmVariable.Simple.Secret(
-        MYSQL_PASSWORD,
+    Mongo_PASSWORD = CalmVariable.Simple.Secret(
+        Mongo_PASSWORD,
         label="",
         is_mandatory=False,
         is_hidden=False,
@@ -343,53 +355,13 @@ class Nutanix(Profile):
             target=ref(HAPROXYService),
         )
 
-    @action
-    def DBBackup():
-        """This action will take mysql backup."""
-
-        BACKUP_FILE_PATH = CalmVariable.Simple(
-            "~/db_backup",
-            label="",
-            is_mandatory=False,
-            is_hidden=False,
-            runtime=True,
-            description="",
-        )
-        CalmTask.Exec.ssh(
-            name="Do DB Backup",
-            filename=os.path.join(
-                "scripts", "MySqlDbBackup.sh"
-            ),
-            target=ref(MYSQLService),
-        )
-
-    @action
-    def DBRestore():
-        """This action will restore mysql db from specified file."""
-
-        RESTORE_FILE_PATH = CalmVariable.Simple(
-            "~/db_backup/db_dump.sql.gz",
-            label="",
-            is_mandatory=False,
-            is_hidden=False,
-            runtime=True,
-            description="",
-        )
-        CalmTask.Exec.ssh(
-            name="Do DB Restore",
-            filename=os.path.join(
-                "scripts", "MySqlDbRestore.sh"
-            ),
-            target=ref(MYSQLService),
-        )
-
 
 class LAMP(Blueprint):
     """* [Lamp](http://@@{HAPROXY.address}@@)"""
 
-    services = [MYSQLService, APACHEService, HAPROXYService]
-    packages = [MYSQLPackage, APACHEPackage, HAPROXYPackage, AHV_CENTOS_78]
-    substrates = [AHVMysqlSubstrate, AhvApacheSubstrate, AhvHAPROXYSubstrate]
+    services = [MONGOService, APACHEService, HAPROXYService]
+    packages = [MONGOPackage, APACHEPackage, HAPROXYPackage] #, AHV_CENTOS_78]
+    substrates = [AHVMongoSubstrate, AhvApacheSubstrate, AhvHAPROXYSubstrate]
     profiles = [Nutanix]
     credentials = [CENTOS_CRED]
 
