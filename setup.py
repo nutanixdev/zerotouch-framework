@@ -10,7 +10,7 @@ base = None
 if sys.platform == "win32":
     base = "Win32GUI"
 setup(name="ztf",
-      version="1.2",
+      version="1.2.1",
       description="ZTF!",
       options={"build_exe": build_exe_options},
       executables=[Executable("main.py", base=base)])

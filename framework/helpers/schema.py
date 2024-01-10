@@ -2,9 +2,10 @@ from .general_utils import validate_ip, contains_whitespace, validate_domain, va
 
 """
 We are using a popular Python library "cerberus" to define the json/ yml schema
-https://docs.python-cerberus.org/en/stable/validation-rules.html
+https://docs.python-cerberus.org/validation-rules.html
 """
 
+# todo add dependencies to schema
 GLOBAL_NETWORK_SCHEMA = {
     'required': True,
     'type': 'dict',
@@ -638,8 +639,8 @@ PROTECTION_RULES_SCHEMA = {
                                     'type': 'string',
                                     'validator': validate_ip
                                 },
-                                'cluster': {
-                                    'type': 'string'
+                                'clusters': {
+                                    'type': 'list'
                                 }
                             }
                         },
@@ -972,7 +973,7 @@ POD_CONFIG_SCHEMA = {
                         },
                         'ncm_account': {
                             'type': 'dict',
-                            'required': True,
+                            'required': False,
                             'schema': {
                                 'name': {
                                     'type': 'string',
@@ -1202,7 +1203,6 @@ CREATE_AI_WORKLOAD_SCHEMA = {
         }
     }
 }
-
 
 OVA_UPLOAD_SCHEMA = {
     'type': 'list',

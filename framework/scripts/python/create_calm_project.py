@@ -3,6 +3,7 @@ import threading
 import concurrent.futures
 from typing import Dict
 from calm.dsl.api import get_api_client
+from calm.dsl.builtins.models.helper.common import get_project
 from calm.dsl.cli import sync_cache
 from calm.dsl.cli.projects import compile_project_dsl_class, create_project, delete_project
 from framework.helpers.log_utils import get_logger
@@ -31,6 +32,12 @@ class CreateNcmProject(Script):
         self.set_current_thread_name(project.get("name"))
 
         try:
+            try:
+                get_project(project.get("name"))
+                return
+            except Exception:
+                pass
+
             class ProjectTemplate(Project):
                 """DSL Project template"""
                 providers = [
@@ -88,7 +95,7 @@ class CreateNcmProject(Script):
             # Update cache after creation
             Cache.sync_table(CACHE.ENTITY.PROJECT)
             # sync_cache()
-            # delete_project([f"project-site01-cluster-0{i}" for i in range(1, 10)])
+            # delete_project([project.get("name") for project in self.data["projects"]])
             # delete_project([f"project-site01-cluster-{i}" for i in range(10, 31)])
         except Exception as e:
             self.exceptions.append(e)

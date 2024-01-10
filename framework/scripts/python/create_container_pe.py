@@ -50,32 +50,31 @@ class CreateContainerPe(ClusterScript):
                                    f"{cluster_info} with the error: {e}")
             return
 
-    def verify(self):
+    def verify_single_cluster(self, cluster_ip: str, cluster_details: Dict):
         # Check if containers were created
-        for cluster_ip, cluster_details in self.pe_clusters.items():
-            try:
-                self.results["clusters"][cluster_ip] = {"Create_container": {}}
-                if not cluster_details.get("containers"):
-                    continue
+        try:
+            self.results["clusters"][cluster_ip] = {"Create_container": {}}
+            if not cluster_details.get("containers"):
+                return
 
-                pe_session = cluster_details["pe_session"]
+            pe_session = cluster_details["pe_session"]
 
-                container_obj = Container(pe_session)
-                container_list = []
-                container_name_list = []
-                self.results["clusters"][cluster_ip] = {"Create_container": {}}
+            container_obj = Container(pe_session)
+            container_list = []
+            container_name_list = []
+            self.results["clusters"][cluster_ip] = {"Create_container": {}}
 
-                for container in cluster_details.get("containers"):
-                    # Set default status
-                    self.results["clusters"][cluster_ip]["Create_container"][container["name"]] = "CAN'T VERIFY"
+            for container in cluster_details.get("containers"):
+                # Set default status
+                self.results["clusters"][cluster_ip]["Create_container"][container["name"]] = "CAN'T VERIFY"
 
-                    container_list = container_list or container_obj.read()
-                    container_name_list = container_name_list or [container.get("name") for container in container_list]
+                container_list = container_list or container_obj.read()
+                container_name_list = container_name_list or [container.get("name") for container in container_list]
 
-                    if container["name"] in container_name_list:
-                        self.results["clusters"][cluster_ip]["Create_container"][container["name"]] = "PASS"
-                    else:
-                        self.results["clusters"][cluster_ip]["Create_container"][container["name"]] = "FAIL"
-            except Exception as e:
-                self.logger.debug(e)
-                self.logger.info(f"Exception occurred during the verification of '{type(self).__name__}' for {cluster_ip}")
+                if container["name"] in container_name_list:
+                    self.results["clusters"][cluster_ip]["Create_container"][container["name"]] = "PASS"
+                else:
+                    self.results["clusters"][cluster_ip]["Create_container"][container["name"]] = "FAIL"
+        except Exception as e:
+            self.logger.debug(e)
+            self.logger.info(f"Exception occurred during the verification of '{type(self).__name__}' for {cluster_ip}")

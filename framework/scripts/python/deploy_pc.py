@@ -162,16 +162,15 @@ class DeployPC(ClusterScript):
                     pc_ip = data['clusterDetails'].get("ipAddresses", [None])[0]
         return pc_ip
 
-    def verify(self, **kwargs):
+    def verify_single_cluster(self, cluster_ip: str, cluster_details: Dict):
         """Verify is the deployed PC is accessible
         """
         try:
-            for cluster_ip, cluster_details in self.pe_clusters.items():
-                if cluster_details.get("deploy_pc_config", {}):
-                    deploy_pc_config = cluster_details["deploy_pc_config"]
-                    pc_vip = deploy_pc_config["pc_vip"]
-                    status = "PASS" if self.check_cluster_vip_access(pc_vip) else f"Failed to access PC VIP {pc_vip}"
-                    self.results["clusters"][cluster_ip].update({"PC VIP Access": status})
+            if cluster_details.get("deploy_pc_config", {}):
+                deploy_pc_config = cluster_details["deploy_pc_config"]
+                pc_vip = deploy_pc_config["pc_vip"]
+                status = "PASS" if self.check_cluster_vip_access(pc_vip) else f"Failed to access PC VIP {pc_vip}"
+                self.results["clusters"][cluster_ip].update({"PC VIP Access": status})
         except Exception as e:
             self.logger.error(e)
 

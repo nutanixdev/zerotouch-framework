@@ -19,7 +19,12 @@ class VM(PcEntity):
 
     def batch_create_vm(self, vm_create_payload_list: list):
         return self.batch_op.batch_create(request_payload_list=vm_create_payload_list)
-    
+
+    def get_uuid_by_name(self, cluster_name: str, vm_name: str, **kwargs) -> str:
+        filter_criteria = f"cluster_name=={cluster_name};vm_name=={vm_name}"
+        kwargs["filter"] = filter_criteria
+        return super(VM, self).get_uuid_by_name(vm_name, **kwargs)
+
     def batch_power_on_vm(self, vm_payload_list: list):
         updated_payload_list = []
         for vm_info in vm_payload_list:

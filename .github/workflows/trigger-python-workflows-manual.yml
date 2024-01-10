@@ -13,9 +13,10 @@ on:
         required: false
         type: choice
         options:
+          - ""
           - "pod-config"
           - "imaging"
-          - "create-vm-workloads"
+          - "calm-vm-workloads"
           - "calm-edgeai-vm-workload"
           - "config-management-pc"
           - "deploy-management-pc"

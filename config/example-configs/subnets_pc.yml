@@ -22,12 +22,14 @@ pe_networks: &pe_networks
 clusters:
   # configure the below clusters in the site
   valid-cluster-01-ip:
+    name: cluster-01
     # Use global pe creds for authentication
     <<: *pe_creds
     networks:
       # Use global network config
       - <<: *pe_networks
   valid-cluster-02-ip:
+    name: cluster-02
     # can define locally as well
     pe_username: pe-user
     pe_password: pe-password

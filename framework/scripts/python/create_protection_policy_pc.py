@@ -38,18 +38,21 @@ class CreateProtectionPolicy(Script):
                 self.data["pc_ip"]: source_pc_cluster.name_uuid_map
             }
 
-            if not self.data.get("remote_azs"):
-                self.logger.warning(f"AZs are to be provided in '{self.data['pc_ip']}'")
-                return
+            # if not self.data.get("remote_azs"):
+            #     self.logger.warning(f"AZs are to be provided in '{self.data['pc_ip']}'")
+            #     return
 
             remote_pe_clusters = {}
-            for az, details in self.data["remote_azs"].items():
-                remote_pc_username = details["username"]
-                remote_pc_password = details["password"]
-                remote_pc_cluster = PcCluster(
-                    RestAPIUtil(az, user=remote_pc_username, pwd=remote_pc_password, port="9440", secured=True))
-                remote_pc_cluster.get_pe_info_list()
-                remote_pe_clusters[az] = remote_pc_cluster.name_uuid_map
+            if self.data.get("remote_azs"):
+                for az, details in self.data["remote_azs"].items():
+                    remote_pc_username = details["username"]
+                    remote_pc_password = details["password"]
+                    remote_pc_cluster = PcCluster(
+                        RestAPIUtil(az, user=remote_pc_username, pwd=remote_pc_password, port="9440", secured=True))
+                    remote_pc_cluster.get_pe_info_list()
+                    remote_pe_clusters[az] = remote_pc_cluster.name_uuid_map
+            # todo need to rewrite logic when source az = target az
+            remote_pe_clusters.update(source_pe_clusters)
 
             pp_list = []
             for pp in self.data["protection_rules"]:

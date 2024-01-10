@@ -2,6 +2,13 @@ pc_ip: valid-pc-ip
 pc_username: pc-user
 pc_password: pc-password
 
+
+remote_azs:
+  # If remote AZs are referred in protection rules, they have to be first declared here
+  valid-remote-pc-ip:
+    username: remote-pc-user
+    password: remote-pc-password
+
 protection_rules:
   - name: AZ01-AZ02-Calm
     desc: "Example Protection Rule for CalmAppliance"
@@ -12,7 +19,9 @@ protection_rules:
       - source:
           # Source should always be Local AZ i.e local block PC
           availability_zone: valid-local-block-pc-ip
-          cluster: source-cluster # regional BCDR cluster
+          clusters:
+            - source-cluster1 # regional BCDR cluster1
+            - source-cluster2 # regional BCDR cluster2
         destination:
           availability_zone: valid-local-block-pc-ip/valid-remote-pc-ip
           cluster: destination-cluster

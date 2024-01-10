@@ -53,29 +53,29 @@ class AddAdServerPe(ClusterScript):
             self.exceptions.append(f"{type(self).__name__} failed for the cluster {cluster_info} "
                                    f"with the error: {e}")
 
-    def verify(self, **kwargs):
+    def verify_single_cluster(self, cluster_ip: str, cluster_details: Dict):
         # Check if directory services were created
-        for cluster_ip, cluster_details in self.pe_clusters.items():
-            try:
-                self.results["clusters"][cluster_ip] = {
-                    "Create_Directory_services": "CAN'T VERIFY"
-                }
+        try:
+            authn_payload = cluster_details.get("directory_services")
 
-                pe_session = cluster_details["pe_session"]
-                authn = AuthN(pe_session)
-                authn_payload = cluster_details.get("directory_services")
+            if not authn_payload:
+                return
 
-                if not authn_payload:
-                    continue
+            self.results["clusters"][cluster_ip] = {
+                "Create_Directory_services": "CAN'T VERIFY"
+            }
 
-                existing_directory_services = authn.get_directories()
-                directory_services_name_list = [ad["name"] for ad in existing_directory_services]
+            pe_session = cluster_details["pe_session"]
+            authn = AuthN(pe_session)
 
-                if authn_payload["ad_name"] in directory_services_name_list:
-                    self.results["clusters"][cluster_ip]["Create_Directory_services"] = "PASS"
-                else:
-                    self.results["clusters"][cluster_ip]["Create_Directory_services"] = "FAIL"
-            except Exception as e:
-                self.logger.debug(e)
-                self.logger.info(f"Exception occurred during the verification of '{type(self).__name__}' "
-                                 f"for {cluster_ip}")
+            existing_directory_services = authn.get_directories()
+            directory_services_name_list = [ad["name"] for ad in existing_directory_services]
+
+            if authn_payload["ad_name"] in directory_services_name_list:
+                self.results["clusters"][cluster_ip]["Create_Directory_services"] = "PASS"
+            else:
+                self.results["clusters"][cluster_ip]["Create_Directory_services"] = "FAIL"
+        except Exception as e:
+            self.logger.debug(e)
+            self.logger.info(f"Exception occurred during the verification of '{type(self).__name__}' "
+                             f"for {cluster_ip}")

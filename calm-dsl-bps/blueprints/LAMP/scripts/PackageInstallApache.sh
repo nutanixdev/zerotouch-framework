@@ -12,7 +12,7 @@ sudo sed -i 's/permissive/disabled/' /etc/sysconfig/selinux
 sudo systemctl stop firewalld || true
 sudo systemctl disable firewalld || true
 
-sudo rpm -Uvh https://mirror.webtatic.com/yum/el7/webtatic-release.rpm
+sudo rpm -Uvh https://mirror.webtatic.com/yum/el7/webtatic-release.rpm || true
 sudo yum update -y
 
 ## -*- Install httpd and php

@@ -71,36 +71,35 @@ class CreateRoleMappingPe(ClusterScript):
             self.logger.error(f"{type(self).__name__} failed for the cluster {cluster_info} with the error: {e}")
             return
 
-    def verify(self, **kwargs):
+    def verify_single_cluster(self, cluster_ip: str, cluster_details: Dict):
         # Check if Role mapping was created/ was already present
-        for cluster_ip, cluster_details in self.pe_clusters.items():
-            try:
-                self.results["clusters"][cluster_ip] = {"Create_Role_mappings": {}}
+        try:
+            self.results["clusters"][cluster_ip] = {"Create_Role_mappings": {}}
 
-                authn_payload = cluster_details.get("directory_services")
-                if not authn_payload.get("ad_name") and not authn_payload.get("role_mappings"):
-                    continue
+            authn_payload = cluster_details.get("directory_services")
+            if not authn_payload.get("ad_name") and not authn_payload.get("role_mappings"):
+                return
 
-                pe_session = cluster_details["pe_session"]
-                authn = AuthN(pe_session)
+            pe_session = cluster_details["pe_session"]
+            authn = AuthN(pe_session)
 
-                existing_role_mappings = []
-                existing_roles = set()
+            existing_role_mappings = []
+            existing_roles = set()
 
-                for role_mapping in authn_payload.get("role_mappings"):
-                    # Initial status
-                    self.results["clusters"][cluster_ip]["Create_Role_mappings"][role_mapping["role_type"]] = \
-                        "CAN'T VERIFY"
+            for role_mapping in authn_payload.get("role_mappings"):
+                # Initial status
+                self.results["clusters"][cluster_ip]["Create_Role_mappings"][role_mapping["role_type"]] = \
+                    "CAN'T VERIFY"
 
-                    existing_role_mappings = existing_role_mappings or authn.get_role_mappings(
-                        directory_name=authn_payload["ad_name"])
-                    existing_roles = existing_roles or set([mapping["role"] for mapping in existing_role_mappings])
+                existing_role_mappings = existing_role_mappings or authn.get_role_mappings(
+                    directory_name=authn_payload["ad_name"])
+                existing_roles = existing_roles or set([mapping["role"] for mapping in existing_role_mappings])
 
-                    if role_mapping.get("role_type") in existing_roles:
-                        self.results["clusters"][cluster_ip]["Create_Role_mappings"][role_mapping["role_type"]] = "PASS"
-                    else:
-                        self.results["clusters"][cluster_ip]["Create_Role_mappings"][role_mapping["role_type"]] = "FAIL"
-            except Exception as e:
-                self.logger.debug(e)
-                self.logger.info(
-                    f"Exception occurred during the verification of '{type(self).__name__}' for {cluster_ip}")
+                if role_mapping.get("role_type") in existing_roles:
+                    self.results["clusters"][cluster_ip]["Create_Role_mappings"][role_mapping["role_type"]] = "PASS"
+                else:
+                    self.results["clusters"][cluster_ip]["Create_Role_mappings"][role_mapping["role_type"]] = "FAIL"
+        except Exception as e:
+            self.logger.debug(e)
+            self.logger.info(
+                f"Exception occurred during the verification of '{type(self).__name__}' for {cluster_ip}")

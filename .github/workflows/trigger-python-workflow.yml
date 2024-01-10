@@ -39,7 +39,7 @@ jobs:
         if: contains(steps.changed_files.outputs.all_changed_files, 'config/create-vm-workloads.yml')
         run: |
           echo "FILE=config/create-vm-workloads.yml" >> $GITHUB_ENV
-          echo "WORKFLOW=create-vm-workloads" >> $GITHUB_ENV
+          echo "WORKFLOW=calm-vm-workloads" >> $GITHUB_ENV
       - name: Set edge-ai-workloads if edge_ai file changed
         if: contains(steps.changed_files.outputs.all_changed_files, 'config/edge-ai.json')
         run: |
