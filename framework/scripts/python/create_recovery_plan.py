@@ -37,9 +37,9 @@ class CreateRecoveryPlan(Script):
                 self.data["pc_ip"]: source_pc_cluster.name_uuid_map
             }
 
-            if not self.data.get("remote_azs"):
-                self.logger.warning(f"AZs are to be provided in {self.data['pc_ip']}")
-                return
+            # if not self.data.get("remote_azs"):
+            #     self.logger.warning(f"AZs are to be provided in {self.data['pc_ip']}")
+            #     return
 
             rp_list = []
             for rp in self.data["recovery_plans"]:

@@ -3,15 +3,19 @@ import os
 import uuid
 import importlib.util
 from pathlib import Path
+from time import sleep
 from typing import Union, Dict
 from calm.dsl.api import get_api_client
 from calm.dsl.builtins import SimpleBlueprint, Ref, VmBlueprint, create_blueprint_payload, get_dsl_metadata_map
 from calm.dsl.builtins.models.metadata_payload import get_metadata_class_from_module
 from calm.dsl.builtins.models import metadata_payload as global_metadata_payload
+# from calm.dsl.cli import delete_app
 from calm.dsl.cli.bps import get_blueprint_class_from_module, create_blueprint, get_app, launch_blueprint_simple
 from calm.dsl.config import get_context
 from framework.helpers.log_utils import get_logger
+from .helpers.v3.vm import VM
 from .script import Script
+from ...helpers.helper_functions import create_pc_objects
 
 logger = get_logger(__name__)
 
@@ -96,17 +100,46 @@ class CreateAppFromDsl(Script):
 
     def execute(self, **kwargs):
         try:
+            # apps = []
             client = get_api_client()
+            create_pc_objects(self.data)
+
             # Get the BPs list
             for bp in self.data["bp_list"]:
-                for project in self.data.get("projects", []):
-                    bp_uuid = self.create_calm_app(client=client, bp=bp, project=project)
 
-                    if bp_uuid:
-                        # Delete the blueprint
-                        res, err = client.blueprint.delete(bp_uuid)
-                        if err:
-                            raise Exception("[{}] - {}".format(err["code"], err["error"]))
+                # # Create applications in batches of 10
+                # batch = 10
+                # project_chunks = [
+                #     self.data["projects"][i:i + batch]
+                #     for i in range(0, len(self.data["projects"]), batch)
+                # ] if self.data.get("projects") else []
+
+                # for projects in project_chunks:
+                for project in self.data.get("projects"):
+                    try:
+                        # apps.append(f"{bp['app_name']}-{project['PROJECT_NAME']}")
+                        # continue
+                        app_name = f"{bp['app_name']}-{project['PROJECT_NAME']}"
+                        if get_app(app_name):
+                            continue
+                        bp_uuid = self.create_calm_app(client=client, bp=bp, project=project)
+
+                        if bp_uuid:
+                            # Delete the blueprint
+                            res, err = client.blueprint.delete(bp_uuid)
+                            if err:
+                                raise Exception("[{}] - {}".format(err["code"], err["error"]))
+                    except Exception as e:
+                        self.exceptions.append(e)
+
+                    uuid = None
+                    cur_wait = 0
+                    vm = VM(self.data["pc_session"])
+                    while not uuid and cur_wait <= 300:
+                        sleep(15)
+                        uuid = vm.get_uuid_by_name(cluster_name=project["CLUSTER_NAME"], vm_name="APACHE_PHP-VM-0")
+                        cur_wait += 15
+            # delete_app(apps)
         except Exception as e:
             self.exceptions.append(e)
 
@@ -141,12 +174,7 @@ class CreateAppFromDsl(Script):
             return
 
         # Check if the given app name exists or generate random app name
-        if app_name:
-            res = get_app(app_name)
-            if res:
-                self.logger.debug(res)
-                raise Exception("Application Name ({}) is already used.".format(app_name))
-        else:
+        if not app_name:
             app_name = "App{}".format(str(uuid.uuid4())[:10])
 
         # Get the blueprint type

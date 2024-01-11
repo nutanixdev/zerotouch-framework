@@ -8,6 +8,7 @@ from .create_objectstore import CreateObjectStore
 from .add_directory_service_oss import AddDirectoryServiceOss
 from .add_ad_users_oss import AddAdUsersOss
 from .create_bucket import CreateBucket
+from .open_replication_ports_clusters import OpenRepPort
 from .share_bucket import ShareBucket
 from .create_calm_account import CreateNcmAccount
 from .create_calm_user import CreateNcmUser
@@ -84,6 +85,8 @@ class PodConfig(Script):
                         edge_site["pc_password"] = block["pc_password"]
                         edge_site["pc_session"] = block["pc_session"]
                         self.block_batch_scripts[block_name].add(
+                            # ClusterConfig(data=edge_site, results_key=site_name,
+                            #               log_file=f"{block_name}_{site_name}_pe_ops.log"))
                             self.configure_clusters(edge_site, results_key=site_name,
                                                     log_file=f"{block_name}_{site_name}_pe_ops.log"))
 
@@ -115,7 +118,7 @@ class PodConfig(Script):
                                                                 log_file=f"{block_name}_calm_ops.log"))
                 calm_objects_nke.add(calm_batch_scripts)
 
-            # # configure nke_clusters and objects in the end
+            # configure nke_clusters and objects in the end
             if self.nke_scripts or block.get("objects", {}).get("objectstores"):
                 nke_objects_batch_scripts = BatchScript(parallel=True, results_key='pc')
                 if self.nke_scripts:
@@ -150,7 +153,10 @@ class PodConfig(Script):
         cluster_batch_scripts.add(InitialClusterConfig(data, log_file=log_file))
 
         # Add Auth -> needs InitialClusterConfig
-        cluster_batch_scripts.add(AddAdServerPe(data, log_file=log_file))
+        cluster_batch_scripts.add_all([
+            AddAdServerPe(data, log_file=log_file),
+            OpenRepPort(data, log_file=log_file)
+        ])
         time.sleep(10)
 
         # Register PE to PC -> needs InitialClusterConfig
@@ -184,7 +190,7 @@ class PodConfig(Script):
 
         # Initial PC config
         # Assumed this is already taken care in management config
-        # pc_batch_scripts.add(InitialPcConfig(data, log_file=log_file))
+        pc_batch_scripts.add(InitialPcConfig(data, log_file=log_file))
 
         # Add Auth -> needs PC config
         pc_batch_scripts.add(AddAdServerPc(data, log_file=log_file))

@@ -1,5 +1,7 @@
+from typing import Optional
 import paramiko
 import time
+import re
 from .ssh_entity import SSHEntity
 from framework.helpers.log_utils import get_logger
 
@@ -7,7 +9,10 @@ logger = get_logger(__name__)
 
 
 class SSHCVM(SSHEntity):
-    def __init__(self, cvm_ip, cvm_username, cvm_password):
+    NUTANIX_DEFAULT_USERNAME = "nutanix"
+    NUTANIX_DEFAULT_PASSWORD = "nutanix/4u"
+
+    def __init__(self, cvm_ip, cvm_username=None, cvm_password=None):
         """
         Args:
             cvm_ip (str): CVM IP
@@ -15,8 +20,8 @@ class SSHCVM(SSHEntity):
             cvm_password (str): CVM password
         """
         self.cvm_ip = cvm_ip
-        self.cvm_username = cvm_username
-        self.cvm_password = cvm_password
+        self.cvm_username = cvm_username or self.NUTANIX_DEFAULT_USERNAME
+        self.cvm_password = cvm_password or self.NUTANIX_DEFAULT_PASSWORD
         super(SSHCVM, self).__init__(cvm_ip, cvm_username, cvm_password)
         self.logger = logger
 
@@ -81,7 +86,8 @@ class SSHCVM(SSHEntity):
         status, error_message = False, None
         try:
             ssh_obj = self.get_ssh_connection(self.cvm_ip, self.cvm_username, self.cvm_password)
-            update_file_command = "sed -r -i '/heartbeat_interval_mins/ s/(^.*)(:.*)/\\1: {0},/g' ~/foundation/config/foundation_settings.json".format(interval_min)
+            update_file_command = "sed -r -i '/heartbeat_interval_mins/ s/(^.*)(:.*)/\\1: {0},/g' ~/foundation/config/foundation_settings.json".format(
+                interval_min)
             self.logger.debug(f"Executing Command: {update_file_command}")
             _, err = self.execute_command(ssh_obj, update_file_command)
             if err:
@@ -89,7 +95,8 @@ class SSHCVM(SSHEntity):
                 if "No such file or directory" in err:
                     retry = 0
                     while "No such file or directory" in err:
-                        self.logger.warning(f"{self.cvm_ip}: Wait for the file foundation_settings.json to be created in CVM")
+                        self.logger.warning(
+                            f"{self.cvm_ip}: Wait for the file foundation_settings.json to be created in CVM")
                         time.sleep(5)
                         _, err = self.execute_command(ssh_obj, update_file_command)
                         retry += 1
@@ -233,8 +240,8 @@ class SSHCVM(SSHEntity):
         self.logger.info(f"Uploading Software type {software_type}")
         status, error_message = False, None
         ssh_obj = self.get_ssh_connection(self.cvm_ip, self.cvm_username, self.cvm_password)
-        cmd = "source /etc/profile; ncli software upload software-type={} meta-file-path={} file-path={}".\
-              format(software_type, metadata_file_path, file_path)
+        cmd = "source /etc/profile; ncli software upload software-type={} meta-file-path={} file-path={}". \
+            format(software_type, metadata_file_path, file_path)
         output, err = self.execute_command(ssh_obj=ssh_obj, command=cmd, timeout=timeout)
         if "completed" in output.lower() or err.lower():
             self.logger.info(output)
@@ -286,9 +293,11 @@ class SSHCVM(SSHEntity):
                 self.logger.info(f"Checking MD5SUM of file: {file_path}")
                 cvm_file_md5sum = self.get_md5sum_from_file_in_cvm(file_path)
                 if md5sum == cvm_file_md5sum.split()[0]:
-                    self.logger.warning(f"md5sum of file match with the file in CVM {file_path}. Skipping file download.")
+                    self.logger.warning(
+                        f"md5sum of file match with the file in CVM {file_path}. Skipping file download.")
                 else:
-                    self.logger.warning(f"md5sum of file does not match with the file in CVM {file_path}. Proceeding to download.")
+                    self.logger.warning(
+                        f"md5sum of file does not match with the file in CVM {file_path}. Proceeding to download.")
                     download_file = True
             else:
                 download_file = True
@@ -365,3 +374,27 @@ class SSHCVM(SSHEntity):
         except Exception as e:
             self.logger.error(e)
         return md5sum_response
+
+    def enable_replication_ports(self, ports: Optional[list] = None) -> (str, str):
+        """
+        Enable replication ports in cvms
+        """
+        ports = ",".join(ports) if ports else "2020,2030,2036,2073,2090"
+        ssh_obj = self.get_ssh_connection(self.cvm_ip, self.cvm_username, self.cvm_password)
+        int_chan = self.get_interactive_shell(ssh_obj)
+
+        cmd = f"allssh modify_firewall -f -o open -i eth0 -p {ports} -a"
+
+        time_to_wait = 120
+        self.send_to_interactive_channel(int_chan, cmd)
+        start_time = time.time()
+        receive = ""
+
+        while (time.time() - start_time) <= time_to_wait:
+            receive += self.receive_from_interactive_channel(int_chan)
+            # todo here we are assuming we are opening only for 3 node clusters. Need to modify the logic accordingly
+            if len([m.start() for m in re.finditer("Firewall config updated", receive)]) == 3:
+                return receive, None
+            time.sleep(10)
+
+        return receive, "Operation, timed out or failed!"

@@ -23,6 +23,7 @@ class RegisterToPc(ClusterScript):
         self.pe_uuids = []
         super(RegisterToPc, self).__init__(data, **kwargs)
         self.logger = self.logger or logger
+        self.max_workers = 15
 
     def execute_single_cluster(self, cluster_ip: str, cluster_details: Dict):
         # Only for parallel runs
@@ -42,6 +43,17 @@ class RegisterToPc(ClusterScript):
             status = self.register_cluster(cluster_ip, pe_session)
             if status:
                 self.pe_uuids.append(cluster_details["cluster_info"]["uuid"])
+
+            # Only for PEs that actually is going through registration, wait for the process to complete
+            if self.pe_uuids:
+                # Monitor PC registration - Checks given PE clusters are successfully
+                # registered to PC.
+                app_response, status = PcRegisterMonitor(self.pc_session,
+                                                         pe_uuids=self.pe_uuids).monitor()
+
+                if not status:
+                    self.exceptions.append(
+                        "Timed out. Registration of clusters to PC didn't happen in the prescribed timeframe")
         except Exception as e:
             cluster_info = f"'{cluster_ip}/ {cluster_details['cluster_info']['name']}'"
             self.exceptions.append(f"{type(self).__name__} failed for the cluster {cluster_info} "
@@ -85,35 +97,23 @@ class RegisterToPc(ClusterScript):
 
         return status
 
-    def verify(self, **kwargs):
-        # Only for PEs that actually is going through registration, wait for the process to complete
-        if self.pe_uuids:
-            # Monitor PC registration - Checks given PE clusters are successfully
-            # registered to PC.
-            app_response, status = PcRegisterMonitor(self.pc_session,
-                                                     pe_uuids=self.pe_uuids).monitor()
-
-            if not status:
-                self.exceptions.append(
-                    "Timed out. Registration of clusters to PC didn't happen in the prescribed timeframe")
-
+    def verify_single_cluster(self, cluster_ip: str, cluster_details: Dict):
         # Check which clusters failed
-        for cluster_ip, cluster_details in self.pe_clusters.items():
-            try:
-                self.results["clusters"][cluster_ip] = {
-                    "Register_to_PC": "CAN'T VERIFY"
-                }
-                cluster_uuid = cluster_details["cluster_info"]["uuid"]
+        try:
+            self.results["clusters"][cluster_ip] = {
+                "Register_to_PC": "CAN'T VERIFY"
+            }
+            cluster_uuid = cluster_details["cluster_info"]["uuid"]
 
-                pc_cluster = PcCluster(self.pc_session)
-                pc_cluster.get_pe_info_list()
-                pc_cluster_uuids = pc_cluster.name_uuid_map.values()
+            pc_cluster = PcCluster(self.pc_session)
+            pc_cluster.get_pe_info_list()
+            pc_cluster_uuids = pc_cluster.name_uuid_map.values()
 
-                if cluster_uuid in pc_cluster_uuids:
-                    self.results["clusters"][cluster_ip]["Register_to_PC"] = "PASS"
-                else:
-                    self.results["clusters"][cluster_ip]["Register_to_PC"] = "FAIL"
-            except Exception as e:
-                self.logger.debug(e)
-                self.logger.info(f"Exception occurred during the verification of '{type(self).__name__}' "
-                                 f"for {cluster_ip}")
+            if cluster_uuid in pc_cluster_uuids:
+                self.results["clusters"][cluster_ip]["Register_to_PC"] = "PASS"
+            else:
+                self.results["clusters"][cluster_ip]["Register_to_PC"] = "FAIL"
+        except Exception as e:
+            self.logger.debug(e)
+            self.logger.info(f"Exception occurred during the verification of '{type(self).__name__}' "
+                             f"for {cluster_ip}")

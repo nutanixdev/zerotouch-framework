@@ -37,29 +37,28 @@ class AddNtpServersPe(ClusterScript):
         except Exception as e:
             self.exceptions.append(e)
 
-    def verify(self, **kwargs):
-        for cluster_ip, cluster_details in self.pe_clusters.items():
-            try:
-                if not cluster_details.get("ntp_servers_list"):
-                    continue
+    def verify_single_cluster(self, cluster_ip: str, cluster_details: Dict):
+        try:
+            if not cluster_details.get("ntp_servers_list"):
+                return
 
+            # Initial status
+            self.results["clusters"][cluster_ip] = {"NtpServers": {}}
+
+            # Use v1 with PE url
+            pe_session = cluster_details["pe_session"]
+            pe_cluster = Cluster(pe_session)
+            current_ntp_servers_list = []
+
+            for ntp_server in cluster_details["ntp_servers_list"]:
                 # Initial status
-                self.results["clusters"][cluster_ip] = {"NtpServers": {}}
+                self.results["clusters"][cluster_ip]["NtpServers"][ntp_server] = "CAN'T VERIFY"
 
-                # Use v1 with PE url
-                pe_session = cluster_details["pe_session"]
-                pe_cluster = Cluster(pe_session)
-                current_ntp_servers_list = []
-
-                for ntp_server in cluster_details["ntp_servers_list"]:
-                    # Initial status
-                    self.results["clusters"][cluster_ip]["NtpServers"][ntp_server] = "CAN'T VERIFY"
-
-                    current_ntp_servers_list = current_ntp_servers_list or pe_cluster.get_ntp_servers()
-                    if ntp_server in current_ntp_servers_list:
-                        self.results["clusters"][cluster_ip]["NtpServers"][ntp_server] = "PASS"
-                    else:
-                        self.results["clusters"][cluster_ip]["NtpServers"][ntp_server] = "FAIL"
-            except Exception as e:
-                self.logger.debug(e)
-                self.logger.info(f"Exception occurred during the verification of '{type(self).__name__}' for {cluster_ip}")
+                current_ntp_servers_list = current_ntp_servers_list or pe_cluster.get_ntp_servers()
+                if ntp_server in current_ntp_servers_list:
+                    self.results["clusters"][cluster_ip]["NtpServers"][ntp_server] = "PASS"
+                else:
+                    self.results["clusters"][cluster_ip]["NtpServers"][ntp_server] = "FAIL"
+        except Exception as e:
+            self.logger.debug(e)
+            self.logger.info(f"Exception occurred during the verification of '{type(self).__name__}' for {cluster_ip}")

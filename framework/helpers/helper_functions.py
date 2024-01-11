@@ -157,7 +157,7 @@ def save_logs(data: dict):
     if data.get('workflow_type'):
         new_log_directory = os.path.join(data['project_root'], RUNS, WORKFLOW_RUNS_DIRECTORY)
     else:
-        new_log_directory = os.path.join(data['project_root'], SCRIPT_RUNS_DIRECTORY)
+        new_log_directory = os.path.join(data['project_root'], RUNS, SCRIPT_RUNS_DIRECTORY)
     create_log_dir_push_logs(new_log_directory, data)
 
 
