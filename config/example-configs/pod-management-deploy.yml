@@ -30,7 +30,7 @@ deploy_pc_file_urls: &deploy_pc_file_urls
 
 pod:
   pod_name: "pod_east"
-  pc_ip: "10.44.148.210"
+  pc_ip: valid-ip
   <<: *pc_creds
   ovas:
     # OVAs that needs to be uploaded to the PC clusters
