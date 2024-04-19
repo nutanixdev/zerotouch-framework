@@ -6,7 +6,7 @@ from pathlib import Path
 import yaml, json
 from calm.dsl.builtins import *
 from calm.dsl.providers import get_provider
-from helpers.general_utils import get_json_file_contents
+from framework.helpers.general_utils import get_json_file_contents
 
 project_root = Path(__file__).parent.parent.parent.parent.parent
 json_input = get_json_file_contents(f"{project_root}/config/edge-ai.json")

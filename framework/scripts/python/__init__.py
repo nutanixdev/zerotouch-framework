@@ -41,6 +41,7 @@ from .add_directory_service_oss import AddDirectoryServiceOss
 from .add_ad_users_oss import AddAdUsersOss
 from .create_bucket import CreateBucket
 from .share_bucket import ShareBucket
+from .deploy_pc import DeployPC
 
 __all__ = ["AddAdServerPe", "PodConfig", "ConnectToAz", "CreateBp", "ConnectToAz", "CreateCategoryPc",
            "CreateContainerPe", "CreateServiceGroups", "CreateRoleMappingPe", "CreateNetworkSecurityPolicy",
@@ -50,4 +51,4 @@ __all__ = ["AddAdServerPe", "PodConfig", "ConnectToAz", "CreateBp", "ConnectToAz
            "UpdateCalmProject", "EnableObjects", "AddNameServersPc", "AddNtpServersPc", "AddNameServersPe",
            "AddNtpServersPe", "CreateObjectStore", "AddDirectoryServiceOss", "AddAdUsersOss", "CreateBucket",
            "ShareBucket", "UpdateCalmProject", "ConfigManagementPlane", "InitialPcConfig", "CreateRoleMappingPc",
-           "AddAdServerPc", "CreateNcmUser", "CreateNcmAccount", "DeployManagementPlane"]
+           "AddAdServerPc", "CreateNcmUser", "CreateNcmAccount", "DeployManagementPlane", "DeployPC"]
