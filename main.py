@@ -62,7 +62,7 @@ def main():
             match workflow_type:
                 case "imaging":
                     schema = IMAGING_SCHEMA
-                    post_run_actions[0] = save_pod_logs
+                    post_run_actions = [generate_html_from_json, save_pod_logs, replace_config_files]
                     scripts = [FoundationScript]
                 case "config-cluster":
                     pre_run_actions += [create_pe_objects, create_pc_objects]

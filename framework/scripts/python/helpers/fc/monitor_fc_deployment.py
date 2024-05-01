@@ -76,6 +76,8 @@ class MonitorDeployment(Script):
                     self.results[self.cluster_name]["cluster_vip_access"] = "Deployment Failed"
             else:
                 self.results[self.cluster_name]["cluster_vip_access"] = "Deployment In-Progress"
+        else:
+            self.results[self.cluster_name]["cluster_vip_access"] = "Not Applicable"
 
     def check_cluster_vip_access(self, cluster_vip: str):
         """

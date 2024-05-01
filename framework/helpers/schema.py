@@ -27,6 +27,11 @@ USERNAME_PASSWORD_SCHEMA = {
     'validator': contains_whitespace
 }
 
+CALM_CREDS_SCHEMA = {
+    'type': 'string',
+    'validator': contains_whitespace
+}
+
 IMAGING_NETWORK = {
     'type': 'dict',
     'required': False,
@@ -788,14 +793,12 @@ POD_CLUSTER_SCHEMA = {
             'containers': PE_CONTAINERS_SCHEMA,
             'ncm_subnets': {
                 'type': 'list',
-                'required': True,
                 'schema': {
                     'type': 'string'
                 }
             },
             'ncm_users': {
                 'type': 'list',
-                'required': True,
                 'schema': {
                     'type': 'string'
                 }
@@ -968,7 +971,6 @@ POD_CONFIG_SCHEMA = {
                         'pc_password': USERNAME_PASSWORD_SCHEMA,
                         'ncm_vm_ip': {
                             'type': 'string',
-                            'required': True,
                             'validator': validate_ip
                         },
                         'ncm_account': {
@@ -991,8 +993,8 @@ POD_CONFIG_SCHEMA = {
                                 'pc_password': USERNAME_PASSWORD_SCHEMA,
                             }
                         },
-                        'ncm_username': USERNAME_PASSWORD_SCHEMA,
-                        'ncm_password': USERNAME_PASSWORD_SCHEMA,
+                        'ncm_username': CALM_CREDS_SCHEMA,
+                        'ncm_password': CALM_CREDS_SCHEMA,
                         'objects': OBJECTS_SCHEMA,
                         'remote_azs': REMOTE_AZS_SCHEMA,
                         'protection_rules': PROTECTION_RULES_SCHEMA,
