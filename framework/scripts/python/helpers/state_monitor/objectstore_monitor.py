@@ -24,7 +24,7 @@ class ObjectstoreMonitor(StateMonitor):
         """
         self.session = session
         # List of possible states of tasks currently in progress.
-        self.progress_states = ['PENDING', 'SCALING_OUT', 'REPLACING_CERT']
+        self.progress_states = ['PENDING', 'SCALING_OUT', 'REPLACING_CERT', 'DELETING_INPUT']
         self.os_name = os_name
 
     def check_status(self) -> (List, bool):

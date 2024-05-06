@@ -1,5 +1,5 @@
 import logging
-from ...script import Script
+from framework.scripts.python.script import Script
 from framework.helpers.log_utils import get_logger
 from ..ssh_cvm import SSHCVM
 

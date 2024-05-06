@@ -17,23 +17,30 @@ class Script(ABC):
         current_thread = threading.current_thread()
 
         if current_thread != threading.main_thread():
-            current_thread_name = current_thread.name.split("-")[-1]
-            current_thread.name = f"Thread-{current_thread_name}-{type(self).__name__}"
+            # current_thread_name = current_thread.name.split("-")[-1]
+            current_thread.name = f"Thread-{type(self).__name__}"
 
-        logger.info(f"Calling the script '{type(self).__name__}'...")
+        logger.info(f"Calling the script {type(self).__name__!r}...")
         self.execute(**kwargs)
-        self.logger.info(f"Running Verification for the script '{type(self).__name__}'...")
+        self.logger.info(f"Running Verification for the script {type(self).__name__!r}...")
         try:
             self.verify(**kwargs)
         except Exception as e:
             self.logger.debug(e)
-            self.logger.info(f"Exception occurred during the verification of '{type(self).__name__}'")
+            self.logger.info(f"Exception occurred during the verification of {type(self).__name__!r}")
 
         if self.exceptions:
             for exception in self.exceptions:
                 self.logger.error(f"{self.name}: {exception}")
 
-        self.logger.info(self.results)
+        if self.results:
+            if "clusters" in self.results:
+                if self.results["clusters"]:
+                    self.logger.info(self.results)
+                else:
+                    return {}
+            else:
+                self.logger.info(self.results)
         return self.results
 
     @abstractmethod

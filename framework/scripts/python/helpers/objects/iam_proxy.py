@@ -37,13 +37,13 @@ class IamProxyObjects(Entity):
             return entity[0]
         return entity
 
-    def add_directory_service(self, ad_name: str, ad_domain: str, ad_server_ip: str, service_account_username: str,
+    def add_directory_service(self, ad_name: str, ad_domain: str, ad_directory_url: str, service_account_username: str,
                               service_account_password: str) -> Dict:
         """
         Add directory service to objects
           ad_name(str): The name of directory service
           ad_domain(str): The domain name
-          ad_server_ip(str): The ip address of the domain
+          ad_directory_url(str): The ip address of the domain
           service_account_username(str): The username
           service_account_password(str): The password
         Returns:
@@ -51,9 +51,6 @@ class IamProxyObjects(Entity):
         """
         if ad_domain not in service_account_username:
             service_account_username = f"{service_account_username}@{ad_domain}"
-
-        if "ldap" not in ad_server_ip:
-            ad_server_ip = f"ldap://{ad_server_ip}:389"
 
         payload = \
             {
@@ -66,7 +63,7 @@ class IamProxyObjects(Entity):
                             {
                                 "domain_name": ad_domain,
                                 "directory_type": "ACTIVE_DIRECTORY",
-                                "url": ad_server_ip,
+                                "url": ad_directory_url,
                                 "service_account":
                                     {
                                         "username": service_account_username,

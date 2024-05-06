@@ -35,3 +35,7 @@ class PeEntityV1(Entity):
     def update(self, **kwargs):
         endpoint = self.get_proxy_endpoint(kwargs.pop("endpoint", ""))
         return super(PeEntityV1, self).update(endpoint=endpoint, **kwargs)
+
+    def delete(self, **kwargs):
+        endpoint = self.get_proxy_endpoint(kwargs.pop("endpoint", ""))
+        return super(PeEntityV1, self).delete(endpoint=endpoint, **kwargs)

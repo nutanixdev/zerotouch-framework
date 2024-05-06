@@ -1,6 +1,6 @@
 import logging
 from framework.helpers.rest_utils import RestAPIUtil
-from ...script import Script
+from framework.scripts.python.script import Script
 from .imaged_clusters import ImagedCluster
 
 

@@ -94,23 +94,24 @@ class Entity:
         data=None,
         endpoint=None,
         query=None,
-        timeout=None
+        timeout=None,
+        method="PUT"
     ):
         uri = self.resource + "/{0}".format(endpoint) if endpoint else self.resource
         if query:
             uri = self._build_url_with_query(uri, query)
-        if timeout:
-            resp = self.session.put(
-                uri,
-                data=data,
-                timeout=timeout
-            )
+        if method == "PUT":
+            if timeout:
+                resp = self.session.put(uri, data=data, timeout=timeout)
+            else:
+                resp = self.session.put(uri, data=data)
+        elif method == "PATCH":
+            if timeout:
+                resp = self.session.patch(uri, data=data, timeout=timeout)
+            else:
+                resp = self.session.patch(uri, data=data)
         else:
-            resp = self.session.put(
-                uri,
-                data=data
-            )
-
+            raise "Invalid method"
         return resp
 
     def list(
@@ -157,6 +158,25 @@ class Entity:
             data,
             timeout=timeout,
         )
+
+    def delete(
+        self,
+        timeout=None,
+        endpoint=None,
+        query=None,
+    ):
+        uri = self.resource + "/{0}".format(endpoint) if endpoint else self.resource
+        if query:
+            uri = self._build_url_with_query(uri, query)
+        try:
+            if timeout:
+                resp = self.session.delete(uri, timeout=timeout)
+            else:
+                resp = self.session.delete(uri)
+        except Exception as e:
+            raise e
+
+        return resp
 
     def get_spec(self, old_spec=None, params=None):
         spec = copy.deepcopy(old_spec) or self._get_default_spec()

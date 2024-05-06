@@ -63,3 +63,18 @@ class Category(PcEntity):
                 )
 
         return self.batch_op.batch(api_request_list=requests)
+
+    def batch_delete_values(self, category_name: str, values: List, **kwargs):
+        requests = []
+
+        operation = kwargs.get("operation", "DELETE")
+        base_url = f"api/nutanix//v3{self.resource_type}/{category_name}"
+        for value in values:
+            requests.append(
+                {
+                        "operation": operation,
+                        "path_and_params": f"{base_url}/{value}"
+                }
+            )
+
+        self.batch_op.batch(api_request_list=requests)

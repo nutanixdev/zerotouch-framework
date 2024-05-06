@@ -1,0 +1,18 @@
+pe_creds: &pe_creds
+  # Specify a user with permission to make API calls.
+  pe_credential: pe_user # credential reference from "vaults" in global.yml file
+
+clusters:
+  # configure the below clusters in the site
+  valid-cluster-01-ip:
+    # can define locally as well
+    <<: *pe_creds
+    vms:
+      - name: vm-name
+  valid-cluster-02-ip:
+    # can be defined locally as well
+    pe_credential: pe_user # credential reference from "vaults" in global.yml file
+    # can be defined locally as well
+    vms:
+      - name: vm-name
+      - name: vm-name

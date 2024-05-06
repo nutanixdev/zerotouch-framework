@@ -5,10 +5,10 @@ from ..v1.storage_pool import StoragePool
 
 
 class Container(PeEntityV1):
-    def __init__(self, session: RestAPIUtil):
+    def __init__(self, session: RestAPIUtil, proxy_cluster_uuid=None):
         self.resource_type = "/containers"
         self.session = session
-        super(Container, self).__init__(session=session)
+        super(Container, self).__init__(session=session, proxy_cluster_uuid=proxy_cluster_uuid)
 
     def create(self, **kwargs) -> Dict:
         data = self.get_json_for_create(**kwargs)

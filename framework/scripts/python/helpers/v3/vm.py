@@ -31,6 +31,9 @@ class VM(PcEntity):
             vm_info['spec']['resources']['power_state'] = VmPowerState.ON
             updated_payload_list.append(vm_info)
         return self.batch_op.batch_update(updated_payload_list)
+    
+    def batch_delete_vm(self, uuid_list: list):
+        return self.batch_op.batch_delete(entity_list=uuid_list)
 
     @staticmethod
     def _get_vm_ip_address(vm_info):

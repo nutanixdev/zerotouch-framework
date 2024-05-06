@@ -1,0 +1,64 @@
+pc_ip: valid-pc-ip
+# Specify a user with permission to make API calls.
+pc_credential: pc_user # credential reference from "vaults" in global.yml file
+
+#Create
+address_groups:
+  - name: AD
+    description: "Example AD Address Groups"
+    subnets:
+      - network_ip: valid-ip # Eg: 10.10.10.130
+        network_prefix: valid-prefix # Eg: 32
+  - name: Calm
+    description: "Example Calm Address Groups"
+    subnets:
+      - network_ip: valid-ip # Eg: 10.10.10.130
+        network_prefix: valid-prefix # Eg: 32
+
+#Delete
+address_groups:
+  - name: AD
+  - name: Calm
+
+
+######################################## SCHEMA DOCUMENTATION ########################################
+### 			---CREATE SCHEMA --- 			 ###
+
+# address_groups:
+#   type: list
+#   schema:
+#     type: dict
+#     schema:
+#       name:
+#         type: string
+#         required: true
+#       description:
+#         type: string
+#       subnets:
+#         type: list
+#         schema:
+#           type: dict
+#           required: true
+#           schema:
+#             network_ip:
+#               type: string
+#               required: true
+#             network_prefix:
+#               type: integer
+#               required: true
+# 
+
+
+### 			---DELETE SCHEMA --- 			 ###
+
+# address_groups:
+#   type: list
+#   schema:
+#     type: dict
+#     schema:
+#       name:
+#         type: string
+#       required: true
+# 
+
+####################################################################################################

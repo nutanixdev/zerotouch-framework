@@ -1,0 +1,241 @@
+# Re-usable configurations, defined as anchors
+ad_config: &ad_config
+  directory_services: &directory_services
+    directory_type: ACTIVE_DIRECTORY # only ACTIVE_DIRECTORY is supported, port 389 will be used for LDAP
+    ad_name: name
+    ad_domain: eng.company.com
+    ad_directory_url: valid-ad-directory-url   # e.g., ldap://10.1.4.111:389
+    service_account_credential: service_account_credential # credential reference from "vaults" in global.yml file
+    role_mappings:
+      - role_type: ROLE_USER_ADMIN # one of 'ROLE_CLUSTER_ADMIN', 'ROLE_USER_ADMIN', 'ROLE_CLUSTER_VIEWER', 'ROLE_BACKUP_ADMIN'
+        entity_type: GROUP # one of GROUP, OU, USER
+        values:
+          - john_doe
+          - john_smith
+
+# Define PC configurations here, all are optional and only the declared entities will be configured
+pc_ip: valid-block-pc-ip
+# below credential is also used to update default password for "admin"
+new_pc_admin_credential: admin_cred # credential reference from "vaults" in global.yml file
+# The below credentials will be used for making all API calls.
+pc_credential: admin_cred
+
+# EULA
+eula:
+  username: Nutanix
+  company_name: Nutanix
+  job_title: Backend Engineer
+
+enable_pulse: true
+
+# Use globally declared ad_config
+<<: *ad_config
+
+name_servers_list:
+  - valid-name-server1
+  - valid-name-server1
+ntp_servers_list:
+  - 0.us.pool.ntp.org
+  - 1.us.pool.ntp.org
+  - 2.us.pool.ntp.org
+
+#Enable services
+enable_microsegmentation: true
+enable_nke: true
+enable_objects: true
+
+# Objects configuration
+objects:
+  objectstores:
+    - name: objectstore01
+      domain: eng.company.com
+      cluster: cluster-01 # Cluster reference
+      # DHCP subnet
+      network: vlan110
+      # 4 statis IPs
+      static_ip_list:
+       - ip1
+       - ip2
+       - ip3
+       - ip4
+      num_worker_nodes: 1
+      buckets:
+        - name: bucket1
+          user_access_list:
+            - darshan@domain
+            - kousalya@domain
+
+  # Use global ad config for directory services
+  directory_services:
+    - <<: *directory_services
+
+# Add AZs to the PC
+remote_azs:
+  # remote AZ details, only Physical location is supported yet
+  valid-remote-pc-ip:
+    pc_credential: remote_pc_credentials # credential reference from "vaults" in global.yml file
+
+# To create categories in current PC
+categories:
+  # Scenario 1, add values to an existing category
+  - name: AppType # name of existing category
+    description: "AppType CalmAppliance"
+    values: [ "CalmAppliance" ]
+  # Scenario 2, create a new category with values
+  - name: AZ01-DR-01
+    description: "AZ01-DR-01 RPO1h"
+    values: [ "RPO1h" ]
+
+# To create protection policies in current PC. Note, if it's already created in remote AZ, you don't have to create again
+# If you're referencing remote AZ, you have to specify that above in "remote_azs" as well
+protection_rules:
+  - name: AZ01-AZ02-Calm
+    desc: "Example Protection Rule for CalmAppliance"
+    protected_categories:
+      AppType:
+        - CalmAppliance
+    schedules:
+      - source:
+          # Source should always be Local AZ i.e local block PC
+          availability_zone: valid-local-block-pc-ip
+          clusters:
+            - source-cluster1 # regional BCDR cluster1
+            - source-cluster2 # regional BCDR cluster2
+        destination:
+          availability_zone: valid-local-block-pc-ip/valid-remote-pc-ip
+          cluster: destination-cluster
+        protection_type: ASYNC # ASYNC/ SYNC
+        # if protection_type is SYNC
+        #auto_suspend_timeout: 10
+        # if protection_type is ASYNC
+        rpo: 1
+        rpo_unit: HOUR # MINUTE/HOUR/DAY/WEEK
+        snapshot_type: "CRASH_CONSISTENT" # APPLICATION_CONSISTENT/CRASH_CONSISTENT
+        local_retention_policy:
+          # For Linear Retention type (Retains the n most recent snapshots. A value of 12 means that the 12 most recent snapshots are retained)
+          num_snapshots: 1
+          # For Roll-up retention type (Maintains a rolling window of snapshots for every schedule, starting with the hourly schedule and ending with the schedule created for the specified retention period)
+          #rollup_retention_policy:
+          #snapshot_interval_type: YEARLY # DAILY/WEEKLY/MONTHLY/YEARLY
+          #multiple: 2
+        remote_retention_policy:
+          # For Linear Retention type
+          num_snapshots: 1
+          # For Roll-up retention type
+          #rollup_retention_policy:
+          #snapshot_interval_type: YEARLY # HOURLY/DAILY/WEEKLY/MONTHLY/YEARLY
+          #multiple: 2
+
+# To create recovery plans in current PC. Note, if it's already created in remote AZ, you don't have to create again
+recovery_plans:
+  - name: AZ01-RP-Calm
+    desc: "Example Recovery plan for AppType CalmAppliance"
+    primary_location:
+      # Primary location is set to Local block/ AZ
+      availability_zone: valid-local-block-pc-ip
+      # cluster: local-cluster1 # Optional. Required only for Local AZ to Local AZ
+    recovery_location:
+      availability_zone: valid-remote-pc-ip
+      # cluster: local-cluster2 # Optional. Required only for Local AZ to Local AZ
+    stages:
+      #- vms:
+      #- name: ubuntu-01
+      #enable_script_exec: true
+      #delay: 2
+      - categories:
+          - key: AppType
+            value: CalmAppliance
+    network_type: NON_STRETCH # NON_STRETCH/STRETCH
+    network_mappings:
+      - primary:
+          test:
+            name: valid-subnet-name
+            #gateway_ip: gateway_ip Optional
+            #prefix: network_prefix
+          prod:
+            name: valid-subnet-name
+            #gateway_ip: gateway_ip
+            #prefix: network_prefix
+        recovery:
+          test:
+            name: valid-subnet-name
+            #gateway_ip: gateway_ip
+            #prefix: network_prefix
+          prod:
+            name: valid-subnet-name
+            #gateway_ip: gateway_ip
+            #prefix: network_prefix
+
+# To create Address Groups in current PC
+address_groups:
+  - name: AD
+    description: "Example AD Address Groups"
+    subnets:
+      - network_ip: valid-ip # Eg: 10.10.10.130
+        network_prefix: valid-prefix # Eg: 32
+  - name: Calm
+    description: "Example Calm Address Groups"
+    subnets:
+      - network_ip: valid-ip # Eg: 10.10.10.130
+        network_prefix: valid-prefix # Eg: 32
+
+# To create Service Groups in current PC
+service_groups:
+  - name: ngt
+    description: Example Service Group NGT - TCP
+    service_details:
+      tcp:
+        - "2074"
+  - name: dns
+    description: Example Service Group DNS - UDP
+    service_details:
+      udp:
+        - "53"
+
+# To create Flow Security Policies in current PC
+security_policies:
+  - name: Example-AZ01-Calm
+    description: Example Security Policy
+    allow_ipv6_traffic: true # true/ false # Policy rules apply only to IPv4 Traffic and all IPv6 traffic are blocked by default.
+    hitlog: true # true/ false # Log traffic flow hits on the policy rules
+    # Only app rules are supported for now
+    app_rule:
+      policy_mode: MONITOR # APPLY/MONITOR
+      # Secure this app
+      target_group:
+        categories:
+          AppType: AZ01LAMP01
+      inbounds:
+        - categories:
+            AppTier:
+              - WEB
+          address:
+            name: Calm
+          protocol:
+            service:
+              name: ssh
+        - categories:
+            AppTier:
+              - APP
+          udp:
+            - start_port: 82
+              end_port: 8080
+          address:
+            name: Calm
+          protocol:
+            service:
+              name: ssh
+        - categories:
+            AppTier:
+              - DB
+          address:
+            name: Calm
+          protocol:
+            service:
+              name: ssh
+      outbounds:
+        - address:
+            name: NVD_AD
+          protocol:
+            service:
+              name: dns

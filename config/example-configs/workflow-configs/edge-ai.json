@@ -1,0 +1,41 @@
+{
+    "site_name": "site-01",
+    // these parameters can be defined in global, if defined these can be skipped
+    "pc_ip": "valid-ip",
+    "pc_username": "pc-user",
+    "pc_password": "pc-password",
+    // project to deploy the cluster/s
+    "project_name": "default",
+    // Account name
+    "account_name": "NTNX_LOCAL_AZ",
+    // these cluster and subnet references will be added to the project
+    "subnets": {
+        // cluster-name : subnet
+        "cluster-01": [
+            "vlan110",
+            "vlan112"
+        ],
+        "cluster-02": [
+            "vlan110"
+        ]
+    },
+    // BP list
+    "bp_list": [
+        {
+            "dsl_file": "calm-dsl-bps/blueprints/edge_ai/linux/blueprint-lin.py",
+            "name": "edge-ai-test",
+            "app_name": "edge-ai-dsl",
+            "cluster": "cluster-02",
+            "subnet": "vlan110",
+            "image": "ubuntu_2204_519041_100gb",
+            "variable_list": [
+                { "value": { "value": "10.10.1.1:/ai" }, "context": "AHV_Small", "name": "NFS_PATH"},
+                { "value": { "value": "1" }, "context": "AHV_Small", "name": "WORKER"},
+                { "value": { "value": "10.10.1.1:/ai" }, "context": "AHV_Medium", "name": "NFS_PATH"},
+                { "value": { "value": "1" }, "context": "AHV_Medium", "name": "WORKER"},
+                { "value": { "value": "10.10.1.1:/ai" }, "context": "AHV_Large", "name": "NFS_PATH"},
+                { "value": { "value": "1" }, "context": "AHV_Large", "name": "WORKER"}
+            ]
+        }
+    ]
+}

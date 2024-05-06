@@ -1,16 +1,27 @@
+from __future__ import annotations
+from email.mime.base import MIMEBase
+from email import encoders
+from pathlib import Path
 import json5 as json
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 import re
 import os
 import cerberus
 import yaml
 import glob
 from datetime import datetime
+from netaddr import IPNetwork
 from typing import List, Type, Iterable, Any, IO, Dict
 from distutils.file_util import copy_file
-from framework.scripts.python.script import Script
 from functools import wraps
 from .log_utils import get_logger
 from .exception_utils import JsonError, YamlError
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from framework.scripts.python.script import Script
 
 logger = get_logger(__name__)
 
@@ -38,7 +49,7 @@ def construct_include(loader: Loader, node: yaml.Node) -> Any:
     with open(filename, 'r') as f:
         if extension in ('yaml', 'yml'):
             return yaml.load(f, Loader)
-        elif extension in ('json', ):
+        elif extension in ('json',):
             return json.load(f)
         else:
             return ''.join(f.readlines())
@@ -83,13 +94,22 @@ def validate_ip(field, value, error):
     return True
 
 
+def validate_dsip(field, value, error):
+    """
+    DSIP can either be get-ip-from-ipam/valid ip
+    """
+    if value == "get-ip-from-ipam":
+        return True
+    return validate_ip(field, value, error)
+
+
 def validate_subnet(field, value, error):
     """
     Function to check if "value" is a valid subnet or not, if not it'll raise error("field")
     Eg: validate_ip("cvm_ip", "1.1.1.0/24", Exception)
     """
-    pattern = re.compile\
-        (r'(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?/\d{1,2})')
+    pattern = (re.compile
+               (r'(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?/\d{1,2})'))
     if not pattern.match(value, ):
         error(field, '"{}" must be a valid Subnet'.format(value))
         return False
@@ -299,3 +319,52 @@ def create_log_dir_push_logs(dir_to_create: str, data: Dict):
                 copy_file_util(file, destination)
         except Exception as e:
             raise Exception(e)
+
+
+def get_subnet_mask(subnet: str):
+    """Get the subnet mask
+
+    Args:
+        subnet (str): Subnet E.g 10.0.0.1/24
+
+    Returns:
+        str: Return subnet mask Eg. 255.255.255.0
+    """
+    ip_addr = IPNetwork(subnet)
+    return str(ip_addr.netmask)
+
+
+def send_mail_helper(subject: str, body: str, from_mail: str, to_mail: str, smtp_host: str,
+                     attachment_path: str = "", port: str = 25):
+    # Create message container - the correct MIME type is multipart/alternative.
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = subject
+    msg['From'] = from_mail
+    msg['To'] = to_mail
+
+    html = body
+    mime = MIMEText(html, 'html')
+
+    # Attach parts into message container.
+    # According to RFC 2046, the last part of a multipart message, in this case
+    # the HTML message, is best and preferred.
+    msg.attach(mime)
+
+    if attachment_path:
+        part = MIMEBase('application', "octet-stream")
+        with open(attachment_path, 'rb') as file:
+            part.set_payload(file.read())
+        encoders.encode_base64(part)
+        part.add_header('Content-Disposition',
+                        'attachment; filename={}'.format(Path(attachment_path).name))
+        msg.attach(part)
+
+    # Send the message via local SMTP server.
+    s = smtplib.SMTP(host=smtp_host, port=port)
+    # sendmail function takes 3 arguments: sender's address, recipient's address
+    # and message to send - here it is sent as one string.
+    # s.set_debuglevel(7)
+    s.ehlo_or_helo_if_needed()
+    # s.login("testuser", "w3lc0me")
+    s.sendmail(from_mail, to_mail.split(","), msg.as_string())
+    s.quit()

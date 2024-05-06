@@ -1,0 +1,68 @@
+pc_ip: valid-pc-ip
+# Specify a user with permission to make API calls.
+pc_credential: pc_user # credential reference from "vaults" in global.yml file
+
+#Create
+categories:
+  # Scenario 1, add values to an existing category
+  - name: AppType # name of existing category
+    description: "AppType CalmAppliance"
+    values: [ "CalmAppliance" ]
+  # Scenario 2, create a new category with values
+  - name: AZ01-DR-01
+    description: "AZ01-DR-01 RPO1h"
+    values: [ "RPO1h" ]
+
+#Delete
+categories:
+  - name: AppType # name of existing category
+    delete_only_values: True #Optional 
+  - name: AZ01-DR-01
+
+
+######################################## SCHEMA DOCUMENTATION ########################################
+### 			---CREATE SCHEMA --- 			 ###
+
+# categories:
+#   type: list
+#   required: false
+#   schema:
+#     type: dict
+#     schema:
+#       name:
+#         type: string
+#         required: true
+#       description:
+#         type: string
+#       values:
+#         type: list
+#         required: true
+#         schema:
+#           type: string
+# 
+
+
+### 			---DELETE SCHEMA --- 			 ###
+
+# categories:
+#   type: list
+#   required: false
+#   schema:
+#     type: dict
+#     schema:
+#       name:
+#         type: string
+#         required: true
+#       values:
+#         type: list
+#         schema:
+#           type: string
+#           required: true
+#       delete_only_values:
+#         type: boolean
+#         required: false
+#         dependencies: values
+#         default: false
+# 
+
+####################################################################################################
