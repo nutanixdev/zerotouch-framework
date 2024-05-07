@@ -1,10 +1,10 @@
 from framework.helpers.rest_utils import RestAPIUtil
-from .foundation_central import FoundationCentral
+from ..fc_entity import FcEntity
 
 __metaclass__ = type
 
 
-class FcApiKey(FoundationCentral):
+class FcApiKey(FcEntity):
     entity_type = "api_keys"
 
     def __init__(self, session: RestAPIUtil):

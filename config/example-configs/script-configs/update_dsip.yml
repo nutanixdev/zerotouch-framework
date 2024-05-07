@@ -1,0 +1,24 @@
+pe_creds: &pe_creds
+  # Specify a user with permission to make API calls.
+  pe_credential: pe_user # credential reference from "vaults" in global.yml file
+
+# Only required if ip_allocation_method is not static
+ipam_network:
+  subnet: "10.10.10.0/24" # subnet to fetch IP from to assign for DSIP
+  domain: "test.com" # domain name to create host record for DSIP. Eg host record name: <cluster-name>-dsip.test.com
+
+clusters:
+  # configure the below clusters in the site
+  valid-cluster-01-ip:
+    # Use global pe creds for authentication
+    <<: *pe_creds
+    # dsip can either be a valid-ip or 'get-ip-from-ipam' to fetch ip from IPAM
+    dsip: get-ip-from-ipam # valid-ip or get-ip-from-ipam
+  valid-cluster-02-ip:
+    # can be defined locally as well
+    pe_credential: pe_user # credential reference from "vaults" in global.yml file
+    dsip: valid-ip
+  valid-cluster-03-ip:
+    # Use global pe creds for authentication
+    <<: *pe_creds
+    dsip: valid-ip

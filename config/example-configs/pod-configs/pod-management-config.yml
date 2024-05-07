@@ -1,0 +1,64 @@
+---
+# This configuration is used to facilitate Initial PC configurations includind enabling FC
+
+# Global variables, which can be inherited in blocks
+pc_creds: &pc_creds
+  # This can be admin/ ad user. Note ad creds will be used after adding AD to PC
+  pc_credential: pc_user
+  # below parameter is needed if we are updating default password for "admin"
+  new_pc_admin_credential: new_admin_password # credential reference from "vaults" in global.yml file
+
+pe_creds: &pe_creds
+  # This can be admin/ ad user. Note ad creds will be used after adding AD to PE
+  pe_credential: pe_user  # credential reference from "vaults" in global.yml file
+
+pc_eula: &eula
+  eula:
+    username: Nutanix
+    company_name: Nutanix
+    job_title: Backend Engineer
+
+pulse: &pulse
+  enable_pulse: true
+
+fc: &fc
+  # FC configuration to enable & generate FC API Key
+  enable_fc: true
+  generate_fc_api_key: true
+  fc_alias_key_name: api_key1 # name of the API key generated in FC
+
+pod:
+  pod_name: pod_1
+  # Pod Blocks where initial PC configuration needs to be executed
+  pod_blocks:
+    - pod_block_name: block-1
+      # PC IP where initial PC configuration needs to be executed
+      pc_ip: x.x.x.x
+      # Use global pc creds
+      <<: *pc_creds
+      # Use global eula config
+      <<: *eula
+      # Use global pulse config
+      <<: *pulse
+      # Use global FC confg
+      <<: *fc
+      # Clusters/PE to Register to PC
+      clusters:
+        valid-cluster-ip:
+          # Use global pe creds
+          <<: *pe_creds
+      
+    - pod_block_name: block-2
+      # PC IP where initial PC configuration needs to be executed
+      pc_ip: x.x.x.x
+      # Use global pc creds
+      <<: *pc_creds
+      # Use global eula config
+      <<: *eula
+      # Use global pulse config
+      <<: *pulse
+      # Clusters/PE to Register to PC
+      clusters:
+        valid-cluster-ip:
+          # Use global pe creds
+          <<: *pe_creds

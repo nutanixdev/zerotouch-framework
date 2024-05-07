@@ -1,0 +1,85 @@
+# If you want to read credentials locally from this file, define the credentials section in local
+vaults:
+  cyberark:
+    metadata:
+      host: cyberark-host.domain.com
+      appId: testapp
+      user: administrator
+      safe: Test
+      port: 11194
+      password_path: .local/password
+      cert_file: .local/crt
+      cert_key: .local/key
+    # Cyberark API is used to get the password for below usernames
+    credentials:
+      pc_user: # This name is just for reference. This can be any name, but the same name declared here will have to be referenced in the configuration file.
+        username: admin # Username to fetch the credentials for
+        address: pc_cred
+      pe_user:
+        username: admin
+        address: pe_cred
+      ncm_user:
+        username: admin
+        address: ncm_cred
+      cvm_credential:
+        username: nutanix
+        address: cvm_cred
+      # Assuming new admin password is already stored in the vault
+      admin_cred:
+        username: admin
+        address: admin_cred
+      service_account_credential:
+        username: abc@domain.com
+        address: service_account_cred
+      remote_pc_credentials:
+        username: admin
+      infoblox_user:
+        username: infoblox_user
+        address: infoblox_cred
+
+  local:
+    # For local vault, specify the username and password both
+    credentials:
+      pc_user: # This name is just for reference. This can be any name, but the same name declared here will have to be referenced in the configuration file.
+        username: admin
+        password: Nutanix.123
+      default_admin:
+        username: admin
+        password: Nutanix/4u
+      pe_user:
+        username: admin
+        password: Nutanix.123
+      ncm_user:
+        username: admin
+        password: Nutanix.123
+      admin_cred:
+        username: admin
+        password: Nutanix.123
+      cvm_credential:
+        username: nutanix
+        password: nutanix/4u
+      service_account_credential:
+        username: abc@domain.com
+        password: password
+      remote_pc_credentials:
+        username: admin
+        password: Nutanix.123
+      new_admin_password:
+        username: admin
+        password: Nutanix.123
+      infoblox_user:
+        username: serviceaccount_user
+        password: Ipam.123
+
+# which of the above declared vaults you want to use
+vault_to_use: local  # local or cyberark
+
+# IPAM related configuration, if IPAM is used.
+# If IPAM is not used, give ip_allocation_method as 'static'
+ipam:
+  infoblox:
+    ipam_address: infoblox.test.com
+    ipam_credential: infoblox_user
+
+# which of the above declared ipams you want to use, else give as 'static'
+ip_allocation_method: static  # static or infoblox

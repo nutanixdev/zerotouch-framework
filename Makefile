@@ -5,8 +5,8 @@ dev:
 		. venv/bin/activate
 		venv/bin/pip install --upgrade pip setuptools
 		venv/bin/pip install pip-tools
-		venv/bin/pip-compile --output-file=requirements/dev.txt requirements/dev.in
-		venv/bin/pip install --no-cache -r requirements/dev.txt
+		venv/bin/pip-compile --output-file=requirements/prod.txt requirements/prod.in
+		venv/bin/pip install --no-cache -r requirements/prod.txt
 
 test: dev
 	# In progress
@@ -21,5 +21,4 @@ centos:
 
 ubuntu:
 	sudo apt-get update
-	sudo apt-get -y install build-essential
-	sudo apt-get -y install gcc git libssl-dev sqlite3 libncurses-dev
+	sudo apt-get -y install build-essential gcc git libssl-dev sqlite3 libncurses-dev

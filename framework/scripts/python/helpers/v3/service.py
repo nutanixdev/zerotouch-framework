@@ -37,6 +37,14 @@ class Service(PcEntity):
         """
         return self._enable_service("microseg")
 
+    def disable_microseg(self):
+        """
+        Disable microseg service
+        Returns:
+          {"task_uuid": "9063a53d-e043-4c2c-807b-fd8de3168604"}
+        """
+        return self._disable_service("microseg")
+
     def enable_leap(self):
         """
         Enable leap service
@@ -75,7 +83,7 @@ class Service(PcEntity):
 
     def _enable_service(self, name: str):
         """
-        Enable the service
+        Enable a service
         Args:
           name(str): The name of the service
         Returns:
@@ -85,5 +93,20 @@ class Service(PcEntity):
         endpoint = name
         payload = {
             'state': 'ENABLE'
+        }
+        return self.create(data=payload, endpoint=endpoint)
+
+    def _disable_service(self, name: str):
+        """
+        Disable a service
+        Args:
+          name(str): The name of the service
+        Returns:
+          dict, the api response. example:
+              {"task_uuid": "9063a53d-e043-4c2c-807b-fd8de3168604"}
+        """
+        endpoint = name
+        payload = {
+            'state': 'DISABLE'
         }
         return self.create(data=payload, endpoint=endpoint)

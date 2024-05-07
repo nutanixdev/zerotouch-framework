@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 import paramiko
 import time
 import re
@@ -215,7 +215,7 @@ class SSHCVM(SSHEntity):
         Returns:
             bool: True if software exists, else False
         """
-        # status, error_message = False, None
+        self.logger.info(f"{self.cvm_ip}: Checking if Software already exists")
         ssh_obj = self.get_ssh_connection(self.cvm_ip, self.cvm_username, self.cvm_password)
         cmd = "source /etc/profile; ncli software ls software-type={} name={}".format(software_type, version)
         output, err = self.execute_command(ssh_obj=ssh_obj, command=cmd)
@@ -233,26 +233,32 @@ class SSHCVM(SSHEntity):
             metadata_file_path(str): the metadata file path
             file_path(str): the path of the tar ball file
             software_type (str): Software type
+            timeout (int): timeout
             eg, NOS, PRISM_CENTRAL, PRISM_CENTRAL_DEPLOY
         Returns:
             tuple: status(bool), error_message(str)
         """
-        self.logger.info(f"Uploading Software type {software_type}")
+        self.logger.info(f"{self.cvm_ip}: Uploading software type: {software_type}")
         status, error_message = False, None
-        ssh_obj = self.get_ssh_connection(self.cvm_ip, self.cvm_username, self.cvm_password)
-        cmd = "source /etc/profile; ncli software upload software-type={} meta-file-path={} file-path={}". \
-            format(software_type, metadata_file_path, file_path)
-        output, err = self.execute_command(ssh_obj=ssh_obj, command=cmd, timeout=timeout)
-        if "completed" in output.lower() or err.lower():
-            self.logger.info(output)
-            status = True
-        return status, error_message
+        try:
+            ssh_obj = self.get_ssh_connection(self.cvm_ip, self.cvm_username, self.cvm_password)
+            cmd = "source /etc/profile; ncli software upload software-type={} meta-file-path={} file-path={}". \
+                format(software_type, metadata_file_path, file_path)
+            output, err = self.execute_command(ssh_obj=ssh_obj, command=cmd, timeout=timeout)
+            if "completed" in output.lower() or err.lower():
+                self.logger.info(output)
+                status = True
+            else:
+                error_message = output.lower() + err.lower()
+            return status, error_message
+        except Exception as e:
+            return status, e
 
-    def download_files(self, url_list, timeout=300):
+    def download_files(self, url_list: List, timeout=300):
         """
         The function to download a list of files
         Args:
-            url_list(list<str>): The list of the urls
+            url_list(list): The list of the urls to download
             timeout(int): Command timeout
 
         Returns:
@@ -260,13 +266,17 @@ class SSHCVM(SSHEntity):
         """
         self.logger.info(f"Downloading files from URL(s): {url_list}")
         status = False
-        ssh_obj = self.get_ssh_connection(self.cvm_ip, self.cvm_username, self.cvm_password)
-        cmd = ";".join(["wget {} 2>/dev/null".format(url) for url in url_list])
-        cmd = "source /etc/profile;{}".format(cmd)
-        _, err = self.execute_command(ssh_obj=ssh_obj, command=cmd, timeout=timeout)
-        if err:
-            return status, err
-        return True, None
+        try:
+            ssh_obj = self.get_ssh_connection(self.cvm_ip, self.cvm_username, self.cvm_password)
+            cmd = ";".join(["wget -c --timestamp --no-check-certificate {}".format(url) for url in url_list])
+            cmd = "source /etc/profile;{}".format(cmd)
+            out, err = self.execute_command(ssh_obj=ssh_obj, command=cmd, timeout=timeout)
+            self.logger.info(out)
+            if err:
+                return status, out + err
+            return True, None
+        except Exception as e:
+            return status, e
 
     def upload_pc_deploy_software(self, pc_version: str, metadata_file_url: str, file_url: str,
                                   md5sum: str = None, delete_existing_software: bool = False):
@@ -288,7 +298,7 @@ class SSHCVM(SSHEntity):
         software_type = "PRISM_CENTRAL_DEPLOY"
         download_file = False
         # If file already exists check the MD5SUM, if it doesn't match download files to CVM
-        if self.is_file_exist(file_path) and self.is_file_exist(metadata_file_path):
+        if self.file_exists(file_path) and self.file_exists(metadata_file_path):
             if md5sum:
                 self.logger.info(f"Checking MD5SUM of file: {file_path}")
                 cvm_file_md5sum = self.get_md5sum_from_file_in_cvm(file_path)
@@ -304,14 +314,15 @@ class SSHCVM(SSHEntity):
         else:
             download_file = True
 
-        # Dowmload the files
+        # Download the files
         if download_file:
-            self.logger.info("Downloading metadata & tar files...")
+            self.logger.info(f"{self.cvm_ip}: Downloading metadata & tar files...")
             self.download_files(url_list=[metadata_file_url, file_url])
-            if not self.is_file_exist(file_path) and not self.is_file_exist(metadata_file_url):
-                return False, "Failed to download files to CMV"
+            self.logger.info(f"{self.cvm_ip}: Checking if the files are downloaded in CVM")
+            if not self.file_exists(file_path) and not self.file_exists(metadata_file_url):
+                return False, f"{self.cvm_ip}: Failed to download files to CVM"
             else:
-                self.logger.debug("Downloaded file exists in the CVM")
+                self.logger.debug(f"{self.cvm_ip}: Successfully downloaded the tar & metadata files to the CVM")
                 # Compare md5sum if md5sum is provided - additional check
                 if md5sum:
                     cvm_file_md5sum = self.get_md5sum_from_file_in_cvm(file_path)
@@ -321,22 +332,24 @@ class SSHCVM(SSHEntity):
                         return False, f"md5sum of file does not match with the file '{file_path}' downloaded in CVM"
 
         if self.check_software_exists(version=pc_version, software_type=software_type):
-            self.logger.info("Software Already exists")
+            self.logger.info(f"{self.cvm_ip}: Software Already exists")
             if delete_existing_software:
                 # Delete any old software from PE
+                self.logger.info(f"{self.cvm_ip}: Delete already existing software {pc_version}")
                 status = self.delete_software(version=pc_version, software_type=software_type)
                 if status:
-                    self.logger.info(f"Successfully deleted software {pc_version}")
+                    self.logger.info(f"{self.cvm_ip}: Successfully deleted software {pc_version}")
                 else:
-                    self.logger.error(f"Failed to deleted software {pc_version}")
+                    self.logger.error(f"{self.cvm_ip}: Failed to deleted exisiting software {pc_version}")
+                    return False, f"{self.cvm_ip}: Failed to deleted exisiting software {pc_version}"
                 # Upload software to PE
                 return self.upload_software(metadata_file_path, file_path, software_type=software_type, timeout=2000)
             return True, None
         else:
-            self.logger.info("Upload software")
+            self.logger.info(f"{self.cvm_ip}: Uploading software to PE...")
             return self.upload_software(metadata_file_path, file_path, software_type=software_type, timeout=2000)
 
-    def is_file_exist(self, file_path):
+    def file_exists(self, file_path):
         """
         Check if a file exists in the specified path
         Args:
@@ -344,12 +357,12 @@ class SSHCVM(SSHEntity):
         Returns:
             bool: True if file exist, else False
         """
-        self.logger.info(f"Check if a file '{file_path}' exists in the specified path")
+        self.logger.info(f"Check if the file {file_path!r} exists")
         ssh_obj = self.get_ssh_connection(self.cvm_ip, self.cvm_username, self.cvm_password)
         cmd = "source /etc/profile; ls %s" % file_path
         try:
-            _, err = self.execute_command(ssh_obj=ssh_obj, command=cmd)
-            if err:
+            out, err = self.execute_command(ssh_obj=ssh_obj, command=cmd)
+            if err or 'cannot access' in out:
                 return False
             return True
         except Exception as e:
@@ -367,8 +380,8 @@ class SSHCVM(SSHEntity):
         md5sum_response = "None"
         try:
             ssh_obj = self.get_ssh_connection(self.cvm_ip, self.cvm_username, self.cvm_password)
-            out, _ = self.execute_command(ssh_obj=ssh_obj, command=cmd, timeout=200)
-            if out:
+            out, err = self.execute_command(ssh_obj=ssh_obj, command=cmd, timeout=200)
+            if not err:
                 self.logger.info(f"Md5sum of file {file_path} is {out}")
                 return out
         except Exception as e:

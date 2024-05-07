@@ -1,5 +1,7 @@
 from copy import deepcopy
 from typing import Dict, List, Optional
+
+from framework.helpers.helper_functions import read_creds
 from framework.helpers.rest_utils import RestAPIUtil
 from .karbon import Karbon
 from ..v3.cluster import Cluster
@@ -9,7 +11,8 @@ from ..v3.network import Network
 class KarbonClusterV1(Karbon):
     kind = "cluster"
 
-    def __init__(self, session: RestAPIUtil):
+    def __init__(self, session: RestAPIUtil, data: Dict):
+        self.data = data
         self.name = self.host_os = self.subnet_uuid = self.control_plane_virtual_ip = self.cluster_uuid = \
             self.cluster_type = None
         self.session = session
@@ -23,7 +26,7 @@ class KarbonClusterV1(Karbon):
             "storage_class": self._build_spec_storage_class,
         }
 
-    def get_payload(self, cluster_spec: Dict) -> Dict:
+    def get_payload(self, cluster_spec: Dict, data: Dict) -> Dict:
         """
         Payload for creating a karbon cluster
         """
@@ -120,14 +123,22 @@ class KarbonClusterV1(Karbon):
         return payload, None
 
     def _build_spec_storage_class(self, payload: Dict, config: Dict) -> (Dict, None):
+        pe_credential = config.get("pe_credential")
+        # get credentials from the payload
+        try:
+            config["pe_username"], config["pe_password"] = (
+                read_creds(data=self.data, credential=pe_credential))
+        except Exception as e:
+            raise Exception(e)
+
         storage_class = {
             "default_storage_class": config.get("default_storage_class"),
             "name": config["name"],
             "reclaim_policy": config.get("reclaim_policy"),
             "volumes_config": {
                 "prism_element_cluster_uuid": self.cluster_uuid,
-                "username": config.get("nutanix_cluster_username") or config.get("pe_username"),
-                "password": config.get("nutanix_cluster_password") or config.get("pe_password"),
+                "username": config.get("pe_username"),
+                "password": config.get("pe_password"),
                 "storage_container": config["storage_container"],
                 "file_system": config.get("file_system"),
                 "flash_mode": config.get("flash_mode"),

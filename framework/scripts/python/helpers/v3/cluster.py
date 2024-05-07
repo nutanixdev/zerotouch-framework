@@ -7,7 +7,9 @@ class Cluster(PcEntity):
 
     def __init__(self, session: RestAPIUtil):
         self.uuid_ip_map = {}
+        self.uuid_name_map = {}
         self.name_uuid_map = {}
+        self.ip_uuid_map = {}
         self.resource_type = "/clusters"
         super(Cluster, self).__init__(session=session)
 
@@ -29,6 +31,8 @@ class Cluster(PcEntity):
                 continue
             uuid = cluster.get("metadata", {}).get("uuid")
             self.name_uuid_map[name] = uuid
+            self.uuid_name_map[uuid] = name
             self.uuid_ip_map[uuid] = ip
+            self.ip_uuid_map[ip] = uuid
 
         return

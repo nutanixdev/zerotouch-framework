@@ -81,7 +81,6 @@ pyvenv.cfg
 # celery beat schedule file
 celerybeat-schedule
 
-
 # virtualenv
 .venv/
 venv/
@@ -95,3 +94,7 @@ ENV/
 
 # others
 framework/script_log.log
+.github/workflows/black-duck.yml
+
+# local dir
+.local

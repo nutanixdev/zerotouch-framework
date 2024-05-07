@@ -1,0 +1,105 @@
+pe_creds: &pe_creds
+  # Specify a user with permission to make API calls.
+  pe_credential: pe_user # credential reference from "vaults" in global.yml file
+
+pe_container: &pe_container
+  name: Automation-container
+  # All these below parameters are optional
+  #storage_pool_uuid: uuid # Which storage pool to use, comment it to auto pick storage pool
+  reserved_in_gb: 1 # Represents the minimum exclusively reserved storage capacity available for the storage container
+  advertisedCapacity_in_gb: 1 # Represents the maximum storage capacity available for the storage container to use
+  replication_factor: 2 # Number of data copies to maintain
+  compression_enabled: true # true/ false Only Inline compression is supported yet
+  compression_delay_in_secs: 0
+  erasure_code: "OFF" # OFF/ ON # Erasure code requires a minimum of 4 nodes when using RF2 and a minimum of 6 nodes when using RF3
+  on_disk_dedup: "OFF" # OFF/ ON # Deduplication is not supported with fewer than 3 nodes
+  nfsWhitelistAddress: [ ] # Access list for storage container
+
+#Create
+clusters:
+  # configure the below clusters in the site
+  valid-cluster-01-ip:
+    # Use global pe creds for authentication
+    <<: *pe_creds
+    # Use global config
+    containers:
+      # Use global storage container config
+      - <<: *pe_container
+  valid-cluster-02-ip:
+    # can be defined locally as well
+    pe_credential: pe_user # credential reference from "vaults" in global.yml file
+    containers:
+      - name: Automation-container1
+        # All these below parameters are optional
+        reserved_in_gb: 2
+        advertisedCapacity_in_gb: 1
+        replication_factor: 2
+        compression_enabled: true
+        compression_delay_in_secs: 0
+        erasure_code: "OFF"
+        on_disk_dedup: "OFF"
+        nfsWhitelistAddress: [ ]
+
+#Delete
+clusters:
+  valid-cluster-01-ip:
+    pe_credential: pe_user
+    containers:
+      - name: Automation-container1
+
+
+######################################## SCHEMA DOCUMENTATION ########################################
+### 			---CREATE SCHEMA --- 			 ###
+
+# containers:
+#   type: list
+#   required: false
+#   schema:
+#     type: dict
+#     schema:
+#       name:
+#         type: string
+#         required: true
+#       advertisedCapacity_in_gb:
+#         type: integer
+#         required: false
+#       replication_factor:
+#         type: integer
+#         required: true
+#       compression_enabled:
+#         type: boolean
+#         required: false
+#       compression_delay_in_secs:
+#         type: integer
+#         required: false
+#       erasure_code:
+#         type: string
+#         required: false
+#         allowed:
+#         - 'OFF'
+#         - 'ON'
+#       on_disk_dedup:
+#         type: string
+#         required: false
+#         allowed:
+#         - 'OFF'
+#         - 'ON'
+#       nfsWhitelistAddress:
+#         type: list
+#         required: false
+# 
+
+
+### 			---DELETE SCHEMA --- 			 ###
+
+# containers:
+#   type: list
+#   schema:
+#     type: dict
+#     schema:
+#       name:
+#         type: string
+#         required: true
+# 
+
+####################################################################################################

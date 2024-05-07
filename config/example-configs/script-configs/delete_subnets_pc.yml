@@ -1,0 +1,16 @@
+pc_ip: valid-pc-ip
+# Specify a user with permission to make API calls.
+pc_credential: pc_user # credential reference from "vaults" in global.yml file
+
+
+clusters:
+  valid-cluster-01-ip:
+    name: cluster-01
+    networks:
+      - uuid: <network-uuid-to-delete> # UUID of the subnet/network to delete
+      - uuid: <network-uuid-to-delete>
+
+  valid-cluster-02-ip:
+    name: cluster-02
+    networks:
+      - uuid: <network-uuid-to-delete>

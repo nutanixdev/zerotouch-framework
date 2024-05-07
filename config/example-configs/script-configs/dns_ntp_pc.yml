@@ -1,0 +1,11 @@
+pc_ip: valid-pc-ip
+# Specify a user with permission to make API calls.
+pc_credential: pc_user # credential reference from "vaults" in global.yml file
+
+pc_name_servers_list:
+  - valid-ip-1
+  - valid-ip-2
+pc_ntp_servers_list:
+  - 0.us.pool.ntp.org
+  - 1.us.pool.ntp.org
+  - 2.us.pool.ntp.org

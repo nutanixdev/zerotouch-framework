@@ -11,21 +11,26 @@ class PCDeploymentUtil:
     """
     GB = 1024 * 1024 * 1024
     PORT = 9440
+    PC_VM_SPEC = {
+        "small": {"num_sockets": 6, "memory_size_in_gb": 26, "data_disk_size_in_gb": 500},
+        "large": {"num_sockets": 10, "memory_size_in_gb": 44, "data_disk_size_in_gb": 2500},
+        "xlarge": {"num_sockets": 14, "memory_size_in_gb": 60, "data_disk_size_in_gb": 2500}
+    }
 
     def __init__(self, pe_session: RestAPIUtil):
-        self.pe_session = pe_session
+        self.pe_session = pe_session  # PE session on which PC is deployed
 
-    def get_prism_central_vm_size_spec(self, pc_size: str):
+    def get_pcvm_size_spec(self, pc_size: str):
         """
-        Get the vm spec as per PC size and retuen the vm spec
+        Get the vm spec as per PC size and return the vm spec
         Args:
             pc_size(str): pc vm size. Values: small, large, xlarge
         """
         error_message = ""
         try:
-            if not self.pc_vm_size_spec(pc_size):
-                error_message = f"Failed to get VM Spec for PC Size {pc_size}. Please check the pc size provided. Allowed sizes are: small, large, xlarge."
-            return self.pc_vm_size_spec(pc_size), error_message
+            if pc_size not in self.PC_VM_SPEC:
+                raise Exception(f"Failed to get VM Spec for PC Size {pc_size}. Please check the pc size provided. Allowed sizes are: small, large, xlarge.")
+            return self.PC_VM_SPEC[pc_size], error_message
         except Exception as e:
             logger.error(e)
             error_message = e
@@ -101,14 +106,14 @@ class PCDeploymentUtil:
                 "memory_size_bytes": pc_config.get("memory_size_in_gb") * self.GB,
                 "dns_server_ip_list": pc_config.get("dns_server_ip_list", []),
                 "nic_list": [
-                {
-                    "ip_list": [ip_list[i]],
-                    "network_configuration": {
-                        "network_uuid": network_uuid,
-                        "subnet_mask": pc_config.get("subnet_mask"),
-                        "default_gateway": pc_config.get("default_gateway")
+                    {
+                        "ip_list": [ip_list[i]],
+                        "network_configuration": {
+                            "network_uuid": network_uuid,
+                            "subnet_mask": pc_config.get("subnet_mask"),
+                            "default_gateway": pc_config.get("default_gateway")
+                        }
                     }
-                }
                 ]
             }
 
@@ -118,22 +123,15 @@ class PCDeploymentUtil:
             "resources": {
                 "version": pc_config.pop("pc_version"),
                 "should_auto_register": pc_config.get("auto_register", False),
-                "virtual_ip": pc_config["pc_vip"],
                 "pc_vm_list": pc_vm_list
             }
         }
+
+        if pc_config.get("pc_vip"):
+            payload["resources"]["virtual_ip"] = pc_config["pc_vip"]
 
         prism_central_op = PrismCentral(self.pe_session)
         response = prism_central_op.create(data=payload)
         if response:
             logger.debug(response)
             return response["task_uuid"]
-
-    @staticmethod
-    def pc_vm_size_spec(size):
-        pc_vm_specs = {
-            "small": {"num_sockets": 6, "memory_size_in_gb": 26, "data_disk_size_in_gb": 500},
-            "large": {"num_sockets": 10, "memory_size_in_gb": 44, "data_disk_size_in_gb": 2500},
-            "xlarge": {"num_sockets": 14, "memory_size_in_gb": 60, "data_disk_size_in_gb": 2500}
-        }
-        return pc_vm_specs.get(size, {})

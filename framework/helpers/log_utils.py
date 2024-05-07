@@ -10,7 +10,7 @@ class ConfigureRootLogger:
     customization the root logger
     """
 
-    def __init__(self, debug: False):
+    def __init__(self, debug: False, file_name: str = "zero_touch.log"):
         """
         Build CustomLogger based on logging module
 
@@ -24,7 +24,7 @@ class ConfigureRootLogger:
         self._ch = RainbowLoggingHandler(sys.stderr, color_message_info=('green', None, False))
 
         # create file handler
-        self._fh = logging.FileHandler("zero_touch.log", mode='w')
+        self._fh = logging.FileHandler(file_name, mode='w')
 
         # add formatter to console handler
         self.__add_console_formatter(self._ch)

@@ -1,0 +1,13 @@
+pc_ip: valid-pc-ip
+# Specify a user with permission to make API calls.
+pc_credential: pc_user # credential reference from "vaults" in global.yml file
+
+objects:
+  directory_services:
+    - ad_name: name
+      ad_domain: eng.company.com
+      ad_directory_url: valid-ad-directory-url   # e.g., ldap://10.1.4.111:389
+      service_account_credential: service_account_credential # credential reference from "vaults" in global.yml file
+      ad_users:
+        - darshan@eng.company.com
+        - kousalya@eng.company.com

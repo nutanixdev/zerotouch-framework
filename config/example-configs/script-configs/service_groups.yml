@@ -1,0 +1,59 @@
+pc_ip: valid-pc-ip
+# Specify a user with permission to make API calls.
+pc_credential: pc_user # credential reference from "vaults" in global.yml file
+
+#Create
+service_groups:
+  - name: ngt
+    description: Example Service Group NGT - TCP
+    service_details:
+      tcp:
+        - "2074"
+  - name: dns
+    description: Example Service Group DNS - UDP
+    service_details:
+      udp:
+        - "53"
+
+#Delete
+service_groups:
+  - name: ngt
+  - name: dns
+
+
+######################################## SCHEMA DOCUMENTATION ########################################
+### 			---CREATE SCHEMA --- 			 ###
+
+# service_groups:
+#   type: list
+#   schema:
+#     type: dict
+#     schema:
+#       name:
+#         type: string
+#         required: true
+#       description:
+#         type: string
+#       service_details:
+#         type: dict
+#         required: true
+#         keyschema:
+#           type: string
+#         valueschema:
+#           type: list
+# 
+
+
+### 			---DELETE SCHEMA --- 			 ###
+
+# service_groups:
+#   type: list
+#   schema:
+#     type: dict
+#     required: true
+#     schema:
+#       name:
+#         type: string
+# 
+
+####################################################################################################

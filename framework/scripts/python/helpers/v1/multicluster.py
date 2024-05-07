@@ -5,9 +5,9 @@ from ..pe_entity_v1 import PeEntityV1
 
 class MultiCluster(PeEntityV1):
 
-    def __init__(self, session: RestAPIUtil):
+    def __init__(self, session: RestAPIUtil, proxy_cluster_uuid=None):
         self.resource_type = "/multicluster"
-        super(MultiCluster, self).__init__(session=session)
+        super(MultiCluster, self).__init__(session=session, proxy_cluster_uuid=proxy_cluster_uuid)
 
     def get_cluster_external_state(self):
         """

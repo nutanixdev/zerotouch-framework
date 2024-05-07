@@ -77,6 +77,32 @@ class PcGroupsOp:
                                   attributes=attributes,
                                   filter_criteria=filter_criteria)
 
+    def list_events(self, start_time: int | float):
+        """
+        Get the events from the PC
+        Returns:
+          list<dict>: The event list.
+        """
+        attributes = ["title", "source_entity_name", "classification", "cluster", "_created_timestamp_usecs_", "default_message", "param_name_list", "param_value_list", "source_entity_uuid", "source_entity_type", "operation_type", "info"]
+        filter_criteria = f"classification==.*[u|U][s|S][e|E][r|R][a|A][c|C][t|T][i|I][o|O][n|N].*;_created_timestamp_usecs_=ge={start_time}"
+        return self.list_entities(entity_type="event",
+                                  attributes=attributes,
+                                  filter_criteria=filter_criteria,
+                                  group_member_sort_order="DESCENDING")
+
+    def list_audits(self, start_time: int | float):
+        """
+        Get the audit list from the PC
+        Returns:
+          list<dict>: The event list.
+        """
+        attributes = ['title', 'user_name', 'target_entity_name', 'target_entity_type', 'operation_type', 'op_start_timestamp_usecs', 'cluster', 'param_name_list', 'param_value_list', 'target_entity_uuid', 'default_message', 'component', 'user', 'client_ip', 'status', 'type_id', 'entity_name_list', 'entity_type_list', 'entity_uuid_list']
+        filter_criteria = f"type_id!=RecoveryPlanJobAudit;op_start_timestamp_usecs=ge={start_time}"
+        return self.list_entities(entity_type="audit",
+                                  attributes=attributes,
+                                  filter_criteria=filter_criteria,
+                                  group_member_sort_order="DESCENDING")
+
     def __groups_post_call(self, group_member_offset, group_member_count, **kwargs):
         """
         Helper to perform prism client post request

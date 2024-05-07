@@ -1,0 +1,138 @@
+pe_creds: &pe_creds
+  # below credential is also used to update default password for "admin"
+  new_pe_admin_credential: admin_cred # credential reference from "vaults" in global.yml file
+  # The below credentials will be used for making all API calls.
+  pe_credential: admin_cred
+
+# Re-usable configurations, defined as anchors
+cluster_eula: &eula
+  eula:
+    username: Nutanix
+    company_name: Nutanix
+    job_title: Backend Engineer
+
+pulse: &pulse
+  enable_pulse: true
+
+ad_config: &ad_config
+  directory_services: &directory_services
+    directory_type: ACTIVE_DIRECTORY # only ACTIVE_DIRECTORY is supported, port 389 will be used for LDAP
+    ad_name: name
+    ad_domain: eng.company.com
+    ad_directory_url: valid-ad-directory-url   # e.g., ldap://10.1.4.111:389
+    service_account_credential: service_account_credential # credential reference from "vaults" in global.yml file
+    role_mappings:
+      - role_type: ROLE_USER_ADMIN # one of 'ROLE_CLUSTER_ADMIN', 'ROLE_USER_ADMIN', 'ROLE_CLUSTER_VIEWER', 'ROLE_BACKUP_ADMIN'
+        entity_type: GROUP # one of GROUP, OU, USER
+        values:
+          - john_doe
+          - john_smith
+
+pe_container: &pe_container
+  name: Automation-container
+  # All these below parameters are optional
+  #storage_pool_uuid: uuid # Which storage pool to use, comment it to auto pick storage pool
+  reserved_in_gb: 1 # Represents the minimum exclusively reserved storage capacity available for the storage container
+  advertisedCapacity_in_gb: 1 # Represents the maximum storage capacity available for the storage container to use
+  replication_factor: 2 # Number of data copies to maintain
+  compression_enabled: true # Only Inline compression is supported yet
+  compression_delay_in_secs: 0
+  erasure_code: "OFF" # OFF/ ON # Erasure code requires a minimum of 4 nodes when using RF2 and a minimum of 6 nodes when using RF3
+  on_disk_dedup: "OFF" # OFF/ ON # Deduplication is not supported with fewer than 3 nodes
+  nfsWhitelistAddress: [ ] # Access list for storage container
+
+pe_networks: &pe_networks
+  name: "vlan-110"
+  subnet_type: VLAN # only VLAN is supported yet
+  vlan_id: 110
+  # virtual_switch: "vs0" # Optional. If not specified, the first virtual switch will be used
+  ip_config:
+    network_ip: valid-ip
+    network_prefix: 24
+    default_gateway_ip: valid-ip
+    # comment pool_list section if there are no pools for the subnet
+    pool_list:
+      - range: "valid-ip-start valid-ip-end" # Eg "10.10.10.31 10.10.10.40"
+    #  comment dhcp_options section if you don't want dhcp. Over-riding dhcp is not supported yet
+    dhcp_options:
+      domain_name_server_list: [ 10.10.10.10 ]
+      domain_search_list: [ eng.company.com ]
+      domain_name: eng.company.com
+
+name_servers: &name_servers
+  name_servers_list:
+    - valid-name-server1
+    - valid-name-server1
+
+ntp_servers: &ntp_servers
+  ntp_servers_list:
+    - 0.us.pool.ntp.org
+    - 1.us.pool.ntp.org
+    - 2.us.pool.ntp.org
+
+# configure the below clusters
+clusters:
+  valid-site01-cluster-01-ip:
+    name: cluster-01 # Optional if name is already provided above
+    # Use global pe creds
+    <<: *pe_creds
+    # Use global eula config
+    <<: *eula
+    # Use global pulse config
+    <<: *pulse
+    # Use global ad config
+    <<: *ad_config
+    dsip: valid-ip
+    networks:
+      # Use global network config
+      - <<: *pe_networks
+    containers:
+      # Use global storage container config
+      - <<: *pe_container
+    # NTP, DNS servers
+    <<: *ntp_servers
+    <<: *name_servers
+
+  valid-site02-cluster-02-ip:
+    name: cluster-02 # Optional if name is already provided above
+    # Use global pe creds
+    <<: *pe_creds
+    # Over-ride global eula config
+    eula:
+      username: username
+      company_name: Nutanix
+      job_title: title
+    # Use global pulse config
+    <<: *pulse
+    # Over-ride global ad config
+    directory_services:
+      directory_type: ACTIVE_DIRECTORY # only ACTIVE_DIRECTORY is supported, port 389 will be used for LDAP
+      ad_name: some-other-name
+      ad_domain: eng.company.com
+      ad_directory_url: valid-ad-directory-url   # e.g., ldap://10.1.4.111:389
+      service_account_credential: service_account_credential # credential reference from "vaults" in global.yml file
+      role_mappings:
+        - role_type: ROLE_USER_ADMIN # one of 'ROLE_CLUSTER_ADMIN', 'ROLE_USER_ADMIN', 'ROLE_CLUSTER_VIEWER', 'ROLE_BACKUP_ADMIN'
+          entity_type: GROUP # one of GROUP, OU, USER
+          values:
+            - yash
+            - naveen
+    dsip: valid-ip
+    networks:
+      # Use global network config and add another network
+      - <<: *pe_networks
+      - name: "vlan-200"
+        subnet_type: VLAN # only VLAN is supported yet
+        vlan_id: 200
+        ip_config:
+          network_ip: valid-ip
+          network_prefix: 24
+          default_gateway_ip: valid-ip
+          # comment pool_list section if there are no pools for the subnet
+          pool_list:
+            - range: "valid-ip-start valid-ip-end" # Eg "10.10.10.31 10.10.10.40"
+          #  comment dhcp_options section if you don't want dhcp. Over-riding dhcp is not supported yet
+          dhcp_options:
+            domain_name_server_list: [ 10.10.10.10 ]
+            domain_search_list: [ eng.company.com ]
+            domain_name: eng.company.com

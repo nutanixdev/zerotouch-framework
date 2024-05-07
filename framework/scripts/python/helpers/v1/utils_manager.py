@@ -7,17 +7,14 @@ class UtilsManager(PeEntityV1):
     """
     Class to change the default system password
     """
-    DEFAULT_SYSTEM_PASSWORD = "Nutanix/4u"
-    DEFAULT_USERNAME = "admin"
-
-    def __init__(self, session: RestAPIUtil):
+    def __init__(self, session: RestAPIUtil, proxy_cluster_uuid=None):
         self.resource_type = "/utils"
-        super(UtilsManager, self).__init__(session=session)
+        super(UtilsManager, self).__init__(session=session, proxy_cluster_uuid=proxy_cluster_uuid)
 
-    def change_default_system_password(self, new_password) -> Dict:
+    def change_default_system_password(self, old_password, new_password) -> Dict:
         endpoint = "change_default_system_password"
         data = {
-            "oldPassword":  self.DEFAULT_SYSTEM_PASSWORD,
+            "oldPassword":  old_password,
             "newPassword": new_password
         }
         return self.create(data=data, endpoint=endpoint)

@@ -1,0 +1,50 @@
+pc_ip: valid-pc-ip
+# Specify a user with permission to make API calls.
+pc_credential: pc_user # credential reference from "vaults" in global.yml file
+
+#Create
+ovas:
+  # OVAs that needs to be uploaded to the PC clusters
+  - url: http://url-to-download-ova-from # url where the ova file is located
+    name: ova-name # name of the ova to be uploaded to the PC clusters
+    cluster_name_list: [cluster-1, cluster-2] # cluster names to upload ovas. We can upload to multiple clusters
+
+#Delete
+#TODO Delete using UUID
+ovas:
+  - name: ova-name
+
+
+######################################## SCHEMA DOCUMENTATION ########################################
+### 			---CREATE SCHEMA --- 			 ###
+
+# ovas:
+#   type: list
+#   schema:
+#     type: dict
+#     schema:
+#       url:
+#         type: string
+#         required: true
+#       name:
+#         type: string
+#         required: true
+#       cluster_name_list:
+#         type: list
+#         required: true
+# 
+
+
+### 			---DELETE SCHEMA --- 			 ###
+
+# ovas:
+#   type: list
+#   schema:
+#     type: dict
+#     schema:
+#       name:
+#         type: string
+#         required: true
+# 
+
+####################################################################################################

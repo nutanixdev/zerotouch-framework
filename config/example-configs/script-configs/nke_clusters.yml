@@ -1,0 +1,44 @@
+pc_ip: valid-pc-ip
+# Specify a user with permission to make API calls.
+pc_credential: pc_user # credential reference from "vaults" in global.yml file
+
+nke_clusters:
+  # configure the below nke_clusters in the site
+  - cluster:
+      name: cluster-01
+    name: valid-name
+    cluster_type: DEV # DEV/ PROD
+    k8s_version: 1.24.7-0
+    host_os: ntnx-1.4
+    node_subnet:
+      name: vlan110 # valid IPAM
+    cni:
+      node_cidr_mask_size: 24
+      service_ipv4_cidr: "172.19.0.0/16"
+      pod_ipv4_cidr: "172.20.0.0/16"
+      network_provider: Calico # Calico/ Flannel
+    custom_node_configs:
+      etcd:
+        num_instances: 1 # 1 for DEV, 3 for PROD
+        cpu: 4
+        memory_gb: 8
+        disk_gb: 40
+      masters:
+        num_instances: 1 # 1 for DEV, 2 for PROD
+        cpu: 2 # 2 for DEV, 4 for PROD
+        memory_gb: 4 # 4 for DEV, 8 for PROD
+        disk_gb: 120
+      workers:
+        num_instances: 1 # 1 for DEV, 3 for PROD
+        cpu: 8
+        memory_gb: 8
+        disk_gb: 120
+    storage_class:
+      # Credentials of the PE where you've selected the storage container from
+      pe_credential: pe_user
+      default_storage_class: True
+      name: default-storageclass
+      reclaim_policy: Retain # "Retain"/ "Delete"
+      storage_container: default-container-78262 #Storage container to use in the cluster defined above
+      file_system: ext4 # "ext4"/ "xfs"
+      flash_mode: false # true/ false
