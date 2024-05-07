@@ -5,7 +5,7 @@ pe_creds: &pe_creds
 cvm_creds: &cvm_creds
   # This will be nutanix user used to login to CVM CLI
   cvm_username: nutanix
-  cvm_password: nutanix/4u
+  cvm_password: cvm-password
 
 deploy_pc_file_urls: &deploy_pc_file_urls
   # Files to deploy PC in PE. PC software tar file, its metafile & pc_version are required to download & upload software to PE

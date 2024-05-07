@@ -399,7 +399,7 @@ class FoundationScript(Script):
         inprogress_count = 0
         total_cluster_deployments = len(deployment_result)
         result = {"total_cluster_deployments": total_cluster_deployments, "passed_count": passed_count,
-                  "failed_count": failed_count, "in_progess_count": inprogress_count, "cluster_access_validation": []}
+                  "failed_count": failed_count, "in_progess_count": inprogress_count, "cluster_access_validation": {}}
         for cluster_name, deployment_status in deployment_result.items():
             if deployment_status["result"] == "FAILED":
                 result["failed_count"] += 1
@@ -408,8 +408,7 @@ class FoundationScript(Script):
             elif deployment_status["result"] == "PENDING":
                 result["in_progess_count"] += 1
             if deployment_status["cluster_vip_access"]:
-                result["cluster_access_validation"].append(
-                        {cluster_name: deployment_status["cluster_vip_access"]})
+                result["cluster_access_validation"][cluster_name] = deployment_status["cluster_vip_access"]
         return result
 
     def start_fc_deployment(self, fc_deployment_list: list, fc_deployment_logger=None):
@@ -527,7 +526,7 @@ class FoundationScript(Script):
                 self.logger.debug("Updating heartbeat interval...")
                 self.update_heartbeat_interval(imaging_nodes_list, fc_deployment_logger=fc_deployment_logger)
                 # Enabling one node is not required in production
-                if self.data["test_enable_one_node"]:
+                if self.data.get("test_enable_one_node"):
                     self.logger.debug("Enabling one node support...")
                     self.enable_one_node(imaging_nodes_list, fc_deployment_logger)
             self.logger.info("Sleep 5 mins for the nodes to be discovered")
@@ -607,6 +606,7 @@ class FoundationScript(Script):
             except Exception as e:
                 self.exceptions.append(e)
         self.logger.info(json.dumps(self.overall_result, indent=2))
+        self.data["json_output"] = self.overall_result
 
     def verify(self):
         pass
