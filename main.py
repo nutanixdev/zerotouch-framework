@@ -71,7 +71,7 @@ def main():
                     scripts = [ClusterConfig]
                 case "deploy-pc":
                     schema = DEPLOY_PC_CONFIG_SCHEMA
-                    pre_run_actions += [create_pc_objects]
+                    pre_run_actions += [create_pe_objects]
                     post_run_actions.insert(0, generate_html_from_json)
                     scripts = [DeployPC]
                 case "config-pc":

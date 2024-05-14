@@ -322,7 +322,7 @@ AD_DELETE_SCHEMA = {
             'role_mappings': {
                 'type': 'list',
                 'required': False,
-                'dependencies': ['directory_services.ad_name'],
+                'dependencies': ['ad_name'],
                 'schema': {
                     'type': 'dict',
                     'schema': {
@@ -1633,77 +1633,88 @@ DEPLOY_PC_FILES_SCHEMA = {
 }
 
 DEPLOY_PC_CONFIG_SCHEMA = {
-    'type': 'dict',
-    'schema': {
-        'file_url': {
-            'type': 'string',
-            'required': True
-        },
-        'metadata_file_url': {
-            'type': 'string',
-            'required': True
-        },
-        'pc_version': {
-            'type': 'string',
-            'required': True
-        },
-        'md5sum': {
-            'type': 'string',
-            'required': False
-        },
-        'pc_vm_name_prefix': {
-            'type': 'string',
-            'required': True,
-            'validator': contains_whitespace
-        },
-        'num_pc_vms': {
-            'type': 'integer',
-            'required': True,
-            'allowed': [1, 3]
-        },
-        'pc_size': {
-            'type': 'string',
-            'required': True,
-            'allowed': ['small', 'large', 'xlarge']
-        },
-        'pc_vip': {
-            'type': 'string',
-            'required': False,
-            'validator': validate_ip
-        },
-        'ip_list': {
-            'type': 'list',
-            'required': True,
-            'schema': {'validator': validate_ip}
-        },
-        'ntp_server_list': {
-            'type': 'list',
-            'required': False
-        },
-        'dns_server_ip_list': {
-            'type': 'list',
-            'required': False,
-        },
-        'container_name': {
-            'type': 'string',
-            'required': True
-        },
-        'network_name': {
-            'type': 'string',
-            'required': True
-        },
-        'default_gateway': {
-            'type': 'string',
-            'required': True,
-            'validator': validate_ip
-        },
-        'subnet_mask': {
-            'type': 'string',
-            'required': True,
-            'validator': validate_ip
-        },
-        'delete_existing_software': {
-            'type': 'boolean'
+    'clusters': {
+        'type': 'dict',
+        'keyschema': {'type': 'string', 'validator': validate_ip},
+        'valueschema': {
+            'type': 'dict',
+            'schema': {
+                'pe_credential': CREDENTIAL_SCHEMA,
+                'cvm_credential': CREDENTIAL_SCHEMA,
+                'deploy_pc_config': {
+                    'required': True,
+                    'type': 'dict',
+                    'schema': {
+                        'file_url': {
+                            'type': 'string',
+                        },
+                        'metadata_file_url': {
+                            'type': 'string',
+                        },
+                        'pc_version': {
+                            'type': 'string',
+                            'required': True
+                        },
+                        'md5sum': {
+                            'type': 'string',
+                        },
+                        'pc_vm_name_prefix': {
+                            'type': 'string',
+                            'required': True,
+                            'validator': contains_whitespace
+                        },
+                        'num_pc_vms': {
+                            'type': 'integer',
+                            'required': True,
+                            'allowed': [1, 3]
+                        },
+                        'pc_size': {
+                            'type': 'string',
+                            'required': True,
+                            'allowed': ['small', 'large', 'xlarge']
+                        },
+                        'pc_vip': {
+                            'type': 'string',
+                            'required': False,
+                            'validator': validate_ip
+                        },
+                        'ip_list': {
+                            'type': 'list',
+                            'required': True,
+                            'schema': {'validator': validate_ip}
+                        },
+                        'ntp_server_list': {
+                            'type': 'list',
+                            'required': False
+                        },
+                        'dns_server_ip_list': {
+                            'type': 'list',
+                            'required': False,
+                        },
+                        'container_name': {
+                            'type': 'string',
+                            'required': True
+                        },
+                        'network_name': {
+                            'type': 'string',
+                            'required': True
+                        },
+                        'default_gateway': {
+                            'type': 'string',
+                            'required': True,
+                            'validator': validate_ip
+                        },
+                        'subnet_mask': {
+                            'type': 'string',
+                            'required': True,
+                            'validator': validate_ip
+                        },
+                        'delete_existing_software': {
+                            'type': 'boolean'
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -1726,18 +1737,7 @@ POD_MANAGEMENT_DEPLOY_SCHEMA = {
             **OVA_UPLOAD_SCHEMA,
             **IMAGE_UPLOAD_SCHEMA,
             'ncm': DEPLOY_OVA_AS_VM_SCHEMA,
-            'clusters': {
-                'type': 'dict',
-                'keyschema': {'type': 'string', 'validator': validate_ip},
-                'valueschema': {
-                    'type': 'dict',
-                    'schema': {
-                        'pe_credential': CREDENTIAL_SCHEMA,
-                        'cvm_credential': CREDENTIAL_SCHEMA,
-                        'deploy_pc_config': DEPLOY_PC_CONFIG_SCHEMA
-                    }
-                }
-            }
+            **DEPLOY_PC_CONFIG_SCHEMA
         }
     }
 }
