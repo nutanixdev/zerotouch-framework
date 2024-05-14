@@ -15,7 +15,7 @@ deploy_pc_file_urls: &deploy_pc_file_urls
   file_url: https://url-to-download-pc-xxxx.x.x.tar
   metadata_file_url: https://url-to-download-metadata.json
   pc_version: pc.xxxx.x.x
-  # md5sum of the PC tar file used to compare after file is downloaded. This is optional
+  # Optional. If specified, md5sum of the existing PC tar file or downloaded tar file, is compared with specified md5sum to verify the integrity of PC tar file
   md5sum: md5sum-of-pc-xxxx.x.x.tar-file
 
 # Clusters where the PC has to be deployed
