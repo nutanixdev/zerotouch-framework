@@ -6,7 +6,7 @@ ZTF is a tool used to automate end-to-end deployment and configuration of Nutani
 intervention,
 hence the name Zero Touch. The tool can also be extended to manage Day-1 and Day-2 operations as well.
 > Note: ZTF has been primarily built to automate Nutanix Validated Designs at scale. All the existing workflows and
-> scripts have been tested against: AOS: 6.5.x, PC 2022.6.x, Calm 3.5.2 and 3.6.0
+> scripts have been tested against: AOS: 6.5.x, 6.7.x, 6.8.x PC 2022.6.x, 2023.4.x, 2024.1.x Calm 3.5.2 and 3.6.0
 
 ## Prerequisites
 
