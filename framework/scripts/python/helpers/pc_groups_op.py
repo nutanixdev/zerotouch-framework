@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 from framework.helpers.rest_utils import RestAPIUtil
 
 GROUP_MEMBER_COUNT_THRESHOLD = 500
@@ -77,7 +77,7 @@ class PcGroupsOp:
                                   attributes=attributes,
                                   filter_criteria=filter_criteria)
 
-    def list_events(self, start_time: int | float):
+    def list_events(self, start_time: Union[int, float]):
         """
         Get the events from the PC
         Returns:
@@ -90,7 +90,7 @@ class PcGroupsOp:
                                   filter_criteria=filter_criteria,
                                   group_member_sort_order="DESCENDING")
 
-    def list_audits(self, start_time: int | float):
+    def list_audits(self, start_time: Union[int, float]):
         """
         Get the audit list from the PC
         Returns:

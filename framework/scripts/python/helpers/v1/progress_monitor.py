@@ -1,3 +1,5 @@
+from typing import Union
+
 from framework.helpers.rest_utils import RestAPIUtil
 from ..pe_entity_v1 import PeEntityV1
 
@@ -11,7 +13,7 @@ class ProgressMonitor(PeEntityV1):
         self.session = session
         super(ProgressMonitor, self).__init__(session=session, proxy_cluster_uuid=proxy_cluster_uuid)
 
-    def get_progress_monitors(self, start_time: int | float) -> dict:
+    def get_progress_monitors(self, start_time: Union[int, float]) -> dict:
         query = {
             "hasSubTaskDetail": False,
             "count": 500,

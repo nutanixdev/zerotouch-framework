@@ -7,7 +7,7 @@
 - Install git and openssl: `brew install git openssl`
 - Add path to flags: `export LDFLAGS="-L$(brew --prefix openssl)/lib"`
   and `export CFLAGS="-I$(brew --prefix openssl)/include"`
-- Install Python >= 3.10 (you can use pyenv to manage multiple Python versions): `brew install pyenv`
+- Install Python >= 3.9 (you can use pyenv to manage multiple Python versions): `brew install pyenv`
   and `pyenv install 3.10.6`
 - Clone this repo
 - Install required python modules: `make dev`
@@ -16,10 +16,10 @@
 
 ### For Centos:
 
-- Install Python >= 3.10 (you can use pyenv to manage multiple Python versions)
+- Install Python >= 3.9 (you can use pyenv to manage multiple Python versions)
 - Clone this repo
 - Install any dependencies using: `make centos`
-- Ensure Python version inside the repository is >= 3.10 `python -V`
+- Ensure Python version inside the repository is >= 3.9 `python -V`
 - Create python virtual environment: `python -m venv venv`
 - Install required python modules:`make dev`
 - Getting into virtualenv: `source venv/bin/activate`
@@ -27,10 +27,10 @@
 
 ### For Debian/Ubuntu:
 
-- Install Python >= 3.10 (you can use pyenv to manage multiple Python versions)
+- Install Python >= 3.9 (you can use pyenv to manage multiple Python versions)
 - Clone this repo
 - Install any dependencies using: `make ubuntu`
-- Ensure Python version inside the repository is >= 3.10 `python -V`
+- Ensure Python version inside the repository is >= 3.9 `python -V`
 - Create python virtual environment: `python -m venv venv`
 - Install required python modules:`make dev`
 - Getting into virtualenv: `source venv/bin/activate`
@@ -45,9 +45,9 @@
 - Compress and copy this site-packages.tar to the dark-site VM
 - In dark-site VM:
     - Ensure all the dependant libraries are installed, check MAKEFILE for more information.
-    - Install Python >= 3.10
+    - Install Python >= 3.9
     - Clone this repo
-    - Ensure Python version inside the repository is >= 3.10 `python -V`
+    - Ensure Python version inside the repository is >= 3.9 `python -V`
     - Create python virtual environment: `python -m venv venv`
     - Extract site-packages folder, that was copied over
     - Perform installation using the following
