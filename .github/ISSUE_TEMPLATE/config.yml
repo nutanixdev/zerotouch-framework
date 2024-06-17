@@ -1,0 +1,10 @@
+blank_issues_enabled: false
+contact_links:
+  - name: I have an issue with the Nutanix APIs
+    url: https://support.nutanix.com
+    about: Please report any Nutanix API issues to Nutanix Support.
+  - name: I have a question about ZTF
+    about: Please email solutions-automation@nutanix.com for help or to ask questions regarding ZTF.
+  - name: I have an issue with the documentation or would like to suggest content to be added
+    url: https://github.com/nutanixdev/zerotouch-framework/issues
+    about: Please use create an issue for documentation or website related issues.

@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import Dict
 from framework.helpers.log_utils import get_logger
 from framework.scripts.python.helpers.karbon.karbon_clusters import KarbonCluster, KarbonClusterV1
@@ -14,10 +15,11 @@ class CreateKarbonClusterPc(Script):
     Class that creates NKE Clusters in PC
     """
 
-    def __init__(self, data: Dict, **kwargs):
+    def __init__(self, data: Dict, global_data: Dict = None, **kwargs):
         self.task_uuid_list = []
         self.response = None
         self.data = data
+        self.global_data = deepcopy(global_data) if global_data else {}
         self.pc_session = self.data["pc_session"]
         super(CreateKarbonClusterPc, self).__init__(**kwargs)
         self.logger = self.logger or logger
@@ -28,9 +30,12 @@ class CreateKarbonClusterPc(Script):
             if not self.data.get("nke_clusters"):
                 self.logger.warning(f"Skipping NKE Clusters creation in {self.data['pc_ip']!r}")
                 return
-
+            if not self.data.get("vaults"):
+                self.data["vaults"] = self.global_data.get("vaults")
+            if not self.data.get("vault_to_use"):
+                self.data["vault_to_use"] = self.global_data.get("vault_to_use")
             karbon_cluster = KarbonCluster(self.pc_session)
-            karbon_cluster_v1 = KarbonClusterV1(self.pc_session, )
+            karbon_cluster_v1 = KarbonClusterV1(self.pc_session, self.data)
             existing_clusters_list = karbon_cluster.list()
             existing_clusters_name_list = [existing_cluster.get("cluster_metadata", {}).get("name")
                                            for existing_cluster in existing_clusters_list]

@@ -28,19 +28,19 @@ class HaReservation(ClusterScript):
                                 f" Skipping...'")
             return
 
-        pe_session = cluster_details["pe_session"]
-        cluster = PeCluster(pe_session)
-        cluster.get_cluster_info()
-        cluster_details["cluster_info"].update(cluster.cluster_info)
-        cluster_info = f"{cluster_ip}/ {cluster_details['cluster_info']['name']}" if (
-                'name' in cluster_details['cluster_info']) else f"{cluster_ip}"
-
-        if cluster_details['cluster_info']["num_nodes"] == 1:
-            self.logger.warning(f"HA reservation is not supported for single node cluster '{cluster_ip}/ {cluster_details['cluster_info']['name']}'."
-                                f" Skipping...'")
-            return
-
         try:
+            pe_session = cluster_details["pe_session"]
+            cluster = PeCluster(pe_session)
+            cluster.get_cluster_info()
+            cluster_details["cluster_info"].update(cluster.cluster_info)
+            cluster_info = f"{cluster_ip}/ {cluster_details['cluster_info']['name']}" if (
+                    'name' in cluster_details['cluster_info']) else f"{cluster_ip}"
+
+            if cluster_details['cluster_info']["num_nodes"] == 1:
+                self.logger.warning(f"HA reservation is not supported for single node cluster '{cluster_ip}/ {cluster_details['cluster_info']['name']}'."
+                                    f" Skipping...'")
+                return
+
             ha_op = HA(session=pe_session)
             response = ha_op.read()
             if response["numHostFailuresToTolerate"] == cluster_details["ha_reservation"].get("num_host_failure_to_tolerate", 1):

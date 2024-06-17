@@ -70,7 +70,8 @@ class PodConfig(Script):
                     if edge_site.get("nke_clusters", []):
                         edge_site["pc_session"] = block["pc_session"]
                         self.nke_scripts = self.nke_scripts or BatchScript(parallel=True)
-                        self.nke_scripts.add(CreateKarbonClusterPc(edge_site, log_file=f"{block_name}_pc_ops.log"))
+                        self.nke_scripts.add(CreateKarbonClusterPc(edge_site, global_data=self.data,
+                                                                   log_file=f"{block_name}_pc_ops.log"))
 
             # configure PC services/ entities
             self.block_batch_scripts[block_name].add(PcConfig(data=deepcopy(block), global_data=self.data,

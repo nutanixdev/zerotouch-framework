@@ -1,7 +1,6 @@
 import time
 from typing import Dict
 from framework.helpers.log_utils import get_logger
-from framework.scripts.python.helpers.state_monitor.pc_task_monitor import PcTaskMonitor
 from framework.scripts.python.helpers.v3.service_group import ServiceGroup
 from framework.scripts.python.script import Script
 

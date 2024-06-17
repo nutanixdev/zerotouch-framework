@@ -58,7 +58,7 @@ pc_directory_services:
 #       type: list
 #       required: false
 #       dependencies:
-#       - directory_services.ad_name
+#       - ad_name
 #       schema:
 #         type: dict
 #         schema:
@@ -80,6 +80,8 @@ pc_directory_services:
 #           values:
 #             required: true
 #             type: list
+#             schema:
+#               type: string
 # 
 
 

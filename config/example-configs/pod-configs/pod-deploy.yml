@@ -53,13 +53,15 @@ pod:
               cvm_ram: 12 # cvm_ram is Gigabytes. Minimum 12, no maximum. Default set it to 12.
               node_details:
                 - node_serial: node-serial-1
-                  cvm_ip: valid-cvm-ip
-                  host_ip: valid-host-ip
-                  ipmi_ip: valid-ipmi-ip
+                  cvm_ip: valid-cvm-ip # Optional. New CVM IP
+                  host_ip: valid-host-ip # Optional. New Hypervisor Host IP
+                  ipmi_ip: valid-ipmi-ip # Optional. New IPMI IP
+                  hypervisor_hostname: hostname-01 # Optional. It is used to setup new hypervisor hostname. In-case of IPAM, hypervisor_hostname will be used to create hostrecord
                 - node_serial: node-serial-2
                   cvm_ip: valid-cvm-ip
                   host_ip: valid-host-ip
                 - node_serial: node-serial-3
+                  hypervisor_hostname: hostname-03
               redundancy_factor: 2 # Nutanix supports RF2, and also RF3 only if the cluster has 5+ nodes
             - cluster_name: site01-cluster-01
               cluster_size: 3 # Cluster size will be the number of nodes for deployment

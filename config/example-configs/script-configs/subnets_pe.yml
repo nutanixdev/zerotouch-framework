@@ -101,6 +101,8 @@ clusters:
 #             schema:
 #               domain_name_server_list:
 #                 type: list
+#                 schema:
+#                   type: string
 #               domain_search_list:
 #                 type: list
 #               domain_name:

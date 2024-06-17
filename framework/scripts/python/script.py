@@ -27,7 +27,7 @@ class Script(ABC):
             self.verify(**kwargs)
         except Exception as e:
             self.logger.debug(e)
-            self.logger.info(f"Exception occurred during the verification of {type(self).__name__!r}")
+            self.logger.info(f"Exception occurred during the verification of {type(self).__name__!r}: {e}")
 
         if self.exceptions:
             for exception in self.exceptions:

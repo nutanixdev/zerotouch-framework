@@ -70,6 +70,15 @@ ntp_servers: &ntp_servers
     - 1.us.pool.ntp.org
     - 2.us.pool.ntp.org
 
+# Not supported for single node cluster
+ha_reservation: &ha_reservation
+  enable_failover: true
+  num_host_failure_to_tolerate: 1
+
+# Not supported for 1 and 2 node cluster
+rebuild_capacity_reservation: &rebuild_capacity_reservation
+  enable_rebuild_reservation: true
+
 # configure the below clusters
 clusters:
   valid-site01-cluster-01-ip:
@@ -92,6 +101,11 @@ clusters:
     # NTP, DNS servers
     <<: *ntp_servers
     <<: *name_servers
+    # Use global HA Reservation config
+    ha_reservation:
+      <<: *ha_reservation
+    # Use global Rebuild capacity Reservation config
+    <<: *rebuild_capacity_reservation
 
   valid-site02-cluster-02-ip:
     name: cluster-02 # Optional if name is already provided above
@@ -136,3 +150,7 @@ clusters:
             domain_name_server_list: [ 10.10.10.10 ]
             domain_search_list: [ eng.company.com ]
             domain_name: eng.company.com
+    ha_reservation:
+      enable_failover: true
+      num_host_failure_to_tolerate: 0
+    enable_rebuild_reservation: false

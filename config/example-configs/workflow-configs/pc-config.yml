@@ -31,6 +31,37 @@ enable_pulse: true
 # Use globally declared ad_config
 <<: *ad_config
 
+# IDP config
+saml_idp_configs:
+  - name: IDP1
+    username_attr: "username_attribute" #Optional
+    email_attr: "email_attribute" #Optional
+    groups_attr: "groups_attribute" #Optional
+    groups_delim: "groups_delimiter" #Optional
+    # Either of metadata_url or metadata_path or idp_properties need to be specified
+    metadata_url: "IdentityProviderURL"
+    metadata_path: "path_where_idp_metadata_is_stored" # e.g. "config/idp.xml" if it is stored in config directory
+    idp_properties:
+      idp_url: "idp_url" # Required
+      login_url: "login_url" # Required
+      logout_url: "logout_url" # Required
+      error_url: "error_url" # Optional
+      certificate: "certificate" # copy the details here, don't specify the path
+  - name: IDP2
+    username_attr: "username_attribute" #Optional
+    email_attr: "email_attribute" #Optional
+    groups_attr: "groups_attribute" #Optional
+    groups_delim: "groups_delimiter" #Optional
+    # Either of metadata_url or metadata_path or idp_properties need to be specified
+    metadata_url: "IdentityProviderURL"
+    metadata_path: "path_where_idp_metadata_is_stored" # e.g. "config/idp.xml" if it is stored in config directory
+    idp_properties:
+      idp_url: "idp_url" # Required
+      login_url: "login_url" # Required
+      logout_url: "logout_url" # Required
+      error_url: "error_url" # Optional
+      certificate: "certificate" # copy the details here, don't specify the path
+
 name_servers_list:
   - valid-name-server1
   - valid-name-server1
@@ -50,9 +81,12 @@ objects:
     - name: objectstore01
       domain: eng.company.com
       cluster: cluster-01 # Cluster reference
-      # DHCP subnet
-      network: vlan110
-      # 4 statis IPs
+      # Storage Network
+      storage_network: vlan110
+      # Public Network
+      public_network: vlan10
+      # First 2 Static IPs should be storage network static IPs.
+      # Rest of the Static IPs will be assigned as Public static IPs.
       static_ip_list:
        - ip1
        - ip2

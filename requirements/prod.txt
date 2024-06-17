@@ -166,6 +166,8 @@ wcwidth==0.2.13
     # via
     #   asciimatics
     #   prompt-toolkit
+wheel==0.43.0
+    # via cx-freeze
 zipp==3.18.1
     # via importlib-metadata
 

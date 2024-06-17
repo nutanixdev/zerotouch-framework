@@ -85,7 +85,7 @@ clusters:
 #       type: list
 #       required: false
 #       dependencies:
-#       - directory_services.ad_name
+#       - ad_name
 #       schema:
 #         type: dict
 #         schema:
@@ -107,6 +107,8 @@ clusters:
 #           values:
 #             required: true
 #             type: list
+#             schema:
+#               type: string
 # 
 
 

@@ -264,14 +264,14 @@ class SSHCVM(SSHEntity):
         Returns:
             dict: The command output
         """
-        self.logger.info(f"Downloading files from URL(s): {url_list}")
+        self.logger.info(f"{self.cvm_ip} Downloading files from URL(s): {url_list}")
         status = False
         try:
             ssh_obj = self.get_ssh_connection(self.cvm_ip, self.cvm_username, self.cvm_password)
             cmd = ";".join(["wget -c --timestamp --no-check-certificate {}".format(url) for url in url_list])
             cmd = "source /etc/profile;{}".format(cmd)
             out, err = self.execute_command(ssh_obj=ssh_obj, command=cmd, timeout=timeout)
-            self.logger.info(out)
+            self.logger.info(f"{self.cvm_ip} Download file(s) output: {out}")
             if err:
                 return status, out + err
             return True, None
@@ -411,3 +411,177 @@ class SSHCVM(SSHEntity):
             time.sleep(10)
 
         return receive, "Operation, timed out or failed!"
+
+    def upgrade_cvm_foundation(self, tar_file_name: str):
+        """Upgrade CVM Foundation version
+
+        Args:
+            tar_file_name (str): Foundation tar file
+
+        Returns:
+            (bool, str): True is Downgrade is successful, else False, Error message if any
+        """
+        # Execute update command
+        ssh_obj = self.get_ssh_connection(self.cvm_ip, self.cvm_username, self.cvm_password)
+        cmd = f"source /etc/profile;~/foundation/bin/foundation_upgrade -t {tar_file_name}"
+        out, err = self.execute_command(ssh_obj=ssh_obj, command=cmd, timeout=300)
+        self.logger.debug(f"{self.cvm_ip}: {out}")
+
+        # Check for successful message in the output
+        if "Successfully completed upgrading foundation" in out:
+            # Remove the tar file from home directory
+            self.logger.info(f"{self.cvm_ip}: Remove file {tar_file_name}")
+            rm_cmd = f"source /etc/profile;rm {tar_file_name}"
+            self.execute_command(ssh_obj=ssh_obj, command=rm_cmd)
+            return True, None
+        return False, out + err
+
+    def downgrade_cvm_foundation(self, tar_file_name: str):
+        """Downgrade CVM Foundation version to lower version
+
+        Args:
+            tar_file_name (str): Foundation tar file
+
+        Returns:
+            (bool, str): True is Downgrade is successful, else False, Error message if any
+        """
+        ssh_obj = self.get_ssh_connection(self.cvm_ip, self.cvm_username, self.cvm_password)
+        foundation_bkp = "source /etc/profile;cp -rf foundation foundation_ztf_bkp"
+        delete_foundation_folder = "source /etc/profile;/bin/rm -rf foundation"
+        tar_foundation = f"source /etc/profile;tar -xf {tar_file_name}"
+        delete_foundationd_bkp = "source /etc/profile;/bin/rm -rf foundation_ztf_bkp"
+        timeout = 60
+        # Backup foundation folder
+        self.logger.info(f"{self.cvm_ip}: Backing up foundation folder...")
+        out, err = self.execute_command(ssh_obj=ssh_obj, command=foundation_bkp, timeout=120)
+        foundation_backup_path = "/home/nutanix/foundation_ztf_bkp"
+        if not self.file_exists(foundation_backup_path):
+            return False, f"{self.cvm_ip}: Failed to backup foundation folder: {out} {err}"
+
+        # Remove foundation folder
+        self.logger.info(f"{self.cvm_ip}: Removing foundation folder...")
+        out, err = self.execute_command(ssh_obj=ssh_obj, command=delete_foundation_folder, timeout=timeout)
+        foundation_path = "/home/nutanix/foundation"
+        if self.file_exists(foundation_path):
+            return False, f"{self.cvm_ip}: Failed to remove foundation folder: {out} {err}"
+
+        # Untar foundation tar file
+        self.logger.info(f"{self.cvm_ip}: untar {tar_file_name} file...")
+        out, err = self.execute_command(ssh_obj=ssh_obj, command=tar_foundation, timeout=timeout)
+        foundation_path = "/home/nutanix/foundation"
+        if not self.file_exists(foundation_path):
+            self.logger.error(f"{self.cvm_ip}: Failed to downgrade foundation version. " \
+                              "Foundation folder was not created. Proceeding to restore the old version")
+            # Restore backup foundation folder if foundation folder is not created
+            restore_foundation_bkp = "source /etc/profile;cp -rf foundation_ztf_bkp foundation"
+            out, err = self.execute_command(ssh_obj=ssh_obj, command=restore_foundation_bkp, timeout=timeout)
+            if self.file_exists(foundation_path):
+                self.logger.warning("Restored old foundation version as Foundation downgrade failed")
+                # Delete foundation backup folder once restored
+                self.logger.info(f"{self.cvm_ip}: Deleting foundation backup folder")
+                out, err = self.execute_command(ssh_obj=ssh_obj, command=delete_foundationd_bkp, timeout=timeout)
+                if self.file_exists(foundation_backup_path):
+                    self.logger.warning(f"{self.cvm_ip}: Failed to delete foundation backup folder")
+            else:
+                self.logger.error(f"{self.cvm_ip}: Restoring old foundation version failed. Please check the CVM node to restore the backup.")
+            return False, f"{self.cvm_ip}: Failed to downgrade Foundation version, as foundation folder was not created: {out} {err}"
+        else:
+            # Delete foundation backup folder
+            self.logger.info(f"{self.cvm_ip}: Deleting foundation backup folder")
+            out, err = self.execute_command(ssh_obj=ssh_obj, command=delete_foundationd_bkp, timeout=timeout)
+            if self.file_exists(foundation_backup_path):
+                self.logger.warning(f"{self.cvm_ip}: Failed to delete foundation backup folder")
+        return True, None
+
+    def update_cvm_foundation(self, foundation_url_path: str, downgrade: bool = False) -> (str, str):
+        """
+        Update CVM Foundation
+        Args:
+            foundation_url_path(str): Url to download Foundation tar file
+
+        Returns:
+            (boolean, str): True if foundation update is successful else Fasle, Error message if any
+        """
+        status = False
+        try:
+            # Downloading files for update
+            self.download_files(url_list=[foundation_url_path])
+            tar_file_name = foundation_url_path.split('/')[-1]
+            file_path = f"/home/nutanix/{tar_file_name}"
+            if not self.file_exists(file_path):
+                return status, f"{self.cvm_ip}: Failed to download files to CVM. File {file_path} does not exists."
+
+            # Execute update command
+            ssh_obj = self.get_ssh_connection(self.cvm_ip, self.cvm_username, self.cvm_password)
+            if not downgrade:
+                update_status, error = self.upgrade_cvm_foundation(tar_file_name)
+            else:
+                update_status, error = self.downgrade_cvm_foundation(tar_file_name)
+            if not update_status:
+                return update_status, error
+
+            # Delete foundation tar file
+            self.logger.info(f"{self.cvm_ip}: Deleting foundation {tar_file_name} file")
+            self.execute_command(ssh_obj=ssh_obj, command=f"source /etc/profile;/bin/rm {tar_file_name}")
+            if self.file_exists(file_path):
+                self.logger.warning(f"{self.cvm_ip}: Failed to delete foundation file {tar_file_name}")
+
+            # Stop Foundation and restart genesis
+            int_chan = self.get_interactive_shell(ssh_obj)
+            stop_foundation = self.stop_foundation(int_chan)
+            if stop_foundation:
+                if not self.restart_genesis(int_chan):
+                    return status, f"{self.cvm_ip}: Failed to restart genesis"
+            else:
+                return status, f"{self.cvm_ip}: Failed to stop foundation"
+            return True, None
+        except Exception as e:
+            return status, e
+
+    def get_foundation_version(self) -> (str, str):
+        """Get the CVM Foundation version
+
+        Returns:
+            (boolean, str): True if successfully fected the foundation version else Fasle, Error message if any
+        """
+        status = False
+        try:
+            ssh_obj = self.get_ssh_connection(self.cvm_ip, self.cvm_username, self.cvm_password)
+            cmd = "source /etc/profile;cat ~/foundation/foundation_version"
+            out, err = self.execute_command(ssh_obj=ssh_obj, command=cmd)
+            self.logger.info(f"{self.cvm_ip} Foundation version is {out}")
+            if err:
+                return status, err
+            return True, out
+        except Exception as e:
+            return status, e
+
+    def update_resolv_conf(self, nameserver: str) -> (str, str):
+        """Update the /etc/resolv.conf file
+
+        Args:
+            nameserver (str): Nameserver to add to the /etc/resolv.conf
+
+        Returns:
+            (boolean, str): True if resolv.conf update is successful else Fasle, Error message if any
+        """
+        status = False
+        try:
+            ssh_obj = self.get_ssh_connection(self.cvm_ip, self.cvm_username, self.cvm_password)
+            cat_resolv_config_cmd = f"source /etc/profile;sudo cat /etc/resolv.conf | grep {nameserver}"
+            out, err = self.execute_command(ssh_obj=ssh_obj, command=cat_resolv_config_cmd)
+            if nameserver in out or nameserver in err:
+                self.logger.info(f"{self.cvm_ip}: Nameserver {nameserver} already exists in /etc/resolv.conf")
+                return True, None
+            time.sleep(2)
+            self.logger.info(f"{self.cvm_ip} - Updating nameserver {nameserver} in /etc/resolv.conf")
+            # in-order to edit resolv.conf, chattr -i must be executed before editing & reverted back to chattr +i after everything
+            cmds = ["source /etc/profile;sudo chattr -i /etc/resolv.conf",
+                    f"source /etc/profile;sudo sed -i '$ a\\nameserver {nameserver}' /etc/resolv.conf",
+                    "source /etc/profile;sudo chattr +i /etc/resolv.conf"]
+            for cmd in cmds:
+                self.execute_command(ssh_obj=ssh_obj, command=cmd)
+                time.sleep(2)
+            return True, None
+        except Exception as e:
+            return status, e
