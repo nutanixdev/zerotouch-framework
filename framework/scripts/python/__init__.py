@@ -4,6 +4,7 @@ from .ncm.apps.create_calm_application_from_dsl import CreateAppFromDsl
 from .ncm.project.create_calm_project import CreateNcmProject
 from .objects.configure_objects import OssConfig
 from .pc.configure_pc import PcConfig
+from .pc.create.create_identity_provider import CreateIdp
 from .pc.upload.pc_image_upload import PcImageUpload
 from .pc.upload.pc_ova_upload import PcOVAUpload
 from .pe.configure_cluster import ClusterConfig
@@ -79,6 +80,7 @@ from .pe.update.ha_reservation import HaReservation
 from .pe.update.rebuild_capacity_reservation import RebuildCapacityReservation
 from .pe.delete.delete_rolemapping_pe import DeleteRoleMappingPe
 from .objects.objectstore.delete_objectstore import DeleteObjectStore
+from .cvm.update_cvm_foundation import UpdateCvmFoundation
 
 __all__ = ["AddAdServerPe", "PodConfig", "ConnectToAz", "CreateBp", "CreateCategoryPc",
            "CreateContainerPe", "CreateServiceGroups", "CreateRoleMappingPe", "CreateNetworkSecurityPolicy",
@@ -97,4 +99,4 @@ __all__ = ["AddAdServerPe", "PodConfig", "ConnectToAz", "CreateBp", "CreateCateg
            "PcOVADelete", "DeleteVmPc", "DeleteVmPe", "DisconnectAz", "AcceptEulaPc", "ChangeDefaultAdminPasswordPc",
            "PowerOnVmPc", "UpdatePulsePc", "PcOVADelete", "DeleteVmPc", "DisconnectAz", "ChangeDefaultAdminPasswordPe",
            "UpdatePulsePe", "AcceptEulaPe", "PcConfig", "ClusterConfig", "OssConfig", "DeployPC", "DeleteSubnetsPc",
-           "DeleteSubnetsPe", "PcImageUpload", "PcOVAUpload"]
+           "DeleteSubnetsPe", "PcImageUpload", "PcOVAUpload", "CreateIdp", "UpdateCvmFoundation"]

@@ -1,0 +1,26 @@
+cvm_creds: &cvm_creds
+  # Specify a user with permission to make API calls.
+  cvm_credential: cvm_credential # credential reference from "vaults" in global.yml file
+foundation: &foundation
+  foundation_build_url: http://url-path-to-foundation-tar/ # url path to download the foundation tar file
+  foundation_version: "5.x" # Foundation version to be updated to in CVM
+nameserver: &nameserver
+  nameserver: valid-nameserver # Optional. Provide a nameserver, if nameserver needs to be added to /etc/resolv.conf to download the tar file from the webserver
+cvm_downgrade: &cvm_downgrade
+  downgrade: True # Optional, set to downgrade as True when the foundation version needs to be downgraded.
+
+cvms:
+  valid-cvm01-ip:
+    # Use global cvm creds
+    <<: *cvm_creds
+    # Use global nameserver
+    <<: *nameserver
+    # Use global foundation config
+    <<: *foundation
+  valid-cvm02-ip:
+    cvm_credential: cvm_credential # credential reference from "vaults" in global.yml file
+    nameserver: valid-nameserver # Optional. Provide a nameserver, if nameserver needs to be added to /etc/resolv.conf to download the tar file from the webserver
+    # Use global cvm_downgrade. This is optional, set to downgrade as True when the foundation version needs to be downgraded.
+    <<: *cvm_downgrade
+    foundation_build_url: http://url-path-to-foundation-tar/ # url path to download the foundation tar file
+    foundation_version: "5.x" # Foundation version to be updated to in CVM

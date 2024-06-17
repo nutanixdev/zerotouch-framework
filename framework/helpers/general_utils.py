@@ -2,7 +2,7 @@ from __future__ import annotations
 from email.mime.base import MIMEBase
 from email import encoders
 from pathlib import Path
-import json5 as json
+import json5
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -50,7 +50,7 @@ def construct_include(loader: Loader, node: yaml.Node) -> Any:
         if extension in ('yaml', 'yml'):
             return yaml.load(f, Loader)
         elif extension in ('json',):
-            return json.load(f)
+            return json5.load(f)
         else:
             return ''.join(f.readlines())
 
@@ -65,7 +65,7 @@ def get_json_file_contents(file: str) -> dict:
     logger.info(f"Reading contents of the file: [{file}]")
     with open(file, 'r') as f:
         try:
-            return json.load(f)
+            return json5.load(f)
         except Exception as e:
             raise JsonError(str(e))
 
@@ -335,7 +335,7 @@ def get_subnet_mask(subnet: str):
 
 
 def send_mail_helper(subject: str, body: str, from_mail: str, to_mail: str, smtp_host: str,
-                     attachment_path: str = "", port: str = 25):
+                     attachment_path: str = "", port: int = 25):
     # Create message container - the correct MIME type is multipart/alternative.
     msg = MIMEMultipart('alternative')
     msg['Subject'] = subject

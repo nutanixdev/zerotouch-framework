@@ -8,8 +8,12 @@ objects:
     - name: objectstore01
       domain: eng.company.com
       cluster: cluster01
-      network: subnet01
-      # Specify 4 static IPs
+      # Storage Network
+      storage_network: subnet01
+      # Public Network
+      public_network: subnet02
+      # First 2 Static IPs should be storage network static IPs.
+      # Rest of the Static IPs will be assigned as Public static IPs.
       static_ip_list:
         - ip1
         - ip2
@@ -28,8 +32,12 @@ objects:
     - name: objectstore02
       domain: eng.company.com
       cluster: cluster01
-      network: subnet01
-      # Specify 4 static IPs
+      # Storage Network
+      storage_network: subnet01
+      # Public Network
+      public_network: subnet02
+      # First 2 Static IPs should be storage network static IPs.
+      # Rest of the Static IPs will be assigned as Public static IPs.
       static_ip_list:
         - ip1
         - ip2
@@ -68,12 +76,17 @@ objects:
 #           cluster:
 #             type: string
 #             required: true
-#           network:
+#           storage_network:
+#             type: string
+#             required: true
+#           public_network:
 #             type: string
 #             required: true
 #           static_ip_list:
 #             type: list
 #             required: true
+#             schema:
+#               type: string
 #           num_worker_nodes:
 #             type: integer
 #             required: true

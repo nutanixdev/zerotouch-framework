@@ -27,26 +27,26 @@ class RebuildCapacityReservation(ClusterScript):
                                 f" Skipping...'")
             return
 
-        pe_session = cluster_details["pe_session"]
-        cluster = PeCluster(pe_session)
-        cluster.get_cluster_info()
-        cluster_details["cluster_info"].update(cluster.cluster_info)
-        cluster_info = f"{cluster_ip}/ {cluster_details['cluster_info']['name']}" if (
-                'name' in cluster_details['cluster_info']) else f"{cluster_ip}"
-
-        # Check if the cluster size is equal to or than 2, as rebuild is not supported for 1 and 2 node clusters.
-        if cluster_details["cluster_info"]["num_nodes"] <= 2:
-            self.logger.warning("Rebuild reservation feature can not be enabled for 1 and 2 node cluster "
-                                f"'{cluster_ip}/ {cluster_details['cluster_info']['name']}'. Skipping...'")
-            return
-
-        # Check if enable_rebuild_reservation is already in required state
-        if cluster_details["cluster_info"]["enable_rebuild_reservation"] == cluster_details["enable_rebuild_reservation"]:
-            self.logger.warning(f"Enable Rebuild is already {cluster_details['enable_rebuild_reservation']} "
-                                f"for '{cluster_ip}/ {cluster_details['cluster_info']['name']}'")
-            return
-
         try:
+            pe_session = cluster_details["pe_session"]
+            cluster = PeCluster(pe_session)
+            cluster.get_cluster_info()
+            cluster_details["cluster_info"].update(cluster.cluster_info)
+            cluster_info = f"{cluster_ip}/ {cluster_details['cluster_info']['name']}" if (
+                    'name' in cluster_details['cluster_info']) else f"{cluster_ip}"
+
+            # Check if the cluster size is equal to or than 2, as rebuild is not supported for 1 and 2 node clusters.
+            if cluster_details["cluster_info"]["num_nodes"] <= 2:
+                self.logger.warning("Rebuild reservation feature can not be enabled for 1 and 2 node cluster "
+                                    f"'{cluster_ip}/ {cluster_details['cluster_info']['name']}'. Skipping...'")
+                return
+
+            # Check if enable_rebuild_reservation is already in required state
+            if cluster_details["cluster_info"]["enable_rebuild_reservation"] == cluster_details["enable_rebuild_reservation"]:
+                self.logger.warning(f"Enable Rebuild is already {cluster_details['enable_rebuild_reservation']} "
+                                    f"for '{cluster_ip}/ {cluster_details['cluster_info']['name']}'")
+                return
+
             self.logger.info(f"Updating Rebuild Reservation in {cluster_info!r}")
             rebuild_op = Cluster(session=pe_session)
             response = rebuild_op.update_rebuild_reservation(cluster_details.get("enable_rebuild_reservation"))

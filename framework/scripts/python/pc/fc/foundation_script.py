@@ -81,10 +81,11 @@ class FoundationScript(Script):
         """
         for node in cluster_node_details:
             node_info = existing_node_detail_dict[node["node_serial"]]
+            hypervisor_hostname = node.get("hypervisor_hostname", node_info["hypervisor_hostname"])
             # If there is ipam_obj, fetch IPs from IPAM & Create host record
             if self.ipam_obj:
                 host_ip, error = self.get_ip_and_create_host_record(
-                    fqdn=f"{node['node_serial']}-ahv.{network['domain']}", subnet=network.get("host_subnet"),
+                    fqdn=f"{hypervisor_hostname}.{network['domain']}", subnet=network.get("host_subnet"),
                     ip=node.get("host_ip"))
                 if error:
                     return False, f"Failed to update Host IP: {error}"
@@ -106,6 +107,7 @@ class FoundationScript(Script):
             node_info["hypervisor_gateway"] = network["host_gateway"]
             node_info["hypervisor_netmask"] = get_subnet_mask(subnet=network["host_subnet"])
             node_info["cvm_ip"] = cvm_ip
+            node_info["hypervisor_hostname"] = hypervisor_hostname
             node_info["cvm_gateway"] = network["host_gateway"]
             node_info["cvm_netmask"] = get_subnet_mask(subnet=network["host_subnet"])
             node_info["ipmi_ip"] = ipmi_ip

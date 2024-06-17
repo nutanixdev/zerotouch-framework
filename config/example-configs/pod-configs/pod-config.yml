@@ -148,9 +148,12 @@ pod:
           - name: objectstore01
             domain: eng.company.com
             cluster: cluster-01 # Cluster reference
-            # DHCP subnet
-            network: vlan110
-            # 4 statis IPs
+            # Storage Network
+            storage_network: vlan110
+            # Public Network
+            public_network: vlan10
+            # First 2 Static IPs should be storage network static IPs.
+            # Rest of the Static IPs will be assigned as Public static IPs.
             static_ip_list:
              - ip1
              - ip2

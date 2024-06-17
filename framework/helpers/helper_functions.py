@@ -1,9 +1,10 @@
 import os
 import pathlib
 import sys
+from time import sleep
 from typing import Optional, Dict
 from .general_utils import validate_schema, get_json_file_contents, copy_file_util, enforce_data_arg, \
-    get_yml_file_contents, delete_file_util, create_log_dir_push_logs
+    get_yml_file_contents, create_log_dir_push_logs
 from .rest_utils import RestAPIUtil
 from framework.scripts.python.helpers.ipam.ipam import IPAM
 from .log_utils import get_logger
@@ -64,9 +65,9 @@ How to write helper functions?
 #     print("Yay I am able to access the data I defined in previous function")
 #     print(data["test"])
 
-def get_file_path(file_name, file_path):
+def get_file_path(data: Dict, file_name: str, file_path: str):
     try:
-        final_path = os.path.join('.local', file_path)
+        final_path = os.path.join(data['project_root'], file_path)
         if os.path.exists(final_path):
             return final_path
         else:
@@ -84,26 +85,30 @@ def get_creds_from_vault(data: dict):
     if data.get('vault_to_use') == 'cyberark':
         cark_data = data.get('vaults').get('cyberark').get('metadata')
 
-        fetch_pwd = CyberArk(cark_data.get('host'), cark_data.get('port'),
-                             get_file_path('crt_file', cark_data.get('crt_file')),
-                             get_file_path('crt_key', cark_data.get('crt_key')))
-
-        auth_token = fetch_pwd.generate_auth_token(cark_data.get('user'),
-                                                   get_file_path('cyberark password', cark_data.get('password_path')))
+        fetch_pwd = CyberArk(host=cark_data.get('host'),
+                             port=cark_data.get("port", ""),
+                             cert_file=get_file_path(data, 'cert_file', cark_data.get('cert_file')),
+                             cert_key=get_file_path(data, 'cert_key', cark_data.get('cert_key')))
 
         if not data.get('vaults').get('cyberark').get('credentials'):
             raise Exception("Credential details cannot be empty. Kindly add the required details.")
 
         for user_type, user_info in data.get('vaults').get('cyberark').get('credentials').items():
             try:
-                user_pwd = fetch_pwd.fetch_creds(auth_token, user_info['username'],
-                                                 cark_data.get('appId'), cark_data.get('safe'),
-                                                 user_info.get('address'))
+                username, user_pwd = fetch_pwd.fetch_creds(user_info['username'],
+                                                           cark_data.get('appId'), cark_data.get('safe'),
+                                                           user_info.get('address'),
+                                                           cark_data.get('endpoint') or "AIMWebService")
             except Exception as e:
-                logger.warning(f'Failed to fetch password for {user_type}:{e}')
-                user_pwd = None
-            data.get('vaults').get('cyberark').get('credentials').get(user_type).update({'password': user_pwd})
-        fetch_pwd.session_log_off()
+                logger.warning(e)
+                continue
+            data.get('vaults').get('cyberark').get('credentials').get(user_type).update({
+                'username': username,
+                'password': user_pwd
+            })
+
+        # sleep for 5 seconds to avoid any issues
+        sleep(5)
 
 
 @enforce_data_arg
@@ -273,6 +278,7 @@ def create_pc_objects(data: dict, global_data: Optional[Dict] = None):
 
     global_data = global_data if global_data else {}
 
+    # todo use read_creds after setting data as either global or data
     # vault to use can either be in data or global data
     if 'vaults' not in data:
         # check in global data
@@ -294,8 +300,8 @@ def create_pc_objects(data: dict, global_data: Optional[Dict] = None):
     if data.get("pc_credential") or global_data.get("pc_credential"):
         pc_user = data.get("pc_credential") or global_data.get("pc_credential")
 
-        if not cred_details.get(pc_user, {}).get('username') and not cred_details.get(pc_user, {}).get('password'):
-            raise Exception(f"PC credentials not specified for the user {pc_user} in 'global.yml'")
+        if not cred_details.get(pc_user, {}).get('username') or not cred_details.get(pc_user, {}).get('password'):
+            raise Exception(f"PC credentials not specified for the user {pc_user!r} in 'global.yml'")
 
         data["pc_session"] = RestAPIUtil(data["pc_ip"],
                                          user=cred_details[pc_user]['username'],
@@ -349,6 +355,7 @@ def create_pe_objects(data: dict, global_data: Optional[Dict] = None):
 
     global_data = global_data if global_data else {}
 
+    # todo use read_creds
     # vault to use can either be in data or global data
     if 'vaults' not in data:
         # check in global data
@@ -380,8 +387,8 @@ def create_pe_objects(data: dict, global_data: Optional[Dict] = None):
         if "pe_credential" in cluster_details or "pe_credential" in data:
             pe_cred = cluster_details.get("pe_credential") or data.get("pe_credential")
 
-            if not cred_details.get(pe_cred, {}).get('username') and not cred_details.get(pe_cred, {}).get('password'):
-                raise Exception(f"PE credentials not specified for the user {pe_cred} in 'global.yml'")
+            if not cred_details.get(pe_cred, {}).get('username') or not cred_details.get(pe_cred, {}).get('password'):
+                raise Exception(f"PE credentials not specified for the user {pe_cred!r} in 'global.yml'")
 
             pe_session = RestAPIUtil(cluster_ip,
                                      user=cred_details[pe_cred]['username'],
@@ -468,9 +475,11 @@ def create_ipam_object(data: dict, global_data: Optional[Dict] = None):
 
 @enforce_data_arg
 def read_creds(data: dict, credential: str) -> (str, str):
+    # todo read_creds should not access data. We should have details of data in main file itself
     vault = data.get("vault_to_use")
-    username, password = (data.get("vaults", {}).get(vault, {}).get("credentials", {}).
-                          get(credential, {"username": None, "password": None}).values())
+    credential = (data.get("vaults", {}).get(vault, {}).get("credentials", {}).
+                  get(credential, {"username": None, "password": None}))
+    username, password = credential.get("username"), credential.get("password")
     if not username or not password:
         raise Exception(f"Credentials for the service account {credential!r} not found in the vault")
 

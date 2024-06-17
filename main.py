@@ -70,7 +70,7 @@ def main():
                 scripts = [ClusterConfig]
             elif workflow_type == "deploy-pc":
                 schema = DEPLOY_PC_CONFIG_SCHEMA
-                pre_run_actions += [create_pc_objects]
+                pre_run_actions += [create_pe_objects]
                 post_run_actions.insert(0, generate_html_from_json)
                 scripts = [DeployPC]
             elif workflow_type == "config-pc":
@@ -116,7 +116,7 @@ def main():
                 logger.error("Invalid Script specified. Specify the correct Script and try again")
                 raise ModuleNotFoundError(e)
 
-            pre_run_actions = [get_input_data, validate_input_data]
+            pre_run_actions = [get_input_data, get_creds_from_vault, validate_input_data]
             post_run_actions = [save_logs, generate_html_from_json]
 
             # Check if schema is valid

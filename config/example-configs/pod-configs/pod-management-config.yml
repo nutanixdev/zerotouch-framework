@@ -1,5 +1,5 @@
 ---
-# This configuration is used to facilitate Initial PC configurations includind enabling FC
+# This configuration is used to facilitate Initial PC configurations including enabling FC
 
 # Global variables, which can be inherited in blocks
 pc_creds: &pc_creds

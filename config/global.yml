@@ -4,11 +4,11 @@ vaults:
     metadata:
       host: cyberark-host.domain.com
       appId: testapp
-      user: administrator
       safe: Test
-      port: 11194
-      password_path: .local/password
-      cert_file: .local/crt
+      port: 11194 # Optional
+      endpoint: AIMWebService
+      # Place the cert, key files in the .local directory
+      cert_file: .local/cert
       cert_key: .local/key
     # Cyberark API is used to get the password for below usernames
     credentials:
@@ -33,6 +33,7 @@ vaults:
         address: service_account_cred
       remote_pc_credentials:
         username: admin
+        address: admin_cred
       infoblox_user:
         username: infoblox_user
         address: infoblox_cred

@@ -1,5 +1,5 @@
 from framework.helpers.general_utils import validate_ip, contains_whitespace, validate_domain, validate_subnet, \
-    validate_dsip
+    validate_dsip, validate_ip_list
 
 """
 We are using a popular Python library "cerberus" to define the json/ yml schema
@@ -177,6 +177,7 @@ IMAGING_SCHEMA = {
                                                             'node_serial': {
                                                                 'type': 'string',
                                                                 'required': True,
+                                                                'validator': contains_whitespace
                                                             },
                                                             'cvm_ip': {
                                                                 'type': 'string',
@@ -192,6 +193,11 @@ IMAGING_SCHEMA = {
                                                                 'type': 'string',
                                                                 'required': False,
                                                                 'validator': validate_ip
+                                                            },
+                                                            'hypervisor_hostname': {
+                                                                'type': 'string',
+                                                                'required': False,
+                                                                'validator': contains_whitespace
                                                             }
                                                         }
                                                     }
@@ -243,6 +249,20 @@ EULA_SCHEMA = {
 
 PULSE_SCHEMA = {
     'enable_pulse': {'type': 'boolean'}
+}
+
+HA_RESERVATION_SCHEMA = {
+    'ha_reservation': {
+        'type': 'dict',
+        'schema': {
+            'enable_failover': {'type': 'boolean', 'required': True},
+            'num_host_failure_to_tolerate': {'type': 'integer', 'required': True}
+        }
+    }
+}
+
+REBUILD_RESERVATION_SCHEMA = {
+    'enable_rebuild_reservation': {'type': 'boolean'}
 }
 
 AD_CREATE_SCHEMA = {
@@ -342,6 +362,65 @@ AD_DELETE_SCHEMA = {
                 }
             }
         }}
+}
+
+IDP_CREATE_SCHEMA = {
+    'saml_idp_configs': {
+        'type': 'list',
+        'schema': {
+            'type': 'dict',
+            'schema': {
+                'name': {
+                    'type': 'string',
+                    'required': True,
+                    'empty': False
+                },
+                'username_attr': {
+                    'type': 'string',
+                },
+                'email_attr': {
+                    'type': 'string',
+                },
+                'groups_attr': {
+                    'type': 'string',
+                },
+                'groups_delim': {
+                    'type': 'string',
+                },
+                'metadata_path': {
+                    'type': 'string',
+                },
+                'metadata_url': {
+                    'type': 'string',
+                },
+                'idp_properties': {
+                    'type': 'dict',
+                    'schema': {
+                        'idp_url': {
+                            'required': True,
+                            'type': 'string'
+                        },
+                        'login_url': {
+                            'required': True,
+                            'type': 'string'
+                        },
+                        'logout_url': {
+                            'required': True,
+                            'type': 'string'
+                        },
+                        'error_url': {
+                            'type': 'string'
+                        },
+                        'certificate': {
+                            'required': True,
+                            'type': 'string'
+                        }
+
+                    }
+                }
+            }
+        }
+    }
 }
 
 CONTAINERS_CREATE_SCHEMA = {
@@ -1053,6 +1132,8 @@ CLUSTER_SCHEMA = {
                     **AD_CREATE_SCHEMA,
                     **NETWORKS_CREATE_SCHEMA,
                     **CONTAINERS_CREATE_SCHEMA,
+                    **HA_RESERVATION_SCHEMA,
+                    **REBUILD_RESERVATION_SCHEMA,
                     'ncm_subnets': {
                         'type': 'list',
                         'schema': {
@@ -1189,7 +1270,8 @@ OBJECTS_CREATE_SCHEMA = {
                         'name': {'type': 'string', 'required': True},
                         'domain': {'type': 'string', 'required': True, 'validator': validate_domain},
                         'cluster': {'type': 'string', 'required': True},
-                        'network': {'type': 'string', 'required': True},
+                        'storage_network': {'type': 'string', 'required': True},
+                        'public_network': {'type': 'string', 'required': True},
                         'static_ip_list': {'type': 'list', 'required': True,
                                            'schema': {'type': 'string', 'validator': validate_ip}},
                         'num_worker_nodes': {'type': 'integer', 'required': True},
@@ -1238,6 +1320,7 @@ PC_SCHEMA = {
     },
     'pc_credential': CREDENTIAL_SCHEMA,
     **AD_CREATE_SCHEMA,
+    **IDP_CREATE_SCHEMA,
     **EULA_SCHEMA,
     **PULSE_SCHEMA,
     **DNS_SCHEMA,
@@ -1785,5 +1868,23 @@ POD_MANAGEMENT_CONFIG_SCHEMA = {
                 }
             }
         }
+    }
+}
+
+CVMF_UPDATE_SCHEMA = {
+    'cvms': {
+        'type': 'dict',
+        'required': True,
+        'keyschema': {'type': 'string', 'validator': validate_ip},
+        'valueschema':  {
+            'type': 'dict',
+            'schema': {
+                'cvm_credential': {'type': 'string', 'validator': contains_whitespace, 'required': True},
+                'foundation_build_url': {'type': 'string', 'required': True, 'validator': contains_whitespace,},
+                'foundation_version': {'type': 'string', 'required': True, 'validator': contains_whitespace,},
+                'downgrade': {'type': 'boolean', 'required': False},
+                'nameserver': {'type': 'string', 'required': False}
+            }
+        },
     }
 }

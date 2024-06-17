@@ -34,8 +34,10 @@ class OssConfig(Script):
 
         objects_batch_scripts = BatchScript(results_key=self.results_key)
 
+        if "enable_objects" in self.data and self.data["enable_objects"] is True:
+            objects_batch_scripts.add(EnableObjects(self.data, log_file=self.log_file))
+
         objects_batch_scripts.add_all([
-            EnableObjects(self.data, log_file=self.log_file),
             CreateObjectStore(self.data, log_file=self.log_file),
             AddDirectoryServiceOss(self.data, log_file=self.log_file),
             AddAdUsersOss(self.data, log_file=self.log_file),

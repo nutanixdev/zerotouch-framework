@@ -15,6 +15,8 @@ from framework.scripts.python.pe.other_ops.update_pulse import UpdatePulsePe
 from framework.scripts.python.script import Script
 from framework.scripts.python.pe.create.add_ntp_server_pe import AddNtpServersPe
 from framework.scripts.python.pe.create.add_name_server_pe import AddNameServersPe
+from framework.scripts.python.pe.update.ha_reservation import HaReservation
+from framework.scripts.python.pe.update.rebuild_capacity_reservation import RebuildCapacityReservation
 from framework.helpers.log_utils import get_logger
 from framework.helpers.helper_functions import create_pe_objects
 
@@ -57,11 +59,13 @@ class ClusterConfig(Script):
             AcceptEulaPe(self.data, log_file=self.log_file),
             UpdatePulsePe(self.data, log_file=self.log_file),
             AddAdServerPe(self.data, log_file=self.log_file),
-            # OpenRepPort(self.data, log_file=self.log_file),
+            OpenRepPort(self.data, log_file=self.log_file),
             CreateContainerPe(self.data, log_file=self.log_file),
             AddNtpServersPe(self.data, log_file=self.log_file),
             AddNameServersPe(self.data, log_file=self.log_file),
-            CreateSubnetPe(self.data, log_file=self.log_file)
+            CreateSubnetPe(self.data, log_file=self.log_file),
+            HaReservation(self.data, log_file=self.log_file),
+            RebuildCapacityReservation(self.data, log_file=self.log_file)
         ])
         if not self.data.get("skip_pc_registration") and self.data.get("pc_ip") and self.data.get("pc_credential"):
             main_cluster_batch_scripts.add(RegisterToPc(self.data, log_file=self.log_file))

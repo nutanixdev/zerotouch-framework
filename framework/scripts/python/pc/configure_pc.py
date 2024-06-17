@@ -1,6 +1,7 @@
-import time
 from copy import deepcopy
 from typing import Optional, Dict
+from framework.scripts.python.pc.create.create_identity_provider import CreateIdp
+from framework.scripts.python.objects.configure_objects import OssConfig
 from framework.scripts.python.pc.other_ops.accept_eula import AcceptEulaPc
 from framework.scripts.python.pc.other_ops.change_default_system_password import ChangeDefaultAdminPasswordPc
 from framework.scripts.python.pc.other_ops.update_pulse_pc import UpdatePulsePc
@@ -21,7 +22,7 @@ from framework.scripts.python.pc.create.add_name_server_pc import AddNameServers
 from framework.scripts.python.pc.create.add_ntp_server_pc import AddNtpServersPc
 from framework.scripts.python.pc.create.create_rolemapping_pc import CreateRoleMappingPc
 from framework.helpers.log_utils import get_logger
-from framework.helpers.helper_functions import read_creds, create_pc_objects
+from framework.helpers.helper_functions import create_pc_objects
 
 logger = get_logger(__name__)
 
@@ -47,16 +48,6 @@ class PcConfig(Script):
             if not self.data.get("vault_to_use"):
                 self.data["vault_to_use"] = self.global_data.get("vault_to_use")
 
-            # block_credential = self.data.get("pc_credential")
-            # # get credentials from the payload
-            # if block_credential:
-            #     try:
-            #         self.data["pc_username"], self.data["pc_password"] = read_creds(data=self.data,
-            #                                                                         credential=block_credential)
-            #     except Exception as e:
-            #         self.exceptions.append(e)
-            #         return
-
             # Get PC session
             if not self.data.get("pc_session"):
                 create_pc_objects(self.data, global_data=self.global_data)
@@ -75,17 +66,18 @@ class PcConfig(Script):
             if "pc_directory_services" in self.data or "directory_services" in self.data:
                 # Add Auth -> needs PC config
                 pc_batch_scripts.add(AddAdServerPc(self.data, log_file=self.log_file))
-                time.sleep(10)
+            if "pc_saml_idp_configs" in self.data or "saml_idp_configs" in self.data:
+                pc_batch_scripts.add(CreateIdp(self.data, log_file=self.log_file))
 
             # Add Role-mappings -> needs AddAdServer
             # Add NTP servers -> InitialPcConfig
             # Add Name servers -> InitialPcConfig
             pc_enable_scripts = BatchScript(parallel=True)
-            if "enable_microsegmentation" in self.data:
+            if "enable_microsegmentation" in self.data and self.data["enable_microsegmentation"] is True:
                 pc_enable_scripts.add(EnableMicrosegmentation(self.data, log_file=self.log_file))
-            if "enable_dr" in self.data:
+            if "enable_dr" in self.data and self.data["enable_dr"] is True:
                 pc_enable_scripts.add(EnableDR(self.data, log_file=self.log_file))
-            if "enable_nke" in self.data:
+            if "enable_nke" in self.data and self.data["enable_nke"] is True:
                 pc_enable_scripts.add(EnableNke(self.data, log_file=self.log_file))
             if "remote_azs" in self.data:
                 pc_enable_scripts.add(ConnectToAz(self.data, log_file=self.log_file))
@@ -129,6 +121,13 @@ class PcConfig(Script):
             # create RP -> needs CreateProtectionPolicy
             if "recovery_plans" in self.data:
                 pc_batch_scripts.add(CreateRecoveryPlan(self.data, log_file=self.log_file))
+
+            if "objects" in self.data or "enable_objects" in self.data:
+                # Create objects
+                if self.data.get("objects", {}).get("objectstores"):
+                    pc_batch_scripts.add(OssConfig(data=deepcopy(self.data), global_data=self.data,
+                                                   results_key="objects",
+                                                   log_file="objects_ops.log"))
             self.results.update(pc_batch_scripts.run())
             self.data["json_output"] = self.results
         except Exception as e:

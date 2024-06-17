@@ -1,3 +1,4 @@
+import json
 from copy import deepcopy
 from typing import Optional
 from framework.helpers.rest_utils import RestAPIUtil
@@ -57,3 +58,32 @@ class PcEntity(Entity):
                 "uuid": ""
             }
         )
+
+    @staticmethod
+    def get_task_uuid(api_response: dict) -> str:
+        """
+        Parse the api response to get the Task uuid
+        Args:
+          api_response(Dict): api response
+        Returns:
+          str : uuid
+        """
+        task_uuid = None
+        # todo bug
+        # sometimes api_response in str
+        if isinstance(api_response, str):
+            try:
+                api_response = json.loads(api_response)
+            except Exception as e:
+                raise Exception(f"Cannot get task uuid from the response: {api_response}: {e}")
+
+        if api_response and api_response.get('status', {}).get('execution_context', {}).get('task_uuid'):
+            task_uuid = api_response['status']['execution_context']['task_uuid']
+        # In some cases only task_uuid is returned in response
+        elif api_response and api_response.get('task_uuid', {}):
+            task_uuid = api_response["task_uuid"]
+
+        if not task_uuid:
+            raise Exception(f"Cannot get task uuid from the response: {api_response}")
+
+        return task_uuid
