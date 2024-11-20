@@ -1,0 +1,57 @@
+pc_ip: valid-pc-ip
+# Specify a user with permission to make API calls.
+pc_credential: pc_user # credential reference from "vaults" in global.yml file
+
+#Create
+images:
+  # Images that needs to be uploaded to the PC clusters
+  - url: http://url-to-download-image-from # url where the image file is located
+    name: image-name # name of the image to be uploaded to the PC clusters
+    image_type: DISK_IMAGE # image type that is uploaded. Allowed values: DISK_IMAGE, ISO_IMAGE
+    cluster_name_list: [cluster-1, cluster-2] # cluster names to upload images. We can upload to multiple clusters
+
+#Delete
+#TODO Delete Using UUID
+images:
+  - name: image-name
+
+
+######################################## SCHEMA DOCUMENTATION ########################################
+### 			---CREATE SCHEMA --- 			 ###
+
+# images:
+#   type: list
+#   schema:
+#     type: dict
+#     schema:
+#       url:
+#         type: string
+#         required: true
+#       name:
+#         type: string
+#         required: true
+#       cluster_name_list:
+#         type: list
+#         required: true
+#       image_type:
+#         type: string
+#         required: true
+#         allowed:
+#         - DISK_IMAGE
+#         - ISO_IMAGE
+# 
+
+
+### 			---DELETE SCHEMA --- 			 ###
+
+# images:
+#   type: list
+#   schema:
+#     type: dict
+#     schema:
+#       name:
+#         type: string
+#         required: true
+# 
+
+####################################################################################################

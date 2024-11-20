@@ -1,4 +1,5 @@
-from .general_utils import validate_ip, contains_whitespace, validate_domain, validate_ip_list, validate_subnet
+from framework.helpers.general_utils import validate_ip, contains_whitespace, validate_domain, validate_subnet, \
+    validate_dsip, validate_ip_list
 
 """
 We are using a popular Python library "cerberus" to define the json/ yml schema
@@ -6,23 +7,19 @@ https://docs.python-cerberus.org/validation-rules.html
 """
 
 # todo add dependencies to schema
-GLOBAL_NETWORK_SCHEMA = {
-    'required': True,
-    'type': 'dict',
-    'schema': {
-        'ntp_servers': {
-            'type': 'list',
-            'required': False
-        },
-        'dns_servers': {
-            'type': 'list',
-            'required': False
-        }
+DNS_SCHEMA = {
+    'name_servers_list': {
+        'type': 'list'
     }
 }
 
-USERNAME_PASSWORD_SCHEMA = {
-    'required': True,
+NTP_SCHEMA = {
+    'ntp_servers_list': {
+        'type': 'list'
+    }
+}
+
+CREDENTIAL_SCHEMA = {
     'type': 'string',
     'validator': contains_whitespace
 }
@@ -36,46 +33,37 @@ IMAGING_NETWORK = {
     'type': 'dict',
     'required': False,
     'schema': {
-        'mgmt_static_ips': {
+        'host_subnet': {
             'required': True,
-            'type': 'list',
             'empty': True,
-            'schema': {
-                'type': 'string',
-                'validator': validate_ip
-            }
-        },
-        'mgmt_netmask': {
-            'required': True,
             'type': 'string',
+            'validator': validate_subnet
+        },
+        'host_gateway': {
+            'required': True,
             'empty': True,
+            'type': 'string',
             'validator': validate_ip
         },
-        'mgmt_gateway': {
-            'required': True,
+        'ipmi_subnet': {
+            'required': False,
             'type': 'string',
             'empty': True,
-            'validator': validate_ip
-        },
-        'ipmi_netmask': {
-            'required': True,
-            'type': 'string',
-            'empty': True,
-            'validator': validate_ip
+            'validator': validate_subnet
         },
         'ipmi_gateway': {
-            'required': True,
+            'required': False,
             'empty': True,
             'type': 'string',
             'validator': validate_ip
         },
-        'ipmi_static_ips': {
+        'domain': {
             'required': True,
-            'type': 'list',
+            'type': 'string',
             'empty': True,
             'schema': {
                 'type': 'string',
-                'validator': validate_ip
+                'validator': validate_domain
             }
         }
     }
@@ -105,8 +93,7 @@ IMAGING_SCHEMA = {
                             'required': True,
                             'validator': validate_ip
                         },
-                        'pc_username': USERNAME_PASSWORD_SCHEMA,
-                        'pc_password': USERNAME_PASSWORD_SCHEMA,
+                        'pc_credential': CREDENTIAL_SCHEMA,
                         'edge-sites': {
                             'type': 'list',
                             'required': True,
@@ -116,14 +103,6 @@ IMAGING_SCHEMA = {
                                     'site_name': {
                                         'required': True,
                                         'type': 'string'
-                                    },
-                                    'node_block_serials': {
-                                        'required': False,
-                                        'type': 'list',
-                                        'schema': {
-                                            'type': 'string',
-                                            'validator': contains_whitespace
-                                        }
                                     },
                                     'use_existing_network_settings': {
                                         'required': True,
@@ -137,20 +116,27 @@ IMAGING_SCHEMA = {
                                         'type': 'dict',
                                         'required': False,
                                         'schema': {
-                                            'aos_version': {
+                                            'aos_url': {
                                                 'required': True,
-                                                'type': ['float', 'string']
+                                                'type': 'string'
                                             },
                                             'hypervisor_type': {
                                                 'required': True,
                                                 'type': 'string',
                                                 'allowed': ['kvm', 'esx', 'hyperv']
                                             },
-                                            'hypervisor_version': {
-                                                'required': True,
-                                                'type': ['float', 'string']
+                                            'hypervisor_url': {
+                                                'type': 'string'
                                             }
                                         }
+                                    },
+                                    'ntp_servers_list': {
+                                        'type': 'list',
+                                        'required': False
+                                    },
+                                    'name_servers_list': {
+                                        'type': 'list',
+                                        'required': True
                                     },
                                     'network': IMAGING_NETWORK,
                                     'clusters': {
@@ -169,7 +155,7 @@ IMAGING_SCHEMA = {
                                                 },
                                                 'cluster_vip': {
                                                     'type': 'string',
-                                                    'required': True,
+                                                    'required': False,
                                                     'validator': validate_ip
                                                 },
                                                 'cvm_ram': {
@@ -182,12 +168,38 @@ IMAGING_SCHEMA = {
                                                     'required': True,
                                                     'allowed': [2, 3]
                                                 },
-                                                'node_serials': {
+                                                'node_details': {
                                                     'type': 'list',
                                                     'required': False,
                                                     'schema': {
-                                                        'type': 'string',
-                                                        'validator': contains_whitespace
+                                                        'type': 'dict',
+                                                        'schema': {
+                                                            'node_serial': {
+                                                                'type': 'string',
+                                                                'required': True,
+                                                                'validator': contains_whitespace
+                                                            },
+                                                            'cvm_ip': {
+                                                                'type': 'string',
+                                                                'required': False,
+                                                                'validator': validate_ip
+                                                            },
+                                                            'host_ip': {
+                                                                'type': 'string',
+                                                                'required': False,
+                                                                'validator': validate_ip
+                                                            },
+                                                            'ipmi_ip': {
+                                                                'type': 'string',
+                                                                'required': False,
+                                                                'validator': validate_ip
+                                                            },
+                                                            'hypervisor_hostname': {
+                                                                'type': 'string',
+                                                                'required': False,
+                                                                'validator': contains_whitespace
+                                                            }
+                                                        }
                                                     }
                                                 },
                                                 'network': IMAGING_NETWORK,
@@ -209,190 +221,201 @@ IMAGING_SCHEMA = {
                 }
             }
         }
-    },
-    'global_network': GLOBAL_NETWORK_SCHEMA
+    }
 }
 
 EULA_SCHEMA = {
-    'type': 'dict',
-    'schema': {
-        'username': {
-            'type': 'string',
-            'required': True,
-            'empty': False
-        },
-        'company_name': {
-            'type': 'string',
-            'required': True,
-            'empty': False
-        },
-        'job_title': {
-            'type': 'string',
-            'required': True,
-            'empty': False
+    'eula': {
+        'type': 'dict',
+        'schema': {
+            'username': {
+                'type': 'string',
+                'required': True,
+                'empty': False
+            },
+            'company_name': {
+                'type': 'string',
+                'required': True,
+                'empty': False
+            },
+            'job_title': {
+                'type': 'string',
+                'required': True,
+                'empty': False
+            }
         }
     }
 }
 
 PULSE_SCHEMA = {
-    'type': 'boolean'
+    'enable_pulse': {'type': 'boolean'}
 }
 
-AD_SCHEMA = {
-    'type': 'dict',
-    'required': True,
-    'schema': {
-        'directory_type': {
-            'type': 'string',
-            'required': True,
-            'allowed': ['ACTIVE_DIRECTORY'],
-            'empty': False
-        },
-        'ad_name': {
-            'type': 'string',
-            'required': True,
-            'empty': False
-        },
-        'ad_domain': {
-            'type': 'string',
-            'required': True,
-            'empty': False,
-            'validator': validate_domain
-        },
-        'ad_server_ip': {
-            'type': 'string',
-            'required': True,
-            'empty': False,
-            'validator': validate_ip
-        },
-        'service_account_username': {
-            'type': 'string',
-            'required': True,
-            'empty': False,
-            'validator': contains_whitespace
-        },
-        'service_account_password': {
-            'type': 'string',
-            'required': True,
-            'empty': False,
-            'validator': contains_whitespace
-        },
-        'role_mappings': {
-            'type': 'list',
-            'required': True,
-            'schema': {
-                'type': 'dict',
-                'schema': {
-                    'role_type': {
-                        'required': True,
-                        'type': 'string',
-                        'allowed': ['ROLE_CLUSTER_ADMIN', 'ROLE_USER_ADMIN', 'ROLE_CLUSTER_VIEWER', 'ROLE_BACKUP_ADMIN']
-                    },
-                    'entity_type': {
-                        'required': True,
-                        'type': 'string',
-                        'allowed': ['GROUP', 'OU', 'USER']
-                    },
-                    'values': {
-                        'required': True,
-                        'type': 'list'
-                    }
-                }
-            }
+HA_RESERVATION_SCHEMA = {
+    'ha_reservation': {
+        'type': 'dict',
+        'schema': {
+            'enable_failover': {'type': 'boolean', 'required': True},
+            'num_host_failure_to_tolerate': {'type': 'integer', 'required': True}
         }
     }
 }
 
-PE_CONTAINERS_SCHEMA = {
-    'type': 'list',
-    'schema': {
-        'type': 'dict',
-        'schema': {
-            'name': {
-                'type': 'string',
-                'required': True
-            },
-            'advertisedCapacity_in_gb': {
-                'type': 'integer',
-                'required': False
-            },
-            'replication_factor': {
-                'type': 'integer',
-                'required': False
-            },
-            'compression_enabled': {
-                'type': 'boolean',
-                'required': False
-            },
-            'compression_delay_in_secs': {
-                'type': 'integer',
-                'required': False
-            },
-            'erasure_code': {
-                'type': 'string',
-                'required': False,
-                'allowed': ['OFF', 'ON']
-            },
-            'on_disk_dedup': {
-                'type': 'string',
-                'required': False,
-                'allowed': ['OFF', 'ON']
-            },
-            'nfsWhitelistAddress': {
-                'type': 'list',
-                'required': False
-            }
-        }
-    }
+REBUILD_RESERVATION_SCHEMA = {
+    'enable_rebuild_reservation': {'type': 'boolean'}
 }
 
-PE_NETWORKS_SCHEMA = {
-    'type': 'list',
-    'schema': {
+AD_CREATE_SCHEMA = {
+    'directory_services': {
         'type': 'dict',
+        'required': False,
         'schema': {
-            'name': {
+            'directory_type': {
                 'type': 'string',
+                'required': True,
+                'allowed': ['ACTIVE_DIRECTORY'],
+                'empty': False
             },
-            'vlan_id': {
-                'type': 'integer',
-            },
-            'network_ip': {
+            'ad_name': {
                 'type': 'string',
-                'validator': validate_ip
+                'required': True,
+                'empty': False
             },
-            'network_prefix': {
-                'type': 'integer'
-            },
-            'default_gateway_ip': {
+            'ad_domain': {
                 'type': 'string',
-                'validator': validate_ip
+                'required': True,
+                'empty': False,
+                'validator': validate_domain
             },
-            'pool_list': {
+            'ad_directory_url': {
+                'type': 'string',
+                'required': True,
+                'empty': False,
+            },
+            'service_account_credential': {
+                'type': 'string',
+                'required': True,
+                'empty': False,
+                'validator': contains_whitespace
+            },
+            'role_mappings': {
                 'type': 'list',
+                'required': False,
+                'dependencies': ['ad_name'],
                 'schema': {
                     'type': 'dict',
                     'schema': {
-                        'range': {
+                        'role_type': {
+                            'required': True,
+                            'type': 'string',
+                            'allowed': ['ROLE_CLUSTER_ADMIN', 'ROLE_USER_ADMIN', 'ROLE_CLUSTER_VIEWER',
+                                        'ROLE_BACKUP_ADMIN']
+                        },
+                        'entity_type': {
+                            'required': True,
+                            'type': 'string',
+                            'allowed': ['GROUP', 'OU', 'USER']
+                        },
+                        'values': {
+                            'required': True,
+                            'type': 'list',
+                            'schema': {
+                                'type': 'string'
+                            }
+                        }
+                    }
+                }
+            }
+        }}
+}
+
+AD_DELETE_SCHEMA = {
+    'directory_services': {
+        'type': 'dict',
+        'required': False,
+        'schema': {
+            'ad_name': {
+                'type': 'string',
+                'required': True,
+                'empty': False
+            },
+            'role_mappings': {
+                'type': 'list',
+                'required': False,
+                'dependencies': ['ad_name'],
+                'schema': {
+                    'type': 'dict',
+                    'schema': {
+                        'role_type': {
+                            'required': True,
+                            'type': 'string',
+                            'allowed': ['ROLE_CLUSTER_ADMIN', 'ROLE_USER_ADMIN', 'ROLE_CLUSTER_VIEWER',
+                                        'ROLE_BACKUP_ADMIN']
+                        },
+                        'entity_type': {
+                            'required': True,
+                            'type': 'string',
+                            'allowed': ['GROUP', 'OU', 'USER']
+                        },
+
+                    }
+                }
+            }
+        }}
+}
+
+IDP_CREATE_SCHEMA = {
+    'saml_idp_configs': {
+        'type': 'list',
+        'schema': {
+            'type': 'dict',
+            'schema': {
+                'name': {
+                    'type': 'string',
+                    'required': True,
+                    'empty': False
+                },
+                'username_attr': {
+                    'type': 'string',
+                },
+                'email_attr': {
+                    'type': 'string',
+                },
+                'groups_attr': {
+                    'type': 'string',
+                },
+                'groups_delim': {
+                    'type': 'string',
+                },
+                'metadata_path': {
+                    'type': 'string',
+                },
+                'metadata_url': {
+                    'type': 'string',
+                },
+                'idp_properties': {
+                    'type': 'dict',
+                    'schema': {
+                        'idp_url': {
+                            'required': True,
+                            'type': 'string'
+                        },
+                        'login_url': {
+                            'required': True,
+                            'type': 'string'
+                        },
+                        'logout_url': {
+                            'required': True,
+                            'type': 'string'
+                        },
+                        'error_url': {
+                            'type': 'string'
+                        },
+                        'certificate': {
+                            'required': True,
                             'type': 'string'
                         }
-                    }
-                }
-            },
-            'dhcp_options': {
-                'type': 'dict',
-                'schema': {
-                    'domain_name_server_list': {
-                        'type': 'list',
-                        'validator': validate_ip_list
-                    },
-                    'domain_search_list': {
-                        'type': 'list',
-                        'validator': validate_domain
-                    },
-                    'domain_name': {
-                        'type': 'string',
-                        'validator': validate_domain
+
                     }
                 }
             }
@@ -400,163 +423,397 @@ PE_NETWORKS_SCHEMA = {
     }
 }
 
-REMOTE_AZS_SCHEMA = {
-    'type': 'dict',
-    'keyschema': {'type': 'string', 'validator': validate_ip},
-    'valueschema': {
-        'type': 'dict',
+CONTAINERS_CREATE_SCHEMA = {
+    'containers': {
+        'type': 'list',
+        'required': False,
         'schema': {
-            'username': {
-                'type': 'string',
-                'validator': contains_whitespace
-            },
-            'password': {
-                'type': 'string',
-                'validator': contains_whitespace
+            'type': 'dict',
+            'schema': {
+                'name': {
+                    'type': 'string',
+                    'required': True
+                },
+                'advertisedCapacity_in_gb': {
+                    'type': 'integer',
+                    'required': False
+                },
+                'replication_factor': {
+                    'type': 'integer',
+                    'required': True
+                },
+                'compression_enabled': {
+                    'type': 'boolean',
+                    'required': False
+                },
+                'compression_delay_in_secs': {
+                    'type': 'integer',
+                    'required': False
+                },
+                'erasure_code': {
+                    'type': 'string',
+                    'required': False,
+                    'allowed': ['OFF', 'ON']
+                },
+                'on_disk_dedup': {
+                    'type': 'string',
+                    'required': False,
+                    'allowed': ['OFF', 'ON']
+                },
+                'nfsWhitelistAddress': {
+                    'type': 'list',
+                    'required': False
+                }
+            }
+        }}
+}
+
+CONTAINERS_DELETE_SCHEMA = {
+    'containers': {
+        'type': 'list',
+        'schema': {
+            'type': 'dict',
+            'schema': {
+                'name': {
+                    'type': 'string',
+                    'required': True
+                },
+            }
+        }
+    }}
+
+# todo : Networks Also There for PC
+NETWORKS_CREATE_SCHEMA = {
+    'networks': {
+        'type': 'list',
+        'schema': {
+            'type': 'dict',
+            'required': False,
+            'schema': {
+                'name': {
+                    'type': 'string',
+                    'required': True,
+                },
+                'vlan_id': {
+                    'required': True,
+                    'type': 'integer',
+                },
+                'ip_config': {
+                    'required': False,
+                    'type': 'dict',
+                    'schema': {
+                        'network_ip': {
+                            'type': 'string',
+                            'required': True,
+                            'validator': validate_ip
+                        },
+                        'network_prefix': {
+                            'required': True,
+                            'type': 'integer'
+                        },
+                        'default_gateway_ip': {
+                            'type': 'string',
+                            'validator': validate_ip
+                        },
+                        'pool_list': {
+                            'type': 'list',
+                            'schema': {
+                                'type': 'dict',
+                                'schema': {
+                                    'range': {
+                                        'type': 'string'
+                                    }
+                                }
+                            }
+                        },
+                        'dhcp_options': {
+                            'type': 'dict',
+                            'schema': {
+                                'domain_name_server_list': {
+                                    'type': 'list',
+                                    'schema': {
+                                        'type': 'string',
+                                        'validator': validate_ip
+                                    }
+                                },
+                                'domain_search_list': {
+                                    'type': 'list',
+                                    'validator': validate_domain
+                                },
+                                'domain_name': {
+                                    'type': 'string',
+                                    'validator': validate_domain
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }}
+
+NETWORKS_DELETE_SCHEMA = {
+    'networks': {
+        'type': 'list',
+        'schema': {
+            'type': 'dict',
+            'schema': {
+                'vlan_id': {
+                    'type': 'integer',
+                    'required': True
+                },
+                'name': {
+                    'type': 'string',
+                },
+                'managed': {
+                    'type': 'boolean'
+                },
+                'ip_config':
+                    {
+                        'network_ip': {
+                            'type': 'string',
+                            'validator': validate_ip
+                        },
+                        'network_prefix': {
+                            'type': 'integer'
+                        },
+                        'default_gateway_ip': {
+                            'type': 'string',
+                            'validator': validate_ip
+                        },
+                        'pool_list': {
+                            'type': 'list',
+                            'schema': {
+                                'type': 'dict',
+                                'schema': {
+                                    'range': {
+                                        'type': 'string'
+                                    }
+                                }
+                            }
+                        }
+                    }
+            }
+        }
+    }}
+
+REMOTE_AZS_CONNECT_SCHEMA = {
+    'remote_azs': {
+        'type': 'dict',
+        'required': False,
+        'keyschema': {'type': 'string', 'validator': validate_ip},
+        'valueschema': {
+            'type': 'dict',
+            'schema': {
+                'pc_credential': {
+                    'type': 'string',
+                    'required': True,
+                    'validator': contains_whitespace
+                }
+            }
+        }
+    }}
+
+REMOTE_AZS_DISCONNECT_SCHEMA = {
+    'remote_azs': {
+        'type': 'list',
+        'required': False,
+        'schema': {'type': 'string', 'required': True, 'validator': validate_ip}
+    }}
+
+CATEGORIES_CREATE_SCHEMA = {
+    'categories': {
+        'type': 'list',
+        'required': False,
+        'schema': {
+            'type': 'dict',
+            'schema': {
+                'name': {'type': 'string', 'required': True},
+                'description': {'type': 'string'},
+                'values': {
+                    'type': 'list',
+                    'required': True,
+                    'schema': {
+                        'type': 'string'
+                    }
+                }
             }
         }
     }
 }
 
-PC_CATEGORIES_SCHEMA = {
-    'type': 'list',
-    'schema': {
-        'type': 'dict',
+CATEGORIES_DELETE_SCHEMA = {
+    'categories': {
+        'type': 'list',
+        'required': False,
         'schema': {
-            'name': {'type': 'string'},
-            'description': {'type': 'string'},
-            'values': {
-                'type': 'list',
-                'schema': {
+            'type': 'dict',
+            'schema': {
+                'name': {'type': 'string', 'required': True},
+                'values': {
+                    'type': 'list',
+                    'schema': {'type': 'string', 'required': True}
+                },
+                'delete_only_values': {
+                    'type': 'boolean',
+                    'required': False,
+                    'dependencies': 'values',
+                    'default': False
+                }
+            }
+        }}
+}
+
+RECOVERY_PLAN_CREATE_SCHEMA = {
+    'recovery_plans': {
+        'type': 'list',
+        'required': False,
+        'schema': {
+            'type': 'dict',
+            'schema': {
+                'name': {
+                    'type': 'string',
+                    'required': True
+                },
+                'desc': {
                     'type': 'string'
+                },
+                'primary_location': {
+                    'type': 'dict',
+                    'required': True,
+                    'schema': {
+                        'availability_zone': {
+                            'type': 'string',
+                            'required': True,
+                            'validator': validate_ip
+                        },
+                    }
+                },
+                'recovery_location': {
+                    'type': 'dict',
+                    'required': True,
+                    'schema': {
+                        'availability_zone': {
+                            'type': 'string',
+                            'validator': validate_ip,
+                            'required': True
+                        },
+                    }
+                },
+                'stages': {
+                    'type': 'list',
+                    'required': True,
+                    'schema': {
+                        'type': 'dict',
+                        'schema': {
+                            'vms': {
+                                'type': 'list',
+                                'schema': {
+                                    'type': 'dict',
+                                    'schema': {
+                                        'name': {'type': 'string', 'required': True},
+                                        'enable_script_exec': {'type': 'boolean', 'required': True},
+                                        'delay': {'type': 'integer', 'required': True}
+                                    }
+                                }
+                            },
+                            'categories': {
+                                'type': 'list',
+                                'schema': {
+                                    'type': 'dict',
+                                    'schema': {
+                                        'key': {'type': 'string', 'required': True},
+                                        'value': {'type': 'string', 'required': True}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                'network_type': {
+                    'type': 'string',
+                    'required': False,
+                    'allowed': ['NON_STRETCH', 'STRETCH']
+                },
+                'network_mappings': {
+                    'type': 'list',
+                    'schema': {
+                        'type': 'dict',
+                        'schema': {
+                            'primary': {
+                                'type': 'dict',
+                                'required': True,
+                                'schema': {
+                                    'test': {
+                                        'type': 'dict',
+                                        'schema': {
+                                            'name': {'type': 'string', 'required': True},
+                                            'gateway_ip': {
+                                                'type': 'string',
+                                                'validator': validate_ip
+                                            },
+                                            'prefix': {'type': 'integer'}
+                                        }
+                                    },
+                                    'prod': {
+                                        'type': 'dict',
+                                        'schema': {
+                                            'name': {'type': 'string', 'required': True},
+                                            'gateway_ip': {
+                                                'type': 'string',
+                                                'validator': validate_ip
+                                            },
+                                            'prefix': {'type': 'integer'}
+                                        }
+                                    },
+                                }
+                            },
+                            'recovery': {
+                                'type': 'dict',
+                                'required': True,
+                                'schema': {
+                                    'test': {
+                                        'type': 'dict',
+                                        'schema': {
+                                            'name': {'type': 'string', 'required': True},
+                                            'gateway_ip': {
+                                                'type': 'string',
+                                                'validator': validate_ip
+                                            },
+                                            'prefix': {'type': 'integer'}
+                                        }
+                                    },
+                                    'prod': {
+                                        'type': 'dict',
+                                        'schema': {
+                                            'name': {'type': 'string', 'required': True},
+                                            'gateway_ip': {
+                                                'type': 'string',
+                                                'validator': validate_ip
+                                            },
+                                            'prefix': {'type': 'integer'}
+                                        }
+                                    },
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 }
 
-RECOVERY_PLAN_SCHEMA = {
-    'type': 'list',
-    'schema': {
-        'type': 'dict',
+RECOVERY_PLAN_DELETE_SCHEMA = {
+    'recovery_plans': {
+        'type': 'list',
+        'required': False,
         'schema': {
-            'name': {
-                'type': 'string'
-            },
-            'desc': {
-                'type': 'string'
-            },
-            'primary_location': {
-                'type': 'dict',
-                'schema': {
-                    'availability_zone': {
-                        'type': 'string',
-                        'validator': validate_ip
-                    },
-                }
-            },
-            'recovery_location': {
-                'type': 'dict',
-                'schema': {
-                    'availability_zone': {
-                        'type': 'string',
-                        'validator': validate_ip
-                    },
-                }
-            },
-            'stages': {
-                'type': 'list',
-                'schema': {
-                    'type': 'dict',
-                    'schema': {
-                        'vms': {
-                            'type': 'list',
-                            'schema': {
-                                'type': 'dict',
-                                'schema': {
-                                    'name': {'type': 'string'},
-                                    'enable_script_exec': {'type': 'boolean'},
-                                    'delay': {'type': 'integer'}
-                                }
-                            }
-                        },
-                        'categories': {
-                            'type': 'list',
-                            'schema': {
-                                'type': 'dict',
-                                'schema': {
-                                    'key': {'type': 'string'},
-                                    'value': {'type': 'string'}
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            'network_type': {
-                'type': 'string',
-                'allowed': ['NON_STRETCH', 'STRETCH']
-            },
-            'network_mappings': {
-                'type': 'list',
-                'schema': {
-                    'type': 'dict',
-                    'schema': {
-                        'primary': {
-                            'type': 'dict',
-                            'schema': {
-                                'test': {
-                                    'type': 'dict',
-                                    'schema': {
-                                        'name': {'type': 'string'},
-                                        'gateway_ip': {
-                                            'type': 'string',
-                                            'validator': validate_ip
-                                        },
-                                        'prefix': {'type': 'integer'}
-                                    }
-                                },
-                                'prod': {
-                                    'type': 'dict',
-                                    'schema': {
-                                        'name': {'type': 'string'},
-                                        'gateway_ip': {
-                                            'type': 'string',
-                                            'validator': validate_ip
-                                        },
-                                        'prefix': {'type': 'integer'}
-                                    }
-                                },
-                            }
-                        },
-                        'recovery': {
-                            'type': 'dict',
-                            'schema': {
-                                'test': {
-                                    'type': 'dict',
-                                    'schema': {
-                                        'name': {'type': 'string'},
-                                        'gateway_ip': {
-                                            'type': 'string',
-                                            'validator': validate_ip
-                                        },
-                                        'prefix': {'type': 'integer'}
-                                    }
-                                },
-                                'prod': {
-                                    'type': 'dict',
-                                    'schema': {
-                                        'name': {'type': 'string'},
-                                        'gateway_ip': {
-                                            'type': 'string',
-                                            'validator': validate_ip
-                                        },
-                                        'prefix': {'type': 'integer'}
-                                    }
-                                },
-                            }
-                        }
-                    }
+            'type': 'dict',
+            'required': True,
+            'schema': {
+                'name': {
+                    'type': 'string'
                 }
             }
         }
@@ -604,144 +861,96 @@ RETENTION_POLICY_SCHEMA = {
         },
         'rollup_retention_policy': {
             'type': 'dict',
+            'required': False,
             'schema': {
                 'snapshot_interval_type': {
                     'type': 'string',
+                    'required': True,
                     'allowed': ['HOURLY', 'DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY']
                 },
-                'multiple': {'type': 'integer'}
+                'multiple': {'type': 'integer', 'required': True}
             }
         }
     }
 }
 
-PROTECTION_RULES_SCHEMA = {
-    'type': 'list',
-    'schema': {
-        'type': 'dict',
+PROTECTION_RULES_CREATE_SCHEMA = {
+    'protection_rules': {
+        'type': 'list',
+        'required': False,
         'schema': {
-            'name': {
-                'type': 'string'
-            },
-            'desc': {
-                'type': 'string'
-            },
-            'protected_categories': {
-                'type': 'dict',
-                'keyschema': {'type': 'string'},
-                'valueschema': {
-                    'type': 'list'
-                }
-            },
-            'schedules': {
-                'type': 'list',
-                'schema': {
+            'type': 'dict',
+            'schema': {
+                'name': {
+                    'type': 'string',
+                    'required': True
+                },
+                'desc': {
+                    'type': 'string'
+                },
+                'protected_categories': {
                     'type': 'dict',
-                    'schema': {
-                        'source': {
-                            'schema': {
-                                'availability_zone': {
-                                    'type': 'string',
-                                    'validator': validate_ip
-                                },
-                                'clusters': {
-                                    'type': 'list'
-                                }
-                            }
-                        },
-                        'destination': {
-                            'type': 'dict',
-                            'schema': {
-                                'availability_zone': {
-                                    'type': 'string',
-                                    'validator': validate_ip
-                                },
-                                'cluster': {
-                                    'type': 'string'
-                                }
-                            }
-                        },
-                        'protection_type': {
-                            'type': 'string',
-                            'allowed': ['ASYNC', 'SYNC']
-                        },
-                        'rpo': {
-                            'type': 'integer'
-                        },
-                        'rpo_unit': {
-                            'type': 'string',
-                            'allowed': ['MINUTE', 'HOUR', 'DAY', 'WEEK']
-                        },
-                        'snapshot_type': {
-                            'type': 'string',
-                            'allowed': ['CRASH_CONSISTENT', 'APPLICATION_CONSISTENT']
-                        },
-                        'local_retention_policy': RETENTION_POLICY_SCHEMA,
-                        'remote_retention_policy': RETENTION_POLICY_SCHEMA
+                    'required': True,
+                    'keyschema': {'type': 'string'},
+                    'valueschema': {
+                        'type': 'list'
                     }
-                }
-            }
-        }
-    }
-}
-
-SECURITY_POLICIES_SCHEMA = {
-    'type': 'list',
-    'schema': {
-        'type': 'dict',
-        'schema': {
-            'name': {'type': 'string'},
-            'description': {'type': 'string'},
-            'app_rule': {
-                'type': 'dict',
-                'schema': {
-                    'policy_mode': {
-                        'type': 'string',
-                        'allowed': ['MONITOR', 'APPLY']
-                    },
-                    'target_group': {
+                },
+                'schedules': {
+                    'type': 'list',
+                    'required': True,
+                    'schema': {
                         'type': 'dict',
                         'schema': {
-                            'categories': {
-                                'type': 'dict',
+                            'source': {
                                 'schema': {
-                                    'AppType': {'type': 'string'}
+                                    'availability_zone': {
+                                        'type': 'string',
+                                        'required': True,
+                                        'validator': validate_ip
+                                    },
+                                    'clusters': {
+                                        'type': 'list',
+                                        'required': True
+                                    }
                                 }
-                            }
-                        }
-                    },
-                    'inbounds': INBOUND_OUTBOUND_SCHEMA,
-                    'outbounds': INBOUND_OUTBOUND_SCHEMA
-                }
-            },
-            'allow_ipv6_traffic': {
-                'type': 'boolean'
-            },
-            'hitlog': {
-                'type': 'boolean'
-            }
-        }
-    }
-}
-
-ADDRESS_GROUP_SCHEMA = {
-    'type': 'list',
-    'schema': {
-        'type': 'dict',
-        'schema': {
-            'name': {'type': 'string'},
-            'description': {'type': 'string'},
-            'subnets': {
-                'type': 'list',
-                'schema': {
-                    'type': 'dict',
-                    'schema': {
-                        'network_ip': {
-                            'type': 'string',
-                            'validator': validate_ip
-                        },
-                        'network_prefix': {
-                            'type': 'integer'
+                            },
+                            'destination': {
+                                'type': 'dict',
+                                'required': True,
+                                'schema': {
+                                    'availability_zone': {
+                                        'type': 'string',
+                                        'validator': validate_ip,
+                                        'required': True
+                                    },
+                                    'cluster': {
+                                        'type': 'string',
+                                        'required': True
+                                    }
+                                }
+                            },
+                            'protection_type': {
+                                'type': 'string',
+                                'required': True,
+                                'allowed': ['ASYNC', 'SYNC']
+                            },
+                            'rpo': {
+                                'type': 'integer',
+                                'required': True
+                            },
+                            'rpo_unit': {
+                                'type': 'string',
+                                'required': True,
+                                'allowed': ['MINUTE', 'HOUR', 'DAY', 'WEEK']
+                            },
+                            'snapshot_type': {
+                                'type': 'string',
+                                'required': True,
+                                'allowed': ['CRASH_CONSISTENT', 'APPLICATION_CONSISTENT']
+                            },
+                            'local_retention_policy': RETENTION_POLICY_SCHEMA,
+                            'remote_retention_policy': RETENTION_POLICY_SCHEMA
                         }
                     }
                 }
@@ -750,61 +959,201 @@ ADDRESS_GROUP_SCHEMA = {
     }
 }
 
-SERVICE_GROUP_SCHEMA = {
-    'type': 'list',
-    'schema': {
-        'type': 'dict',
+PROTECTION_RULES_DELETE_SCHEMA = {
+    'protection_rules': {
+        'type': 'list',
+        'required': False,
         'schema': {
-            'name': {'type': 'string'},
-            'description': {'type': 'string'},
-            'service_details': {
-                'type': 'dict',
-                'keyschema': {'type': 'string'},
-                'valueschema': {
-                    'type': 'list'
+            'type': 'dict',
+            'schema': {
+                'name': {
+                    'type': 'string'
                 }
             }
         }
     }
 }
 
-POD_CLUSTER_SCHEMA = {
-    'required': True,
-    'type': 'dict',
-    'keyschema': {'type': 'string', 'validator': validate_ip},
-    'valueschema': {
-        'type': 'dict',
+SECURITY_POLICIES_CREATE_SCHEMA = {
+    'security_policies': {
+        'type': 'list',
+        'required': False,
         'schema': {
-            'name': {
-                'type': 'string',
-                'required': True,
-            },
-            'dsip': {
-                'type': 'string',
-                'required': True,
-                'validator': validate_ip
-            },
-            'pe_username': USERNAME_PASSWORD_SCHEMA,
-            'pe_password': USERNAME_PASSWORD_SCHEMA,
-            'eula': EULA_SCHEMA,
-            'enable_pulse': PULSE_SCHEMA,
-            'directory_services': AD_SCHEMA,
-            'networks': PE_NETWORKS_SCHEMA,
-            'containers': PE_CONTAINERS_SCHEMA,
-            'ncm_subnets': {
-                'type': 'list',
-                'schema': {
-                    'type': 'string'
-                }
-            },
-            'ncm_users': {
-                'type': 'list',
-                'schema': {
-                    'type': 'string'
+            'type': 'dict',
+            'schema': {
+                'name': {'type': 'string', 'required': True},
+                'description': {'type': 'string'},
+                'app_rule': {
+                    'type': 'dict',
+                    'schema': {
+                        'policy_mode': {
+                            'type': 'string',
+                            'required': True,
+                            'allowed': ['MONITOR', 'APPLY']
+                        },
+                        'target_group': {
+                            'type': 'dict',
+                            'schema': {
+                                'categories': {
+                                    'type': 'dict',
+                                    'required': True,
+                                    'schema': {
+                                        'AppType': {'type': 'string'}
+                                    }
+                                }
+                            }
+                        },
+                        'inbounds': INBOUND_OUTBOUND_SCHEMA,
+                        'outbounds': INBOUND_OUTBOUND_SCHEMA
+                    }
+                },
+                'allow_ipv6_traffic': {
+                    'type': 'boolean'
+                },
+                'hitlog': {
+                    'type': 'boolean'
                 }
             }
         }
     }
+}
+
+SECURITY_POLICIES_DELETE_SCHEMA = {
+    'security_policies': {
+        'type': 'list',
+        'schema': {
+            'type': 'dict',
+            'schema': {
+                'name': {'type': 'string'}
+            }
+        }
+    }
+}
+
+ADDRESS_GROUP_CREATE_SCHEMA = {
+    "address_groups": {
+        'type': 'list',
+        'schema': {
+            'type': 'dict',
+            'schema': {
+                'name': {'type': 'string', 'required': True},
+                'description': {'type': 'string'},
+                'subnets': {
+                    'type': 'list',
+                    'schema': {
+                        'type': 'dict',
+                        'required': True,
+                        'schema': {
+                            'network_ip': {
+                                'type': 'string',
+                                'required': True,
+                                'validator': validate_ip
+                            },
+                            'network_prefix': {
+                                'type': 'integer',
+                                'required': True
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+ADDRESS_GROUP_DELETE_SCHEMA = {
+    "address_groups": {
+        'type': 'list',
+        'schema': {
+            'type': 'dict',
+            'schema': {
+                'name': {'type': 'string'},
+                'required': True
+            }
+        }
+    }
+}
+
+SERVICE_GROUP_CREATE_SCHEMA = {
+    'service_groups': {
+        'type': 'list',
+        'schema': {
+            'type': 'dict',
+            'schema': {
+                'name': {'type': 'string', 'required': True},
+                'description': {'type': 'string'},
+                'service_details': {
+                    'type': 'dict',
+                    'required': True,
+                    'keyschema': {'type': 'string'},
+                    'valueschema': {
+                        'type': 'list'
+                    }
+                }
+            }
+        }
+    }
+}
+
+SERVICE_GROUP_DELETE_SCHEMA = {
+    'service_groups': {
+        'type': 'list',
+        'schema': {
+            'type': 'dict',
+            'required': True,
+            'schema': {
+                'name': {'type': 'string'},
+            }
+        }
+    }
+}
+
+CLUSTER_SCHEMA = {
+    'clusters':
+        {
+            'required': True,
+            'type': 'dict',
+            'keyschema': {'type': 'string', 'validator': validate_ip},
+            'valueschema': {
+                'type': 'dict',
+                'schema': {
+                    'name': {
+                        'type': 'string',
+                        'required': True,
+                    },
+                    'dsip': {
+                        'type': 'string',
+                        'validator': validate_dsip
+                    },
+                    'pe_credential': CREDENTIAL_SCHEMA,
+                    'new_admin_credential': CREDENTIAL_SCHEMA,
+                    **EULA_SCHEMA,
+                    **PULSE_SCHEMA,
+                    **AD_CREATE_SCHEMA,
+                    **NETWORKS_CREATE_SCHEMA,
+                    **CONTAINERS_CREATE_SCHEMA,
+                    **HA_RESERVATION_SCHEMA,
+                    **REBUILD_RESERVATION_SCHEMA,
+                    'ncm_subnets': {
+                        'type': 'list',
+                        'schema': {
+                            'type': 'string'
+                        }
+                    },
+                    'ncm_users': {
+                        'type': 'list',
+                        'schema': {
+                            'type': 'string'
+                        }
+                    },
+                    **DNS_SCHEMA,
+                    **NTP_SCHEMA,
+                    'skip_pc_registration': {
+                        'type': 'boolean',
+                    }
+                }
+            }
+        }
 }
 
 NKE_CUSTOM_NODE_CONFIG = {
@@ -890,8 +1239,7 @@ NKE_CLUSTER_SCHEMA = {
             'storage_class': {
                 'type': 'dict',
                 'schema': {
-                    'pe_username': USERNAME_PASSWORD_SCHEMA,
-                    'pe_password': USERNAME_PASSWORD_SCHEMA,
+                    'pe_credential': CREDENTIAL_SCHEMA,
                     'default_storage_class': {'type': 'boolean'},
                     'name': {'type': 'string'},
                     'reclaim_policy': {
@@ -910,29 +1258,33 @@ NKE_CLUSTER_SCHEMA = {
     }
 }
 
-OBJECTS_SCHEMA = {
-    'type': 'dict',
-    'schema': {
-        'objectstores': {
-            'type': 'list',
-            'schema': {
-                'type': 'dict',
+OBJECTS_CREATE_SCHEMA = {
+    'objects': {
+        'type': 'dict',
+        'schema': {
+            'objectstores': {
+                'type': 'list',
                 'schema': {
-                    'name': {'type': 'string', 'required': True},
-                    'domain': {'type': 'string', 'required': True, 'validator': validate_domain},
-                    'cluster': {'type': 'string', 'required': True},
-                    'network': {'type': 'string', 'required': True},
-                    'static_ip_list': {'type': 'list', 'required': True, 'validator': validate_ip_list},
-                    'num_worker_nodes': {'type': 'integer', 'required': True},
-                    'buckets': {
-                        'type': 'list',
-                        'schema': {
-                            'type': 'dict',
+                    'type': 'dict',
+                    'schema': {
+                        'name': {'type': 'string', 'required': True},
+                        'domain': {'type': 'string', 'required': True, 'validator': validate_domain},
+                        'cluster': {'type': 'string', 'required': True},
+                        'storage_network': {'type': 'string', 'required': True},
+                        'public_network': {'type': 'string', 'required': True},
+                        'static_ip_list': {'type': 'list', 'required': True,
+                                           'schema': {'type': 'string', 'validator': validate_ip}},
+                        'num_worker_nodes': {'type': 'integer', 'required': True},
+                        'buckets': {
+                            'type': 'list',
                             'schema': {
-                                'name': {'type': 'string', 'required': True},
-                                'user_access_list': {
-                                    'type': 'list',
-                                    'required': True
+                                'type': 'dict',
+                                'schema': {
+                                    'name': {'type': 'string', 'required': True},
+                                    'user_access_list': {
+                                        'type': 'list',
+                                        'required': True
+                                    }
                                 }
                             }
                         }
@@ -941,6 +1293,70 @@ OBJECTS_SCHEMA = {
             }
         }
     }
+}
+
+OBJECTS_DELETE_SCHEMA = {
+    'objects': {
+        'type': 'dict',
+        'schema': {
+            'objectstores': {
+                'type': 'list',
+                'schema': {
+                    'type': 'dict',
+                    'schema': {
+                        'name': {'type': 'string', 'required': True},
+                    }
+                }
+            }
+        }
+    }
+}
+
+PC_SCHEMA = {
+    'pc_ip': {
+        'required': True,
+        'type': 'string',
+        'validator': validate_ip
+    },
+    'pc_credential': CREDENTIAL_SCHEMA,
+    **AD_CREATE_SCHEMA,
+    **IDP_CREATE_SCHEMA,
+    **EULA_SCHEMA,
+    **PULSE_SCHEMA,
+    **DNS_SCHEMA,
+    **NTP_SCHEMA,
+    'ncm_vm_ip': {
+        'type': 'string',
+        'validator': validate_ip
+    },
+    'ncm_account': {
+        'type': 'dict',
+        'required': False,
+        'schema': {
+            'name': {
+                'type': 'string',
+                'required': True
+            },
+            'sync_interval_seconds': {
+                'type': 'integer',
+                'required': True
+            },
+            'pc_ip': {
+                'type': 'string',
+                'required': True
+            },
+            'pc_credential': CREDENTIAL_SCHEMA,
+        }
+    },
+    'ncm_credential': CREDENTIAL_SCHEMA,
+    **OBJECTS_CREATE_SCHEMA,
+    **REMOTE_AZS_CONNECT_SCHEMA,
+    **PROTECTION_RULES_CREATE_SCHEMA,
+    **RECOVERY_PLAN_CREATE_SCHEMA,
+    **CATEGORIES_CREATE_SCHEMA,
+    **ADDRESS_GROUP_CREATE_SCHEMA,
+    **SERVICE_GROUP_CREATE_SCHEMA,
+    **SECURITY_POLICIES_CREATE_SCHEMA,
 }
 
 POD_CONFIG_SCHEMA = {
@@ -962,50 +1378,10 @@ POD_CONFIG_SCHEMA = {
                             'type': 'string',
                             'required': True
                         },
-                        'pc_ip': {
-                            'type': 'string',
-                            'required': True,
-                            'validator': validate_ip
-                        },
-                        'pc_username': USERNAME_PASSWORD_SCHEMA,
-                        'pc_password': USERNAME_PASSWORD_SCHEMA,
-                        'ncm_vm_ip': {
-                            'type': 'string',
-                            'validator': validate_ip
-                        },
-                        'ncm_account': {
-                            'type': 'dict',
-                            'required': False,
-                            'schema': {
-                                'name': {
-                                    'type': 'string',
-                                    'required': True
-                                },
-                                'sync_interval_seconds': {
-                                    'type': 'integer',
-                                    'required': True
-                                },
-                                'pc_ip': {
-                                    'type': 'string',
-                                    'required': True
-                                },
-                                'pc_username': USERNAME_PASSWORD_SCHEMA,
-                                'pc_password': USERNAME_PASSWORD_SCHEMA,
-                            }
-                        },
-                        'ncm_username': CALM_CREDS_SCHEMA,
-                        'ncm_password': CALM_CREDS_SCHEMA,
-                        'objects': OBJECTS_SCHEMA,
-                        'remote_azs': REMOTE_AZS_SCHEMA,
-                        'protection_rules': PROTECTION_RULES_SCHEMA,
-                        'recovery_plans': RECOVERY_PLAN_SCHEMA,
-                        'categories': PC_CATEGORIES_SCHEMA,
-                        'address_groups': ADDRESS_GROUP_SCHEMA,
-                        'service_groups': SERVICE_GROUP_SCHEMA,
-                        'security_policies': SECURITY_POLICIES_SCHEMA,
+                        **PC_SCHEMA,
                         'edge_sites': {
                             'type': 'list',
-                            'required': True,
+                            'required': False,
                             'schema': {
                                 'type': 'dict',
                                 'schema': {
@@ -1013,7 +1389,7 @@ POD_CONFIG_SCHEMA = {
                                         'type': 'string',
                                         'required': True
                                     },
-                                    'clusters': POD_CLUSTER_SCHEMA,
+                                    **CLUSTER_SCHEMA,
                                     'nke_clusters': NKE_CLUSTER_SCHEMA
                                 }
                             }
@@ -1031,14 +1407,10 @@ CREATE_VM_WORKLOAD_SCHEMA = {
         'type': 'string',
         'validator': validate_ip
     },
-    'ncm_username': {
+    'ncm_credential': {
         'required': True,
         'type': 'string',
         'validator': contains_whitespace
-    },
-    'ncm_password': {
-        'required': True,
-        'type': 'string'
     },
     'bp_list': {
         'required': True,
@@ -1109,7 +1481,7 @@ CREATE_AI_WORKLOAD_SCHEMA = {
         'type': 'string',
         'validator': validate_ip
     },
-    'pc_username': {
+    'pc_credential': {
         'required': True,
         'type': 'string',
         'validator': contains_whitespace
@@ -1207,47 +1579,81 @@ CREATE_AI_WORKLOAD_SCHEMA = {
 }
 
 OVA_UPLOAD_SCHEMA = {
-    'type': 'list',
-    'schema': {
-        'type': 'dict',
+    'ovas': {
+        'type': 'list',
         'schema': {
-            'url': {
-                'type': 'string',
-                'required': True
-            },
-            'name': {
-                'type': 'string',
-                'required': True
-            },
-            'cluster_name_list': {
-                'type': 'list',
-                'required': True
+            'type': 'dict',
+            'schema': {
+                'url': {
+                    'type': 'string',
+                    'required': True
+                },
+                'name': {
+                    'type': 'string',
+                    'required': True
+                },
+                'cluster_name_list': {
+                    'type': 'list',
+                    'required': True
+                }
+            }
+        }
+    }
+}
+
+OVA_DELETE_SCHEMA = {
+    'ovas': {
+        'type': 'list',
+        'schema': {
+            'type': 'dict',
+            'schema': {
+                'name': {
+                    'type': 'string',
+                    'required': True
+                }
             }
         }
     }
 }
 
 IMAGE_UPLOAD_SCHEMA = {
-    'type': 'list',
-    'schema': {
-        'type': 'dict',
+    'images': {
+        'type': 'list',
         'schema': {
-            'url': {
-                'type': 'string',
-                'required': True
-            },
-            'name': {
-                'type': 'string',
-                'required': True
-            },
-            'cluster_name_list': {
-                'type': 'list',
-                'required': True
-            },
-            'image_type': {
-                'type': 'string',
-                'required': True,
-                'allowed': ['DISK_IMAGE', 'ISO_IMAGE']
+            'type': 'dict',
+            'schema': {
+                'url': {
+                    'type': 'string',
+                    'required': True
+                },
+                'name': {
+                    'type': 'string',
+                    'required': True
+                },
+                'cluster_name_list': {
+                    'type': 'list',
+                    'required': True
+                },
+                'image_type': {
+                    'type': 'string',
+                    'required': True,
+                    'allowed': ['DISK_IMAGE', 'ISO_IMAGE']
+                }
+            }
+        }
+    }
+}
+
+IMAGE_DELETE_SCHEMA = {
+    'images': {
+        'type': 'list',
+        'schema': {
+            'type': 'dict',
+            'schema': {
+                'name': {
+                    'type': 'string',
+                    'required': True
+                }
             }
         }
     }
@@ -1310,77 +1716,88 @@ DEPLOY_PC_FILES_SCHEMA = {
 }
 
 DEPLOY_PC_CONFIG_SCHEMA = {
-    'type': 'dict',
-    'schema': {
-        'file_url': {
-            'type': 'string',
-            'required': True
-        },
-        'metadata_file_url': {
-            'type': 'string',
-            'required': True
-        },
-        'pc_version': {
-            'type': 'string',
-            'required': True
-        },
-        'md5sum': {
-            'type': 'string',
-            'required': False
-        },
-        'pc_vm_name_prefix': {
-            'type': 'string',
-            'required': True,
-            'validator': contains_whitespace
-        },
-        'num_pc_vms': {
-            'type': 'integer',
-            'required': True,
-            'allowed': [1,3]
-        },
-        'pc_size': {
-            'type': 'string',
-            'required': True,
-            'allowed': ['small', 'large', 'xlarge']
-        },
-        'pc_vip': {
-            'type': 'string',
-            'required': True,
-            'validator': validate_ip
-        },
-        'ip_list': {
-            'type': 'list',
-            'required': True,
-            'validator': validate_ip_list
-        },
-        'ntp_server_list': {
-            'type': 'list',
-            'required': False
-        },
-        'dns_server_ip_list': {
-            'type': 'list',
-            'required': True,
-        },
-        'container_name': {
-            'type': 'string',
-            'required': True
-        },
-        'network_name': {
-            'type': 'string',
-            'required': True
-        },
-        'default_gateway': {
-            'type': 'string',
-            'required': True,
-            'validator': validate_ip
-        },
-        'subnet_mask': {
-            'type': 'string',
-            'required': True,
-            'validator': validate_ip
-        },
-        'delete_existing_software': {
-            'type': 'boolean'
+    'clusters': {
+        'type': 'dict',
+        'keyschema': {'type': 'string', 'validator': validate_ip},
+        'valueschema': {
+            'type': 'dict',
+            'schema': {
+                'pe_credential': CREDENTIAL_SCHEMA,
+                'cvm_credential': CREDENTIAL_SCHEMA,
+                'deploy_pc_config': {
+                    'required': True,
+                    'type': 'dict',
+                    'schema': {
+                        'file_url': {
+                            'type': 'string',
+                        },
+                        'metadata_file_url': {
+                            'type': 'string',
+                        },
+                        'pc_version': {
+                            'type': 'string',
+                            'required': True
+                        },
+                        'md5sum': {
+                            'type': 'string',
+                        },
+                        'pc_vm_name_prefix': {
+                            'type': 'string',
+                            'required': True,
+                            'validator': contains_whitespace
+                        },
+                        'num_pc_vms': {
+                            'type': 'integer',
+                            'required': True,
+                            'allowed': [1, 3]
+                        },
+                        'pc_size': {
+                            'type': 'string',
+                            'required': True,
+                            'allowed': ['small', 'large', 'xlarge']
+                        },
+                        'pc_vip': {
+                            'type': 'string',
+                            'required': False,
+                            'validator': validate_ip
+                        },
+                        'ip_list': {
+                            'type': 'list',
+                            'required': True,
+                            'schema': {'validator': validate_ip}
+                        },
+                        'ntp_server_list': {
+                            'type': 'list',
+                            'required': False
+                        },
+                        'dns_server_ip_list': {
+                            'type': 'list',
+                            'required': False,
+                        },
+                        'container_name': {
+                            'type': 'string',
+                            'required': True
+                        },
+                        'network_name': {
+                            'type': 'string',
+                            'required': True
+                        },
+                        'default_gateway': {
+                            'type': 'string',
+                            'required': True,
+                            'validator': validate_ip
+                        },
+                        'subnet_mask': {
+                            'type': 'string',
+                            'required': True,
+                            'validator': validate_ip
+                        },
+                        'delete_existing_software': {
+                            'type': 'boolean'
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -1399,25 +1816,11 @@ POD_MANAGEMENT_DEPLOY_SCHEMA = {
                 'required': True,
                 'validator': validate_ip
             },
-            'pc_username': USERNAME_PASSWORD_SCHEMA,
-            'pc_password': USERNAME_PASSWORD_SCHEMA,
-            'ovas': OVA_UPLOAD_SCHEMA,
-            'images': IMAGE_UPLOAD_SCHEMA,
+            'pc_credential': CREDENTIAL_SCHEMA,
+            **OVA_UPLOAD_SCHEMA,
+            **IMAGE_UPLOAD_SCHEMA,
             'ncm': DEPLOY_OVA_AS_VM_SCHEMA,
-            'clusters': {
-                'type': 'dict',
-                'keyschema': {'type': 'string', 'validator': validate_ip},
-                'valueschema': {
-                    'type': 'dict',
-                    'schema': {
-                        'pe_username': USERNAME_PASSWORD_SCHEMA,
-                        'pe_password': USERNAME_PASSWORD_SCHEMA,
-                        'cvm_username': USERNAME_PASSWORD_SCHEMA,
-                        'cvm_password': USERNAME_PASSWORD_SCHEMA,
-                        'deploy_pc_config': DEPLOY_PC_CONFIG_SCHEMA
-                    }
-                }
-            }
+            **DEPLOY_PC_CONFIG_SCHEMA
         }
     }
 }
@@ -1445,12 +1848,11 @@ POD_MANAGEMENT_CONFIG_SCHEMA = {
                             'required': True,
                             'validator': validate_ip
                         },
-                        'pc_username': USERNAME_PASSWORD_SCHEMA,
-                        'pc_password': USERNAME_PASSWORD_SCHEMA,
-                        'eula': EULA_SCHEMA,
-                        'enable_pulse': PULSE_SCHEMA,
-                        'enable_fc': PULSE_SCHEMA,
-                        'generate_fc_api_key': PULSE_SCHEMA,
+                        'pc_credential': CREDENTIAL_SCHEMA,
+                        **EULA_SCHEMA,
+                        **PULSE_SCHEMA,
+                        'enable_fc': {'type': 'boolean'},
+                        'generate_fc_api_key': {'type': 'boolean'},
                         'fc_alias_key_name': {'type': 'string'},
                         'clusters': {
                             'type': 'dict',
@@ -1458,8 +1860,7 @@ POD_MANAGEMENT_CONFIG_SCHEMA = {
                             'valueschema': {
                                 'type': 'dict',
                                 'schema': {
-                                    'pe_username': USERNAME_PASSWORD_SCHEMA,
-                                    'pe_password': USERNAME_PASSWORD_SCHEMA
+                                    'pe_credential': CREDENTIAL_SCHEMA,
                                 }
                             }
                         }
@@ -1467,5 +1868,23 @@ POD_MANAGEMENT_CONFIG_SCHEMA = {
                 }
             }
         }
+    }
+}
+
+CVMF_UPDATE_SCHEMA = {
+    'cvms': {
+        'type': 'dict',
+        'required': True,
+        'keyschema': {'type': 'string', 'validator': validate_ip},
+        'valueschema':  {
+            'type': 'dict',
+            'schema': {
+                'cvm_credential': {'type': 'string', 'validator': contains_whitespace, 'required': True},
+                'foundation_build_url': {'type': 'string', 'required': True, 'validator': contains_whitespace,},
+                'foundation_version': {'type': 'string', 'required': True, 'validator': contains_whitespace,},
+                'downgrade': {'type': 'boolean', 'required': False},
+                'nameserver': {'type': 'string', 'required': False}
+            }
+        },
     }
 }

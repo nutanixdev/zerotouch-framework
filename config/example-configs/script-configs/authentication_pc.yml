@@ -1,0 +1,123 @@
+pc_ip: valid-pc-ip
+# Specify a user with permission to make API calls.
+pc_credential: pc_user # credential reference from "vaults" in global.yml file
+
+#Create
+pc_directory_services:
+  directory_type: ACTIVE_DIRECTORY # only ACTIVE_DIRECTORY is supported, port 389 will be used for LDAP
+  ad_name: name
+  ad_domain: eng.company.com
+  ad_directory_url: valid-ad-directory-url   # e.g., ldap://10.1.4.111:389
+  service_account_credential: service_account_credential # credential reference from "vaults" in global.yml file
+  role_mappings:
+    - role_type: ROLE_USER_ADMIN # one of 'ROLE_CLUSTER_ADMIN', 'ROLE_USER_ADMIN', 'ROLE_CLUSTER_VIEWER', 'ROLE_BACKUP_ADMIN'
+      entity_type: GROUP # one of GROUP, OU, USER
+      values:
+        - john_doe
+        - john_smith
+
+#Delete
+pc_directory_services:
+  ad_name: name
+  role_mappings:
+    - role_type: ROLE_USER_ADMIN # one of 'ROLE_CLUSTER_ADMIN', 'ROLE_USER_ADMIN', 'ROLE_CLUSTER_VIEWER', 'ROLE_BACKUP_ADMIN'
+      entity_type: GROUP # one of GROUP, OU, USER
+
+
+
+######################################## SCHEMA DOCUMENTATION ########################################
+### 			---CREATE SCHEMA --- 			 ###
+
+# directory_services:
+#   type: dict
+#   required: false
+#   schema:
+#     directory_type:
+#       type: string
+#       required: true
+#       allowed:
+#       - ACTIVE_DIRECTORY
+#       empty: false
+#     ad_name:
+#       type: string
+#       required: true
+#       empty: false
+#     ad_domain:
+#       type: string
+#       required: true
+#       empty: false
+#     ad_directory_url:
+#       type: string
+#       required: true
+#       empty: false
+#     service_account_credential:
+#       type: string
+#       required: true
+#       empty: false
+#     role_mappings:
+#       type: list
+#       required: false
+#       dependencies:
+#       - ad_name
+#       schema:
+#         type: dict
+#         schema:
+#           role_type:
+#             required: true
+#             type: string
+#             allowed:
+#             - ROLE_CLUSTER_ADMIN
+#             - ROLE_USER_ADMIN
+#             - ROLE_CLUSTER_VIEWER
+#             - ROLE_BACKUP_ADMIN
+#           entity_type:
+#             required: true
+#             type: string
+#             allowed:
+#             - GROUP
+#             - OU
+#             - USER
+#           values:
+#             required: true
+#             type: list
+#             schema:
+#               type: string
+# 
+
+
+### 			---DELETE SCHEMA --- 			 ###
+
+# directory_services:
+#   type: dict
+#   required: false
+#   schema:
+#     ad_name:
+#       type: string
+#       required: true
+#       empty: false
+#     role_mappings:
+#       type: list
+#       required: false
+#       dependencies:
+#       - directory_services.ad_name
+#       schema:
+#         type: dict
+#         schema:
+#           role_type:
+#             required: true
+#             type: string
+#             allowed:
+#             - ROLE_CLUSTER_ADMIN
+#             - ROLE_USER_ADMIN
+#             - ROLE_CLUSTER_VIEWER
+#             - ROLE_BACKUP_ADMIN
+#           entity_type:
+#             required: true
+#             type: string
+#             allowed:
+#             - GROUP
+#             - OU
+#             - USER
+# 
+
+####################################################################################################

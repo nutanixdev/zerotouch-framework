@@ -2,11 +2,12 @@ import json
 from typing import Dict
 from .script import Script
 from .helpers.batch_script import BatchScript
-from .pc_ova_upload import PcOVAUpload
-from .pc_image_upload import PcImageUpload
-from .pc_ova_deploy_vm import PcOvaDeployVM
-from .power_on_vm_pc import PowerOnVmPc
-from .deploy_pc import DeployPC
+from framework.scripts.python.pc.upload.pc_ova_upload import PcOVAUpload
+from framework.scripts.python.pc.upload.pc_image_upload import PcImageUpload
+from framework.scripts.python.pc.create.pc_ova_deploy_vm import PcOvaDeployVM
+from framework.scripts.python.pc.other_ops.power_on_vm_pc import PowerOnVmPc
+from framework.scripts.python.pe.deploy_pc import DeployPC
+from framework.scripts.python.pe.create.create_pe_subnets import CreateSubnetPe
 from framework.helpers.helper_functions import create_pe_objects, create_pc_objects
 from framework.helpers.log_utils import get_logger
 
@@ -28,7 +29,7 @@ class DeployManagementPlane(Script):
         self.logger = self.logger or logger
 
     def execute(self):
-        create_pc_objects(self.pod)
+        create_pc_objects(self.pod, global_data=self.data)
         pod_name = self.pod["pod_name"]
 
         # Scripts to execute Management Plane configuration
@@ -47,6 +48,8 @@ class DeployManagementPlane(Script):
 
         # Script to deploy PC in PE
         if self.pod.get("clusters"):
+            create_pe_objects(self.pod, global_data=self.data)
+            self.deploy_management_plane_scripts.add(CreateSubnetPe(self.pod))
             self.deploy_management_plane_scripts.add(self.deploy_pc(self.pod))
 
         # Run configuration
@@ -74,14 +77,14 @@ class DeployManagementPlane(Script):
         ncm_batch_scripts.add(power_on_vm_batch_scripts)
         return ncm_batch_scripts
 
-    @staticmethod
-    def deploy_pc(data):
+    def deploy_pc(self, pod_data):
         """Deploy PC VMs in PE
         """
         logger.info("Start PC deployments")
         deploy_pc_batch_scripts = BatchScript(results_key="DeployPcInPe")
-        create_pe_objects(data)
-        deploy_pc_batch_scripts.add(DeployPC(data, log_file="pc_deployment.log"))
+        pod_data["vaults"] = self.data["vaults"]
+        pod_data["vault_to_use"] = self.data["vault_to_use"]
+        deploy_pc_batch_scripts.add(DeployPC(data=pod_data, log_file="pc_deployment.log"))
         return deploy_pc_batch_scripts
 
     def verify(self):

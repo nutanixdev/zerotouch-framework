@@ -1,0 +1,44 @@
+pc_ip: valid-pc-ip
+# Specify a user with permission to make API calls.
+pc_credential: pc_user # credential reference from "vaults" in global.yml file
+
+#Connect (Create)
+remote_azs:
+  # remote AZ details, only Physical location is supported yet
+  valid-remote-pc-ip:
+    pc_credential: remote_pc_credentials # credential reference from "vaults" in global.yml file
+
+#Disconnect
+remote_azs:
+  - valid-remote-pc-ip
+  - valid-remote-pc-ip
+
+
+######################################## SCHEMA DOCUMENTATION ########################################
+### 			---CREATE SCHEMA --- 			 ###
+
+# remote_azs:
+#   type: dict
+#   required: false
+#   keyschema:
+#     type: string
+#   valueschema:
+#     type: dict
+#     schema:
+#       pc_credential:
+#         type: string
+#         required: true
+# 
+
+
+### 			---DELETE SCHEMA --- 			 ###
+
+# remote_azs:
+#   type: list
+#   required: false
+#   schema:
+#     type: string
+#     required: true
+# 
+
+####################################################################################################

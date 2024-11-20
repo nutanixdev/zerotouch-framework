@@ -1,0 +1,67 @@
+---
+# This configuration is used to deploy NCM, upload OVAs & Images in Management PC.
+# Deploy PC VMs in the PEs specified in clusters
+
+pe_creds: &pe_creds
+  # This can be admin/ ad user. Note ad creds will be used after adding AD to PE
+  pe_credential: pe_user # credential reference from "vaults" in global.yml file
+
+cvm_creds: &cvm_creds
+  # This will be nutanix user used to log in to CVM CLI. Required to download deployment files
+  cvm_credential: cvm_credential # credential reference from "vaults" in global.yml file
+
+deploy_pc_file_urls: &deploy_pc_file_urls
+  # Files to deploy PC in PE. PC software tar file, its metafile & pc_version are required to download & upload software to PE
+  file_url: https://url-to-download-pc-xxxx.x.x.tar
+  metadata_file_url: https://url-to-download-metadata.json
+  pc_version: pc.xxxx.x.x
+  # Optional. If specified, md5sum of the existing PC tar file or downloaded tar file, is compared with specified md5sum to verify the integrity of PC tar file
+  md5sum: md5sum-of-pc-xxxx.x.x.tar-file
+
+# Clusters where the PC has to be deployed
+clusters:
+  valid-cluster-01-ip:
+      # Use global pe creds
+      <<: *pe_creds
+      # Use global cvm creds
+      <<: *cvm_creds
+
+      # Config required to deploy PC in PE
+      deploy_pc_config:
+        # Use global deploy pc files urls config
+        <<: *deploy_pc_file_urls
+        pc_vm_name_prefix: MGMT-PC  # PC VM name prefix, numbers will be added to the name based on number of pc vms Eg: MGMT-PC-0
+        num_pc_vms: 3 # Number of PC vms to deploy i.e. Single PC (1) or Scale-out-PC(3). Allowed values: 1, 3
+        pc_size: large # Size of the PC VM. Based on the size the VM spec will be used. Allowed values: [small, large, xlarge]
+        pc_vip: x.x.x.x # PC VIP Address, Optional
+        ip_list: [x.x.x.x, x.x.x.x, x.x.x.x] # IP addresses for PC VMs. Depends on the number of PC VMs
+        ntp_server_list: [ntp-server1, ntp-server2] # List of NTP Servers to be added to PC VMs.
+        dns_server_ip_list: [dns-server-ip1, dns-server-ip2] # List of DNS Server IP addresses to be added to PC VMs.
+        container_name: SelfServiceContainer # Container in which the VMs need to be created
+        network_name: MGMTVLAN0 # Subnet to use for PC VM creation
+        default_gateway: x.x.x.1 # Subnet gateway
+        subnet_mask: 255.255.255.0 # Subnet mask
+        delete_existing_software: false # Delete the software with same version if it already exists in PE
+  
+  valid-cluster-02-ip:
+    # Use global pe creds
+      <<: *pe_creds
+      # Use global cvm creds
+      <<: *cvm_creds
+
+      # Config required to deploy PC in PE
+      deploy_pc_config:
+        # Use global deploy pc files urls config
+        <<: *deploy_pc_file_urls
+        pc_vm_name_prefix: MGMT-PC  # PC VM name prefix, numbers will be added to the name based on number of pc vms Eg: MGMT-PC-0
+        num_pc_vms: 1 # Number of PC vms to deploy i.e. Single PC (1) or Scale-out-PC(3). Allowed values: 1, 3
+        pc_size: small # Size of the PC VM. Based on the size the VM spec will be used. Allowed values: [small, large, xlarge]
+        pc_vip: x.x.x.x # PC VIP Address, Optional
+        ip_list: [x.x.x.x] # IP addresses for PC VMs. Depends on the number of PC VMs
+        ntp_server_list: [ntp-server1, ntp-server2] # List of NTP Servers to be added to PC VMs.
+        dns_server_ip_list: [dns-server-ip1, dns-server-ip2] # List of DNS Server IP addresses to be added to PC VMs.
+        container_name: SelfServiceContainer # Container in which the VMs need to be created
+        network_name: MGMTVLAN0 # Subnet to use for PC VM creation
+        default_gateway: x.x.x.1 # Subnet gateway
+        subnet_mask: 255.255.255.0 # Subnet mask
+        delete_existing_software: false # Delete the software with same version if it already exists in PE

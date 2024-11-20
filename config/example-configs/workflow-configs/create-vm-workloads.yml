@@ -1,0 +1,28 @@
+---
+ncm_vm_ip: valid-ip
+ncm_credential: ncm_user # credential reference from "vaults" in global.yml file
+
+DEFAULT_ACCOUNT_NAME: &DEFAULT_ACCOUNT_NAME
+  ACCOUNT_NAME: NTNX_LOCAL_AZ
+
+# List of DSL BPs
+bp_list:
+  - dsl_file: calm-dsl-bps/blueprints/LAMP/LAMP.py
+    name: LAMP-dsl
+    app_name: LAMP-dsl
+    runtime_vars: ""
+
+# Projects to deploy above BPs to
+projects:
+  - PROJECT_NAME: project-cluster-1
+    CLUSTER_NAME: cluster1
+    SUBNET_NAME: cluster1-subnet1
+    IMAGE_NAME: ""   # to clone from an already uploaded image
+    CATEGORIES: { }  # categories to assign to VMs
+    <<: *DEFAULT_ACCOUNT_NAME
+  - PROJECT_NAME: project-cluster-2
+    CLUSTER_NAME: cluster2
+    SUBNET_NAME: cluster2-subnet2
+    IMAGE_NAME: ""
+    CATEGORIES: { }
+    <<: *DEFAULT_ACCOUNT_NAME

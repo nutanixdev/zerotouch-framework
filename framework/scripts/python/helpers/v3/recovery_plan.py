@@ -11,7 +11,8 @@ class RecoveryPlan(PcEntity):
 
     def __init__(self, session: RestAPIUtil):
         self.network_type = self.source_pe_clusters = self.primary_location_cluster_list = \
-            self.recovery_location_cluster_list = self.primary_location = self.primary_location_url = self.recovery_location_url = None
+            self.recovery_location_cluster_list = self.primary_location = self.primary_location_url = \
+            self.recovery_location_url = self.remote_pe_clusters = None
         self.resource_type = "/recovery_plans"
         super(RecoveryPlan, self).__init__(session)
         self.build_spec_methods = {
@@ -24,13 +25,13 @@ class RecoveryPlan(PcEntity):
             "floating_ip_assignments": self._build_spec_floating_ip_assignments,
         }
 
-    def get_payload(self, rp_spec: Dict, source_pe_clusters: Dict) -> Dict:
+    def get_payload(self, rp_spec: Dict, source_pe_clusters: Dict, remote_pe_clusters: Dict) -> Dict:
         """
         Payload for creating a Recovery plan
         """
         self.source_pe_clusters = source_pe_clusters
         self.network_type = rp_spec.get("network_type", "NON_STRETCH")
-        self.primary_location = rp_spec.get("primary_location")
+        self.primary_location = rp_spec.get("primary_location", {})
         spec, error = super(RecoveryPlan, self).get_spec(params=rp_spec)
         if error:
             raise Exception("Failed generating recovery-plan spec: {}".format(error))
@@ -245,17 +246,17 @@ class RecoveryPlan(PcEntity):
             "primary_location_index"
         ]
 
-        if primary_location.get("availability_zone"):
-            az_pc = AvailabilityZone(self.session)
-            self.primary_location_url = primary_location["url"] = az_pc.get_mgmt_url_by_name("Local AZ")
-        else:
-            raise Exception("Unknown AZ specified in the primary location!")
+        az_pc = AvailabilityZone(self.session)
+        self.primary_location_url = primary_location["url"] = az_pc.get_mgmt_url_by_name("Local AZ")
 
         spec = {"availability_zone_url": primary_location["url"]}
 
+        # cluster is only specified if it is Local_AZ to Local_AZ
         if primary_location.get("cluster"):
-            cluster = primary_location.get("cluster")
-            pc_ip = primary_location.get("availability_zone")
+            cluster = primary_location["cluster"]
+            pc_ip = primary_location["availability_zone"]
+            if cluster not in self.source_pe_clusters.get(pc_ip, {}):
+                raise Exception("Unknown AZ or cluster specified in the schedule!")
             cluster_uuid = self.source_pe_clusters[pc_ip][cluster]
             self.primary_location_cluster_list = spec["cluster_reference_list"] = [
                 {
@@ -282,10 +283,11 @@ class RecoveryPlan(PcEntity):
                 self.recovery_location_url = recovery_location["url"] = \
                     az_pc.get_mgmt_url_by_name(f"PC_{recovery_location['availability_zone']}")
         else:
-            raise Exception("Unknown AZ specified in the recovery location!")
+            raise Exception("AZ not specified in the recovery location!")
 
         spec = {"availability_zone_url": recovery_location["url"]}
 
+        # cluster is only specified if it is Local_AZ to Local_AZ
         if recovery_location.get("cluster"):
             cluster = recovery_location.get("cluster")
             pc_ip = recovery_location.get("availability_zone")

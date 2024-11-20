@@ -1,0 +1,157 @@
+pc_ip: valid-pc-ip
+# Specify a user with permission to make API calls.
+pc_credential: pc_user # credential reference from "vaults" in global.yml file
+
+#Create
+security_policies:
+  - name: Example-AZ01-Calm
+    description: Example Security Policy
+    allow_ipv6_traffic: true # true/ false # Policy rules apply only to IPv4 Traffic and all IPv6 traffic are blocked by default.
+    hitlog: true # true/ false # Log traffic flow hits on the policy rules
+    # Only app rules are supported for now
+    app_rule:
+      policy_mode: MONITOR # APPLY/MONITOR
+      # Secure this app
+      target_group:
+        categories:
+          AppType: AZ01LAMP01
+      inbounds:
+        - categories:
+            AppTier:
+              - WEB
+          address:
+            name: Calm
+          protocol:
+            service:
+              name: ssh
+        - categories:
+            AppTier:
+              - APP
+          udp:
+            - start_port: 82
+              end_port: 8080
+          address:
+            name: Calm
+          protocol:
+            service:
+              name: ssh
+        - categories:
+            AppTier:
+              - DB
+          address:
+            name: Calm
+          protocol:
+            service:
+              name: ssh
+      outbounds:
+        - address:
+            name: NVD_AD
+          protocol:
+            service:
+              name: dns
+
+#Delete
+security_policies:
+  - name: Example-AZ01-Calm
+  - name: Example-AZ02
+
+
+######################################## SCHEMA DOCUMENTATION ########################################
+### 			---CREATE SCHEMA --- 			 ###
+
+# security_policies:
+#   type: list
+#   required: false
+#   schema:
+#     type: dict
+#     schema:
+#       name:
+#         type: string
+#         required: true
+#       description:
+#         type: string
+#       app_rule:
+#         type: dict
+#         schema:
+#           policy_mode:
+#             type: string
+#             required: true
+#             allowed:
+#             - MONITOR
+#             - APPLY
+#           target_group:
+#             type: dict
+#             schema:
+#               categories:
+#                 type: dict
+#                 required: true
+#                 schema:
+#                   AppType:
+#                     type: string
+#           inbounds:
+#             type: list
+#             schema:
+#               type: dict
+#               schema:
+#                 address:
+#                   type: dict
+#                   schema:
+#                     name:
+#                       type: string
+#                 categories:
+#                   type: dict
+#                   keyschema:
+#                     type: string
+#                   valueschema:
+#                     type: list
+#                 protocol:
+#                   type: dict
+#                   schema:
+#                     service:
+#                       type: dict
+#                       schema:
+#                         name:
+#                           type: string
+#           outbounds:
+#             type: list
+#             schema:
+#               type: dict
+#               schema:
+#                 address:
+#                   type: dict
+#                   schema:
+#                     name:
+#                       type: string
+#                 categories:
+#                   type: dict
+#                   keyschema:
+#                     type: string
+#                   valueschema:
+#                     type: list
+#                 protocol:
+#                   type: dict
+#                   schema:
+#                     service:
+#                       type: dict
+#                       schema:
+#                         name:
+#                           type: string
+#       allow_ipv6_traffic:
+#         type: boolean
+#       hitlog:
+#         type: boolean
+# 
+
+
+### 			---DELETE SCHEMA --- 			 ###
+
+# security_policies:
+#   type: list
+#   schema:
+#     type: dict
+#     schema:
+#       name:
+#         type: string
+# 
+
+####################################################################################################

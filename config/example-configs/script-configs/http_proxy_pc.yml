@@ -1,0 +1,10 @@
+pc_ip: valid-pc-ip
+# Specify a user with permission to make API calls.
+pc_credential: pc_user # credential reference from "vaults" in global.yml file
+
+http_proxy:
+  address: 8.8.8.8,
+  name: HTTP_PROXY_SERVER_REST,
+  port: 80,
+  proxy_types: [http], // http or https
+  proxy_credential: proxy_user # credential reference from "vaults" in global.yml file

@@ -15,7 +15,7 @@ class PeEntityV2(Entity):
     This method uses available fan-out API in PC. These APIs are not documented for external use but are used
     by the PC UI extensively. To access these APIs use the same URL as PE with the PC IP and additional query
     parameter proxyClusterUuid=all_clusters or pass the respective cluster uuid
-    
+
     api_version: v1/v2
     """
     def get_proxy_endpoint(self, endpoint):

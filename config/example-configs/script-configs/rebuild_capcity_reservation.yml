@@ -1,0 +1,22 @@
+pe_creds: &pe_creds
+  # Specify a user with permission to make API calls.
+  pe_credential: pe_user # credential reference from "vaults" in global.yml file
+
+# Not supported for 1 and 2 node cluster
+rebuild_capacity_reservation: &rebuild_capacity_reservation
+  enable_rebuild_reservation: true
+
+clusters:
+  # configure the below clusters in the site
+  valid-cluster-01-ip:
+    cluster_name: cluster-name-1
+    # Use global pe creds for authentication
+    <<: *pe_creds
+    # Use global Rebuild reservation config
+    <<: *rebuild_capacity_reservation
+  valid-cluster-02-ip:
+    cluster_name: cluster-name-2
+    # can be defined locally as well
+    pe_credential: pe_user # credential reference from "vaults" in global.yml file
+    # can be defined locally as well
+    enable_rebuild_reservation: true

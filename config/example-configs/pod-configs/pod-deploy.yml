@@ -1,0 +1,128 @@
+# Global variables, which can be inherited in blocks
+pc_creds: &pc_creds
+  pc_credential: pc_user
+
+cvm_creds: &cvm_creds
+  cvm_credential: cvm_credential
+
+dns_ntp_servers: &dns_ntp_servers
+  name_servers_list: ["valid-ip1", "valid-ip2"]
+  ntp_servers_list: ["0.us.pool.ntp.org"]
+
+imaging_parameters: &imaging_parameters
+  aos_url: "http://path-to-nutanix_installer_package.tar.gz"
+  hypervisor_type: "kvm"
+  hypervisor_url: "http://path-to-AHV-DVD-x86_64-el8.nutanix.version.iso"
+
+# A single pod can support up to 2,000 edge clusters
+pod:
+  pod_name: "pod_east"
+  # Each block can support a maximum of 400 edge locations
+  pod_blocks:
+    - pod_block_name: block-01
+      pc_ip: valid-block-pc-ip
+      # Using globally declared pc credentials
+      <<: *pc_creds
+      <<: *cvm_creds
+      # Deploy edge-clusters managed by this block
+      edge-sites:
+        - site_name: site-01
+          <<: *dns_ntp_servers
+          use_existing_network_settings: false
+          # set re-image to true for re-imaging with provided aos, ahv versions
+          re-image: true
+          # the below section can be empty if re-image is not required
+          imaging_parameters:
+            <<: *imaging_parameters
+          # HOST, CVM and IPMI network configuration. This configuration is not required, if network settings are re-used 
+          # If there is no specific config in cluster, site-level network configuration mentioned here will be used
+          # Netmask will be calculated by the subnet mask provided. Eg. /24 will be 255.255.255.0, which will be converted in the script
+          network:
+            # Host Subnet will be used to assign CVM & Hypervisor IPs from IPAM
+            host_subnet: "10.10.10.0/24"
+            host_gateway: "10.10.10.1"
+            # IPMI Subnet will be used to assign IPMI IP from IPAM
+            ipmi_subnet: "11.11.11.0/24"
+            ipmi_gateway: "11.11.11.129"
+            domain: "test.com" # Domain to create Host Record
+          # Cluster details for deployment & imaging
+          clusters:
+            - cluster_name: site01-cluster-01
+              cluster_size: 3 # Cluster size will be the number of nodes for deployment
+              cluster_vip: valid-cluster-vip-ip
+              cvm_ram: 12 # cvm_ram is Gigabytes. Minimum 12, no maximum. Default set it to 12.
+              node_details:
+                - node_serial: node-serial-1
+                  cvm_ip: valid-cvm-ip # Optional. New CVM IP
+                  host_ip: valid-host-ip # Optional. New Hypervisor Host IP
+                  ipmi_ip: valid-ipmi-ip # Optional. New IPMI IP
+                  hypervisor_hostname: hostname-01 # Optional. It is used to setup new hypervisor hostname. In-case of IPAM, hypervisor_hostname will be used to create hostrecord
+                - node_serial: node-serial-2
+                  cvm_ip: valid-cvm-ip
+                  host_ip: valid-host-ip
+                - node_serial: node-serial-3
+                  hypervisor_hostname: hostname-03
+              redundancy_factor: 2 # Nutanix supports RF2, and also RF3 only if the cluster has 5+ nodes
+            - cluster_name: site01-cluster-01
+              cluster_size: 3 # Cluster size will be the number of nodes for deployment
+              cluster_vip: valid-cluster-vip-ip
+              cvm_ram: 12 # cvm_ram is Gigabytes. Minimum 12, no maximum. Default set it to 12.
+              network:
+                # Host Subnet will be used to assign CVM & Hypervisor IPs from IPAM
+                host_subnet: "10.10.11.0/24"
+                host_gateway: "10.10.11.1"
+                # IPMI Subnet will be used to assign IPMI IP from IPAM
+                ipmi_subnet: "11.11.12.0/24"
+                ipmi_gateway: "11.11.12.129"
+                domain: "test.com" # Domain to create Host Record
+              node_details:
+                - node_serial: node-serial-1
+        - site_name: site-02
+          <<: *dns_ntp_servers
+          use_existing_network_settings: true
+          # set re-image to true for re-imaging with provided aos, ahv versions
+          re-image: false
+          # the below section can be empty if re-image is not required
+          imaging_parameters:
+            <<: *imaging_parameters
+          # HOST, CVM and IPMI network configuration. This configuration is not required, if network settings are re-used 
+          # If there is no specific config in cluster, site-level network configuration mentioned here will be used
+          # Netmask will be calculated by the subnet mask provided. Eg. /24 will be 255.255.255.0, which will be converted in the script
+          network:
+            # Host Subnet will be used to assign CVM & Hypervisor IPs from IPAM
+            host_subnet: "10.10.10.0/24"
+            host_gateway: "10.10.10.1"
+            # IPMI Subnet will be used to assign IPMI IP from IPAM
+            ipmi_subnet: "11.11.11.0/24"
+            ipmi_gateway: "11.11.11.129"
+            domain: "test.com" # Domain to create Host Record
+          # Cluster details for deployment & imaging
+          clusters:
+            - cluster_name: site01-cluster-01
+              cluster_size: 3 # Cluster size will be the number of nodes for deployment
+              cluster_vip: valid-cluster-vip-ip
+              cvm_ram: 12 # cvm_ram is Gigabytes. Minimum 12, no maximum. Default set it to 12.
+              node_details:
+                - node_serial: node-serial-1
+                  cvm_ip: valid-cvm-ip
+                  host_ip: valid-host-ip
+                  ipmi_ip: valid-ipmi-ip
+                - node_serial: node-serial-2
+                  cvm_ip: valid-cvm-ip
+                  host_ip: valid-host-ip
+                - node_serial: node-serial-3
+              redundancy_factor: 2 # Nutanix supports RF2, and also RF3 only if the cluster has 5+ nodes
+            - cluster_name: site01-cluster-01
+              cluster_size: 3 # Cluster size will be the number of nodes for deployment
+              cluster_vip: valid-cluster-vip-ip
+              cvm_ram: 12 # cvm_ram is Gigabytes. Minimum 12, no maximum. Default set it to 12.
+              network:
+                # Host Subnet will be used to assign CVM & Hypervisor IPs from IPAM
+                host_subnet: "10.10.11.0/24"
+                host_gateway: "10.10.11.1"
+                # IPMI Subnet will be used to assign IPMI IP from IPAM
+                ipmi_subnet: "11.11.12.0/24"
+                ipmi_gateway: "11.11.12.129"
+                domain: "test.com" # Domain to create Host Record
+              node_details:
+                - node_serial: node-serial-1

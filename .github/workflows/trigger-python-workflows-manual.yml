@@ -20,6 +20,9 @@ on:
           - "calm-edgeai-vm-workload"
           - "config-management-pc"
           - "deploy-management-pc"
+          - "deploy-pc"
+          - "config-pc"
+          - "config-cluster"
       script:
         description: 'Scripts to run'
         required: false

@@ -1,6 +1,6 @@
 from framework.helpers.log_utils import get_logger
 from framework.helpers.rest_utils import RestAPIUtil
-from ..pc_v1.genesis import Genesis
+from framework.scripts.python.helpers.v1.genesis import Genesis
 from .state_monitor import StateMonitor
 
 logger = get_logger(__name__)

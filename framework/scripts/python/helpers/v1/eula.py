@@ -8,9 +8,9 @@ class Eula(PeEntityV1):
     Class to accept End-User License Agreement (EULA)
     """
 
-    def __init__(self, session: RestAPIUtil):
+    def __init__(self, session: RestAPIUtil, proxy_cluster_uuid=None):
         self.resource_type = "/eulas"
-        super(Eula, self).__init__(session=session)
+        super(Eula, self).__init__(session=session, proxy_cluster_uuid=proxy_cluster_uuid)
 
     def is_eula_accepted(self) -> bool:
         """

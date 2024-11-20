@@ -14,6 +14,9 @@ class Network(PcEntity):
     def batch_create_network(self, subnet_create_payload_list: List):
         return self.batch_op.batch_create(request_payload_list=subnet_create_payload_list)
 
+    def batch_delete_network(self, uuid_list: List):
+        return self.batch_op.batch_delete(entity_list=uuid_list)
+
     def get_uuid_by_name(self, cluster_name: str, subnet_name: str, **kwargs) -> str:
         filter_criteria = f"cluster_name=={cluster_name};name=={subnet_name}"
         kwargs["filter"] = filter_criteria
@@ -47,15 +50,10 @@ class Network(PcEntity):
         name = kwargs.get("name")
         subnet_type = kwargs.get("subnet_type", "VLAN")
         vlan_id = kwargs.get("vlan_id", None)
-        subnet_ip = kwargs.get("network_ip", None)
         vs_uuid = kwargs.get("vs_uuid", None)
         vpc_id = kwargs.get("vpc_id", None)
-        prefix_length = kwargs.get("network_prefix", None)
-        default_gateway_ip = kwargs.get("default_gateway_ip", None)
-        pool_list = kwargs.get("pool_list", [])
-        dhcp_options = kwargs.get("dhcp_options", {})
+        ip_config = kwargs.get("ip_config", {})
         cluster_uuid = kwargs.get("cluster_uuid", None)
-        dhcp_server_address = kwargs.get("dhcp_server_address", None)
         # virtual_network_reference = kwargs.get("virtual_network_reference", {})
         is_external = kwargs.get("is_external", False)
         enable_nat = kwargs.get("enable_nat", True)
@@ -113,17 +111,17 @@ class Network(PcEntity):
                     }
                 })
 
-        if subnet_ip:
+        if ip_config:
             ip_config = {
-                "subnet_ip": subnet_ip,
-                "prefix_length": prefix_length,
-                "default_gateway_ip": default_gateway_ip,
-                "dhcp_options": dhcp_options,
-                "pool_list": pool_list
+                "subnet_ip": ip_config["network_ip"],
+                "prefix_length": ip_config["network_prefix"],
+                "default_gateway_ip": ip_config["default_gateway_ip"],
+                "dhcp_options": ip_config.get("dhcp_options", {}),
+                "pool_list": ip_config.get("pool_list", [])
             }
 
-            if dhcp_server_address:
-                ip_config["dhcp_server_address"] = {"ip": dhcp_server_address}
+            if ip_config.get("dhcp_server_address"):
+                ip_config["dhcp_server_address"] = {"ip": ip_config["dhcp_server_address"]}
             payload["spec"]["resources"]["ip_config"] = ip_config
         return payload
 

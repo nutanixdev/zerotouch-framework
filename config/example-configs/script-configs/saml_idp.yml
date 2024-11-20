@@ -1,0 +1,79 @@
+pc_ip: valid-pc-ip
+# Specify a user with permission to make API calls.
+pc_credential: pc_user # credential reference from "vaults" in global.yml file
+
+#Create
+saml_idp_configs:
+  - name: IDP1
+    username_attr: "username_attribute" #Optional
+    email_attr: "email_attribute" #Optional
+    groups_attr: "groups_attribute" #Optional
+    groups_delim: "groups_delimiter" #Optional
+    # Either of metadata_url or metadata_path or idp_properties need to be specified
+    metadata_url: "IdentityProviderURL"
+    metadata_path: "path_where_idp_metadata_is_stored" # e.g. "config/idp.xml" if it is stored in config directory
+    idp_properties:
+      idp_url: "idp_url" # Required
+      login_url: "login_url" # Required
+      logout_url: "logout_url" # Required
+      error_url: "error_url" # Optional
+      certificate: "certificate" # copy the details here, don't specify the path
+  - name: IDP2
+    username_attr: "username_attribute" #Optional
+    email_attr: "email_attribute" #Optional
+    groups_attr: "groups_attribute" #Optional
+    groups_delim: "groups_delimiter" #Optional
+    # Either of metadata_url or metadata_path or idp_properties need to be specified
+    metadata_url: "IdentityProviderURL"
+    metadata_path: "path_where_idp_metadata_is_stored" # e.g. "config/idp.xml" if it is stored in config directory
+    idp_properties:
+      idp_url: "idp_url" # Required
+      login_url: "login_url" # Required
+      logout_url: "logout_url" # Required
+      error_url: "error_url" # Optional
+      certificate: "certificate" # copy the details here, don't specify the path
+
+######################################## SCHEMA DOCUMENTATION ########################################
+### 			---CREATE SCHEMA --- 			 ###
+
+# saml_idp_configs:
+#   type: list
+#   schema:
+#     type: dict
+#     schema:
+#       name:
+#         type: string
+#         required: true
+#         empty: false
+#       username_attr:
+#         type: string
+#       email_attr:
+#         type: string
+#       groups_attr:
+#         type: string
+#       groups_delim:
+#         type: string
+#       metadata_path:
+#         type: string
+#       metadata_url:
+#         type: string
+#       idp_properties:
+#         type: dict
+#         schema:
+#           idp_url:
+#             required: true
+#             type: string
+#           login_url:
+#             required: true
+#             type: string
+#           logout_url:
+#             required: true
+#             type: string
+#           error_url:
+#             type: string
+#           certificate:
+#             required: true
+#             type: string
+# 
+
+####################################################################################################

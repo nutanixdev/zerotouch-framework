@@ -1,7 +1,7 @@
 import time
 import logging
 from framework.helpers.rest_utils import RestAPIUtil
-from ...script import Script
+from framework.scripts.python.script import Script
 from .imaged_clusters import ImagedCluster
 from ..v2.cluster import Cluster as PeCluster
 
@@ -65,7 +65,7 @@ class MonitorDeployment(Script):
         Verify if the cluster vip is accessible after deployment
         """
         result_image = self.imaging.read(self.imaged_cluster_uuid)
-        cluster_vip = result_image["cluster_external_ip"]
+        cluster_vip = result_image.get("cluster_external_ip")
         if cluster_vip:
             self.results[self.cluster_name]["cluster_vip"] = cluster_vip
             if result_image["cluster_status"]["imaging_stopped"]:

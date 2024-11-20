@@ -90,13 +90,12 @@ class ProtectionRule(PcEntity):
                 schedule["source"]["availability_zone_url"] = az_pc.get_mgmt_url_by_name("Local AZ")
                 pc_ip = schedule["source"].pop("availability_zone")
 
-                if schedule["source"].get("clusters"):
-                    clusters = schedule["source"].pop("clusters")
-                    schedule["source"]["cluster_uuid_list"] = []
-                    for cluster in clusters:
-                        schedule["source"]["cluster_uuid_list"].append(self.source_pe_clusters[pc_ip][cluster])
-                else:
-                    raise Exception("Unknown cluster specified in the schedule!")
+                clusters = schedule["source"].pop("clusters")
+                schedule["source"]["cluster_uuid_list"] = []
+                for cluster in clusters:
+                    if cluster not in self.source_pe_clusters.get(pc_ip, {}):
+                        raise Exception("Unknown AZ or cluster specified in the schedule!")
+                    schedule["source"]["cluster_uuid_list"].append(self.source_pe_clusters[pc_ip][cluster])
                 ordered_az_list.append(schedule["source"])
 
             if schedule.get("destination") and schedule["destination"] not in ordered_az_list:
@@ -107,11 +106,10 @@ class ProtectionRule(PcEntity):
                         f"PC_{schedule['destination']['availability_zone']}")
                 pc_ip = schedule["destination"].pop("availability_zone")
 
-                if schedule["destination"].get("cluster"):
-                    cluster = schedule["destination"].pop("cluster")
-                    schedule["destination"]["cluster_uuid"] = self.remote_pe_clusters[pc_ip][cluster]
-                else:
-                    raise Exception("Unknown cluster specified in the schedule!")
+                cluster = schedule["destination"].pop("cluster")
+                if cluster not in self.remote_pe_clusters.get(pc_ip, {}):
+                    raise Exception("Unknown AZ or cluster specified in the schedule!")
+                schedule["destination"]["cluster_uuid"] = self.remote_pe_clusters[pc_ip][cluster]
                 ordered_az_list.append(schedule["destination"])
 
         payload["spec"]["resources"]["ordered_availability_zone_list"] = ordered_az_list

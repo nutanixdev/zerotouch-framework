@@ -1,0 +1,12 @@
+pc_ip: valid-pc-ip
+# Specify a user with permission to make API calls.
+pc_credential: pc_user # credential reference from "vaults" in global.yml file
+# below parameter is needed if we are updating default password for "admin"
+new_pc_admin_credential: admin_cred # credential reference from "vaults" in global.yml file
+
+eula:
+  username: Nutanix
+  company_name: Nutanix
+  job_title: Backend Engineer
+
+enable_pulse: true

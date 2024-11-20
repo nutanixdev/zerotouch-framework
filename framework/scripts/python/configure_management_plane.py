@@ -1,11 +1,13 @@
 import json
 from typing import Dict
+from framework.scripts.python.pc.other_ops.change_default_system_password import ChangeDefaultAdminPasswordPc
+from framework.scripts.python.pc.other_ops.accept_eula import AcceptEulaPc
+from framework.scripts.python.pc.other_ops.update_pulse_pc import UpdatePulsePc
 from .script import Script
 from .helpers.batch_script import BatchScript
-from .initial_pc_config import InitialPcConfig
-from .register_pe_to_pc import RegisterToPc
-from .enable_foundation_central import EnableFC
-from .generate_fc_api_key import GenerateFcApiKey
+from framework.scripts.python.pe.other_ops.register_pe_to_pc import RegisterToPc
+from framework.scripts.python.pc.enable.enable_foundation_central import EnableFC
+from framework.scripts.python.pc.fc.generate_fc_api_key import GenerateFcApiKey
 from framework.helpers.helper_functions import create_pe_objects, create_pc_objects
 from framework.helpers.log_utils import get_logger
 
@@ -36,17 +38,22 @@ class ConfigManagementPlane(Script):
         else:
             self.exceptions.append("No Pod Blocks to configure")
 
-    @staticmethod
-    def config_pc(data):
+    def config_pc(self, data):
         """Configure PCs with below configuration to get started with Foundation Central
         """
         block_batch_scripts = BatchScript(results_key="ConfigPC", parallel=True)
         for block_data in data["pod_blocks"]:
-            create_pe_objects(block_data)
-            create_pc_objects(block_data)
+            create_pe_objects(block_data, global_data=self.data)
+            create_pc_objects(block_data, global_data=self.data)
             log_file = f"pc_{block_data['pc_ip']}_configuration.log"
             config_pc_batch_scripts = BatchScript(results_key=block_data['pc_ip'])
-            config_pc_batch_scripts.add(InitialPcConfig(block_data, log_file=log_file))
+            block_data["vaults"] = self.data["vaults"]
+            block_data["vault_to_use"] = self.data["vault_to_use"]
+            config_pc_batch_scripts.add_all([
+                ChangeDefaultAdminPasswordPc(block_data, log_file=log_file),
+                AcceptEulaPc(block_data, log_file=log_file),
+                UpdatePulsePc(block_data, log_file=log_file)
+            ])
             config_pc_batch_scripts.add(RegisterToPc(block_data, log_file=log_file))
             if block_data.get("enable_fc"):
                 config_pc_batch_scripts.add(EnableFC(block_data, log_file=log_file))

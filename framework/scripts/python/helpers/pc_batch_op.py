@@ -124,8 +124,30 @@ class PcBatchOp:
         api_response_list = self.batch(api_request_list)
         return get_task_uuid_list(api_response_list)
 
+    def batch_delete(self, entity_list: List):
+        """
+        Delete entities using v3 batch api
 
-def get_task_uuid_list(api_response_list: List):
+        Args:
+          entity_list(list): list of identifiers of entities to delete
+        """
+        api_request_payload = {
+            "operation": "DELETE",
+            "path_and_params": f"{self.base_url}{self.resource_type}"
+        }
+
+        api_request_list = []
+        if entity_list:
+            for entity in entity_list:
+                api_request = copy.deepcopy(api_request_payload)
+                api_request["path_and_params"] += f"/{entity}"
+                api_request_list.append(api_request)
+
+        api_response_list = self.batch(api_request_list)
+        return get_task_uuid_list(api_response_list)
+
+
+def get_task_uuid_list(api_response_list: List) -> List:
     """
     Parse the batch api response list to get the Task uuids
     Args:
@@ -137,23 +159,24 @@ def get_task_uuid_list(api_response_list: List):
     for response in api_response_list:
         if response.get("status"):
             if not response["status"].startswith("2"):
+                # todo send all error responses back to the script, instead of logging here
                 logger.error(response)
 
-        api_response = response.get("api_response")
+        api_response = response.get("api_response", {})
 
         # todo bug
         # sometimes api_response in str
-        if type(api_response) == str:
+        if isinstance(api_response, str):
             try:
                 api_response = json.loads(api_response)
             except Exception as e:
                 raise Exception(f"Cannot get task list to monitor for the batch call!: {e}")
 
-        if api_response.get('status', {}).get('execution_context', {}).get('task_uuid'):
+        if api_response and api_response.get('status', {}).get('execution_context', {}).get('task_uuid'):
             task_uuid = api_response['status']['execution_context']['task_uuid']
             task_uuid_list.append(task_uuid)
         # In some cases only task_uuid is returned in response
-        elif api_response.get('task_uuid', {}):
+        elif api_response and api_response.get('task_uuid', {}):
             task_uuid = api_response["task_uuid"]
             task_uuid_list.append(task_uuid)
 

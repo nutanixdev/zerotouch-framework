@@ -57,10 +57,14 @@ class MongoVMResources(AhvVmResources):
     memory = 2
     vCPUs = 1
     cores_per_vCPU = 1
-    disks = [
-        AhvVmDisk.Disk.Scsi.cloneFromImageService(IMAGE_NAME, bootable=True)
-        # AhvVmDisk.Disk.Scsi.cloneFromVMDiskPackage(AHV_CENTOS_78, bootable=True)
-    ]
+    if IMAGE_NAME:
+        disks = [
+            AhvVmDisk.Disk.Scsi.cloneFromImageService(IMAGE_NAME, bootable=True)
+        ]
+    else:
+        disks = [
+            AhvVmDisk.Disk.Scsi.cloneFromVMDiskPackage(AHV_CENTOS_78, bootable=True)
+        ]
 
     nics = [AhvVmNic.NormalNic.ingress(SUBNET_NAME, cluster=CLUSTER_NAME)]
 
@@ -102,10 +106,14 @@ class ApacheVmResources(AhvVmResources):
     memory = 2
     vCPUs = 1
     cores_per_vCPU = 1
-    disks = [
-        # AhvVmDisk.Disk.Scsi.cloneFromVMDiskPackage(AHV_CENTOS_78, bootable=True)
-        AhvVmDisk.Disk.Scsi.cloneFromImageService(IMAGE_NAME, bootable=True)
-    ]
+    if IMAGE_NAME:
+        disks = [
+            AhvVmDisk.Disk.Scsi.cloneFromImageService(IMAGE_NAME, bootable=True)
+        ]
+    else:
+        disks = [
+            AhvVmDisk.Disk.Scsi.cloneFromVMDiskPackage(AHV_CENTOS_78, bootable=True)
+        ]
 
     nics = [AhvVmNic.NormalNic.ingress(SUBNET_NAME, cluster=CLUSTER_NAME)]
 
@@ -148,10 +156,14 @@ class HAPROXYVmResources(AhvVmResources):
     memory = 2
     vCPUs = 1
     cores_per_vCPU = 1
-    disks = [
-        # AhvVmDisk.Disk.Scsi.cloneFromVMDiskPackage(AHV_CENTOS_78, bootable=True)
-        AhvVmDisk.Disk.Scsi.cloneFromImageService(IMAGE_NAME, bootable=True)
-    ]
+    if IMAGE_NAME:
+        disks = [
+            AhvVmDisk.Disk.Scsi.cloneFromImageService(IMAGE_NAME, bootable=True)
+        ]
+    else:
+        disks = [
+            AhvVmDisk.Disk.Scsi.cloneFromVMDiskPackage(AHV_CENTOS_78, bootable=True)
+        ]
 
     nics = [AhvVmNic.NormalNic.ingress(SUBNET_NAME, cluster=CLUSTER_NAME)]
 
@@ -360,7 +372,7 @@ class LAMP(Blueprint):
     """* [Lamp](http://@@{HAPROXY.address}@@)"""
 
     services = [MONGOService, APACHEService, HAPROXYService]
-    packages = [MONGOPackage, APACHEPackage, HAPROXYPackage] #, AHV_CENTOS_78]
+    packages = [MONGOPackage, APACHEPackage, HAPROXYPackage, AHV_CENTOS_78]
     substrates = [AHVMongoSubstrate, AhvApacheSubstrate, AhvHAPROXYSubstrate]
     profiles = [Nutanix]
     credentials = [CENTOS_CRED]

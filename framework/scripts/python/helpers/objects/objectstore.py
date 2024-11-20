@@ -64,8 +64,10 @@ class ObjectStore(OssEntityOp):
           cluster(str): The PE cluster or
           cluster_uuid(str): The PE cluster uuid
           static_ip_list(list): The list static ips, minimal 6 IPs
-          network(str): The network name
-          (or) network_uuid(str): The uuid of the network, much have IPAM enabled
+          storage_network(str): The Storage network name
+          (or) storage_network_uuid(str): The uuid of the network, must have IPAM enabled
+          public_network(str): The Public network name
+          (or) public_network_uuid(str): The uuid of the network, must have IPAM enabled
           num_worker_nodes(int, optional): Number of worker nodes required
           description(str, optional): The description
           num_cpu(int, optional): The num of vCpus for objectstore VMs
@@ -76,23 +78,31 @@ class ObjectStore(OssEntityOp):
         """
         static_ip_list = kwargs.get("static_ip_list", [])
         cluster_uuid = kwargs.get("cluster_uuid")
-        network_uuid = kwargs.get("network_uuid")
+        storage_network_uuid = kwargs.get("storage_network_uuid")
+        public_network_uuid = kwargs.get("public_network_uuid")
 
-        if not cluster_uuid and not network_uuid:
-            if not kwargs.get("cluster") and not kwargs.get("network"):
-                raise Exception("Cluster name, Network name has to be passed")
+        if not cluster_uuid:
+            if not kwargs.get("cluster"):
+                raise Exception("Cluster name has to be passed")
             cluster_obj = PcCluster(session=self.session)
             cluster_uuid = cluster_obj.get_uuid_by_name(kwargs["cluster"])
+        network_obj = Network(session=self.session)
+        if not storage_network_uuid:
+            if not kwargs.get("storage_network") and not kwargs.get("cluster"):
+                raise Exception("Storage Network name, Cluster name has to be passed")
+            storage_network_uuid = network_obj.get_uuid_by_name(cluster_name=kwargs["cluster"],
+                                                                subnet_name=kwargs["storage_network"])
+        if not public_network_uuid:
+            if not kwargs.get("public_network") and not kwargs.get("cluster"):
+                raise Exception("Public Network name, Cluster name has to be passed")
+            public_network_uuid = network_obj.get_uuid_by_name(cluster_name=kwargs["cluster"],
+                                                               subnet_name=kwargs["public_network"])
 
-            network_obj = Network(session=self.session)
-            network_uuid = network_obj.get_uuid_by_name(cluster_name=kwargs["cluster"],
-                                                        subnet_name=kwargs["network"])
-
-        if not cluster_uuid and not network_uuid:
+        if not cluster_uuid and not storage_network_uuid and not public_network_uuid:
             raise Exception("Invalid Cluster or Network name specified!")
 
-        if len(static_ip_list) < 4:
-            raise Exception("Provide at-least 4 static IPs")
+        if len(static_ip_list) < 3:
+            raise Exception("Provide at-least 3 static IPs")
         payload = \
             {
                 "api_version": "3.0",
@@ -117,11 +127,11 @@ class ObjectStore(OssEntityOp):
                             "buckets_infra_network_reference":
                                 {
                                     "kind": "subnet",
-                                    "uuid": network_uuid
+                                    "uuid": storage_network_uuid
                                 },
                             "client_access_network_reference": {
                                 "kind": "subnet",
-                                "uuid": network_uuid
+                                "uuid": public_network_uuid
                             },
                             "aggregate_resources":
                                 {
@@ -141,8 +151,10 @@ class ObjectStore(OssEntityOp):
           cluster(str): The PE cluster
           (or) cluster_uuid(str): The PE cluster uuid
           static_ip_list(list): The list static ips, minimal 6 IPs
-          network(str): The network name
-          (or) network_uuid(str): The uuid of the network, must have IPAM enabled
+          storage_network(str): The Storage network name
+          (or) storage_network_uuid(str): The uuid of the network, must have IPAM enabled
+          public_network(str): The Public network name
+          (or) public_network_uuid(str): The uuid of the network, must have IPAM enabled
           num_worker_nodes(int, optional): Number of worker nodes required
           description(str, optional): The description
           num_cpu(int, optional): The num of vCpus for objectstore VMs
@@ -153,23 +165,31 @@ class ObjectStore(OssEntityOp):
         """
         static_ip_list = kwargs.get("static_ip_list", [])
         cluster_uuid = kwargs.get("cluster_uuid")
-        network_uuid = kwargs.get("network_uuid")
+        storage_network_uuid = kwargs.get("storage_network_uuid")
+        public_network_uuid = kwargs.get("public_network_uuid")
 
-        if not cluster_uuid and not network_uuid:
-            if not kwargs.get("cluster") and not kwargs.get("network"):
-                raise Exception("Cluster name, Network name has to be passed")
+        if not cluster_uuid:
+            if not kwargs.get("cluster"):
+                raise Exception("Cluster name has to be passed")
             cluster_obj = PcCluster(session=self.session)
             cluster_uuid = cluster_obj.get_uuid_by_name(kwargs["cluster"])
+        network_obj = Network(session=self.session)
+        if not storage_network_uuid:
+            if not kwargs.get("storage_network") and not kwargs.get("cluster"):
+                raise Exception("Storage Network name, Cluster name has to be passed")
+            storage_network_uuid = network_obj.get_uuid_by_name(cluster_name=kwargs["cluster"],
+                                                                subnet_name=kwargs["storage_network"])
+        if not public_network_uuid:
+            if not kwargs.get("public_network") and not kwargs.get("cluster"):
+                raise Exception("Public Network name, Cluster name has to be passed")
+            public_network_uuid = network_obj.get_uuid_by_name(cluster_name=kwargs["cluster"],
+                                                               subnet_name=kwargs["public_network"])
 
-            network_obj = Network(session=self.session)
-            network_uuid = network_obj.get_uuid_by_name(cluster_name=kwargs["cluster"],
-                                                        subnet_name=kwargs["network"])
-
-        if not cluster_uuid and not network_uuid:
+        if not cluster_uuid and not storage_network_uuid and not public_network_uuid:
             raise Exception("Invalid Cluster or Network name specified!")
 
-        if len(static_ip_list) < 4:
-            raise Exception("Provide at-least 4 static IPs")
+        if len(static_ip_list) < 3:
+            raise Exception("Provide at-least 3 static IPs")
         payload = \
             {
                 "api_version": "3.0",
@@ -194,11 +214,11 @@ class ObjectStore(OssEntityOp):
                             "buckets_infra_network_reference":
                                 {
                                     "kind": "subnet",
-                                    "uuid": network_uuid
+                                    "uuid": storage_network_uuid
                                 },
                             "client_access_network_reference": {
                                 "kind": "subnet",
-                                "uuid": network_uuid
+                                "uuid": public_network_uuid
                             },
                             "aggregate_resources":
                                 {

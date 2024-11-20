@@ -1,0 +1,185 @@
+pc_ip: valid-pc-ip
+# Specify a user with permission to make API calls.
+pc_credential: pc_user # credential reference from "vaults" in global.yml file
+
+#Create
+recovery_plans:
+  - name: AZ01-RP-Calm
+    desc: "Example Recovery plan for AppType CalmAppliance"
+    primary_location:
+      # Primary location is set to Local block/ AZ
+      availability_zone: valid-local-block-pc-ip
+      # cluster: local-cluster1 # Optional. Required only for Local AZ to Local AZ
+    recovery_location:
+      availability_zone: valid-local-block-pc-ip/ valid-remote-pc-ip
+      # cluster: local-cluster1 # Optional. Required only for Local AZ to Local AZ
+    stages:
+      #- vms:
+      #- name: ubuntu-01
+      #enable_script_exec: true
+      #delay: 2
+      - categories:
+          - key: AppType
+            value: CalmAppliance
+    network_type: NON_STRETCH # NON_STRETCH/STRETCH
+    network_mappings:
+      - primary:
+          test:
+            name: valid-subnet-name
+            #gateway_ip: gateway_ip Optional
+            #prefix: network_prefix
+          prod:
+            name: valid-subnet-name
+            #gateway_ip: gateway_ip
+            #prefix: network_prefix
+        recovery:
+          test:
+            name: valid-subnet-name
+            #gateway_ip: gateway_ip
+            #prefix: network_prefix
+          prod:
+            name: valid-subnet-name
+            #gateway_ip: gateway_ip
+            #prefix: network_prefix
+
+#Delete
+recovery_plans:
+  - name: AZ01-RP-Calm
+  - name: AZ02-RP-Calm
+
+
+######################################## SCHEMA DOCUMENTATION ########################################
+### 			---CREATE SCHEMA --- 			 ###
+
+# recovery_plans:
+#   type: list
+#   required: false
+#   schema:
+#     type: dict
+#     schema:
+#       name:
+#         type: string
+#         required: true
+#       desc:
+#         type: string
+#       primary_location:
+#         type: dict
+#         required: true
+#         schema:
+#           availability_zone:
+#             type: string
+#             required: true
+#       recovery_location:
+#         type: dict
+#         required: true
+#         schema:
+#           availability_zone:
+#             type: string
+#             required: true
+#       stages:
+#         type: list
+#         required: true
+#         schema:
+#           type: dict
+#           schema:
+#             vms:
+#               type: list
+#               schema:
+#                 type: dict
+#                 schema:
+#                   name:
+#                     type: string
+#                     required: true
+#                   enable_script_exec:
+#                     type: boolean
+#                     required: true
+#                   delay:
+#                     type: integer
+#                     required: true
+#             categories:
+#               type: list
+#               schema:
+#                 type: dict
+#                 schema:
+#                   key:
+#                     type: string
+#                     required: true
+#                   value:
+#                     type: string
+#                     required: true
+#       network_type:
+#         type: string
+#         required: false
+#         allowed:
+#         - NON_STRETCH
+#         - STRETCH
+#       network_mappings:
+#         type: list
+#         schema:
+#           type: dict
+#           schema:
+#             primary:
+#               type: dict
+#               required: true
+#               schema:
+#                 test:
+#                   type: dict
+#                   schema:
+#                     name:
+#                       type: string
+#                       required: true
+#                     gateway_ip:
+#                       type: string
+#                     prefix:
+#                       type: integer
+#                 prod:
+#                   type: dict
+#                   schema:
+#                     name:
+#                       type: string
+#                       required: true
+#                     gateway_ip:
+#                       type: string
+#                     prefix:
+#                       type: integer
+#             recovery:
+#               type: dict
+#               required: true
+#               schema:
+#                 test:
+#                   type: dict
+#                   schema:
+#                     name:
+#                       type: string
+#                       required: true
+#                     gateway_ip:
+#                       type: string
+#                     prefix:
+#                       type: integer
+#                 prod:
+#                   type: dict
+#                   schema:
+#                     name:
+#                       type: string
+#                       required: true
+#                     gateway_ip:
+#                       type: string
+#                     prefix:
+#                       type: integer
+# 
+
+
+### 			---DELETE SCHEMA --- 			 ###
+
+# recovery_plans:
+#   type: list
+#   required: false
+#   schema:
+#     type: dict
+#     required: true
+#     schema:
+#       name:
+#         type: string
+# 
+
+####################################################################################################

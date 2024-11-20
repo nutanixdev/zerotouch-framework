@@ -3,10 +3,10 @@ from ..pe_entity_v2 import PeEntityV2
 
 
 class Cluster(PeEntityV2):
-    def __init__(self, session: RestAPIUtil):
+    def __init__(self, session: RestAPIUtil, proxy_cluster_uuid=None):
         self.resource_type = "/cluster"
         self.cluster_info = {}
-        super(Cluster, self).__init__(session=session)
+        super(Cluster, self).__init__(session=session, proxy_cluster_uuid=proxy_cluster_uuid)
 
     def get_cluster_info(self):
         return self.cluster_info.update(self.read())

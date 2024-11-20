@@ -95,3 +95,6 @@ ENV/
 
 # others
 framework/script_log.log
+
+# local dir
+.local

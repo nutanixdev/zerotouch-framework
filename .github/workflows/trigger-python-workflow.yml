@@ -18,7 +18,7 @@ jobs:
       WORKFLOW: ${{ steps.set-vars.outputs.WORKFLOW }}
     steps:
       - uses: actions/checkout@v3
-      - uses: tj-actions/changed-files@v35
+      - uses: tj-actions/changed-files@v42
         id: changed_files
         with:
           json: "true"
@@ -30,21 +30,6 @@ jobs:
         run: |
           echo "FILE=config/pod-deploy.yml" >> $GITHUB_ENV
           echo "WORKFLOW=imaging" >> $GITHUB_ENV
-      - name: Set pod-config if pod-config file has changed
-        if: contains(steps.changed_files.outputs.all_changed_files, 'config/pod-config.yml')
-        run: |
-          echo "FILE=config/pod-config.yml" >> $GITHUB_ENV
-          echo "WORKFLOW=pod-config" >> $GITHUB_ENV
-      - name: Set vm-workloads if create_vm_workloads file changed
-        if: contains(steps.changed_files.outputs.all_changed_files, 'config/create-vm-workloads.yml')
-        run: |
-          echo "FILE=config/create-vm-workloads.yml" >> $GITHUB_ENV
-          echo "WORKFLOW=calm-vm-workloads" >> $GITHUB_ENV
-      - name: Set edge-ai-workloads if edge_ai file changed
-        if: contains(steps.changed_files.outputs.all_changed_files, 'config/edge-ai.json')
-        run: |
-          echo "FILE=config/edge-ai.json" >> $GITHUB_ENV
-          echo "WORKFLOW=calm-edgeai-vm-workload" >> $GITHUB_ENV
       - name: Set deploy-management-pc if pod-management-deploy file has changed
         if: contains(steps.changed_files.outputs.all_changed_files, 'config/pod-management-deploy.yml')
         run: |
@@ -55,6 +40,36 @@ jobs:
         run: |
           echo "FILE=config/pod-management-config.yml" >> $GITHUB_ENV
           echo "WORKFLOW=config-management-pc" >> $GITHUB_ENV
+      - name: Set pod-config if pod-config file has changed
+        if: contains(steps.changed_files.outputs.all_changed_files, 'config/pod-config.yml')
+        run: |
+          echo "FILE=config/pod-config.yml" >> $GITHUB_ENV
+          echo "WORKFLOW=pod-config" >> $GITHUB_ENV
+      - name: Set deploy-pc if pc-deploy file has changed
+        if: contains(steps.changed_files.outputs.all_changed_files, 'config/pc-deploy.yml')
+        run: |
+          echo "FILE=config/pc-deploy.yml" >> $GITHUB_ENV
+          echo "WORKFLOW=deploy-pc" >> $GITHUB_ENV
+      - name: Set config-pc if pc-config file has changed
+        if: contains(steps.changed_files.outputs.all_changed_files, 'config/pc-config.yml')
+        run: |
+          echo "FILE=config/pc-config.yml" >> $GITHUB_ENV
+          echo "WORKFLOW=config-pc" >> $GITHUB_ENV
+      - name: Set config-cluster if cluster-config.yml file has changed
+        if: contains(steps.changed_files.outputs.all_changed_files, 'config/cluster-config.yml')
+        run: |
+          echo "FILE=config/cluster-config.yml" >> $GITHUB_ENV
+          echo "WORKFLOW=config-cluster" >> $GITHUB_ENV
+      - name: Set vm-workloads if create_vm_workloads file changed
+        if: contains(steps.changed_files.outputs.all_changed_files, 'config/create-vm-workloads.yml')
+        run: |
+          echo "FILE=config/create-vm-workloads.yml" >> $GITHUB_ENV
+          echo "WORKFLOW=calm-vm-workloads" >> $GITHUB_ENV
+      - name: Set edge-ai-workloads if edge_ai file changed
+        if: contains(steps.changed_files.outputs.all_changed_files, 'config/edge-ai.json')
+        run: |
+          echo "FILE=config/edge-ai.json" >> $GITHUB_ENV
+          echo "WORKFLOW=calm-edgeai-vm-workload" >> $GITHUB_ENV
       - name: Set file and workflow vars
         id: set-vars
         run: |

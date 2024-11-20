@@ -68,8 +68,8 @@ class Ova(PcEntity):
             pc_cluster.get_pe_info_list()
             cluster_uuid = pc_cluster.name_uuid_map.get(cluster_name)
         for entity in entities:
-            cluster_uuids = [cluster["uuid"] for cluster in
-                              entity["info"]["current_cluster_reference_list"]]
+            cluster_uuids = [cluster["uuid"] for cluster in 
+                             entity["info"]["current_cluster_reference_list"]]
             if cluster_uuid in cluster_uuids:
                 return entity
         return None

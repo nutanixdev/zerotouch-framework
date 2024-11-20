@@ -1,0 +1,15 @@
+---
+ncm_vm_ip: valid-ip
+ncm_credential: ncm_user # credential reference from "vaults" in global.yml file
+
+ncm_account:
+  # Only nuatnix_pc is supported yet
+  name: PC1
+  sync_interval_seconds: !!int 900
+  # if type == nutanix_pc fill in below details. Below are optional
+  pc_ip: pc-ip
+  pc_credential: pc_user # credential reference from "vaults" in global.yml file
+
+ncm_users:
+  - user1
+  - user2

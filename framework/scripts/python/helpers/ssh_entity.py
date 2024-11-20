@@ -8,7 +8,7 @@ logger = get_logger(__name__)
 
 
 class SSHEntity:
-    def __init__(self, ip, username, password):
+    def __init__(self, ip: str, username: str, password: str):
         """
         Args:
             ip (str): IP Address
@@ -23,7 +23,7 @@ class SSHEntity:
         # so it does not log the all INFO related to authentication in OUTPUT
         logging.getLogger("paramiko").setLevel(logging.WARNING)
 
-    def get_ssh_connection(self, ip, username, password):
+    def get_ssh_connection(self, ip: str, username: str, password: str) -> paramiko.SSHClient:
         try:
             # Open new SSH client
 

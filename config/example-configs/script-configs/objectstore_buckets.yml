@@ -1,0 +1,122 @@
+pc_ip: valid-pc-ip
+# Specify a user with permission to make API calls.
+pc_credential: pc_user # credential reference from "vaults" in global.yml file
+
+#Create
+objects:
+  objectstores:
+    - name: objectstore01
+      domain: eng.company.com
+      cluster: cluster01
+      # Storage Network
+      storage_network: subnet01
+      # Public Network
+      public_network: subnet02
+      # First 2 Static IPs should be storage network static IPs.
+      # Rest of the Static IPs will be assigned as Public static IPs.
+      static_ip_list:
+        - ip1
+        - ip2
+        - ip3
+        - ip4
+      num_worker_nodes: 1
+      buckets:
+        - name: bucket1
+          user_access_list:
+            - darshan@eng.company.com
+            - kousalya@eng.company.com
+        - name: bucket2
+          user_access_list:
+            - darshan@eng.company.com
+            - kousalya@eng.company.com
+    - name: objectstore02
+      domain: eng.company.com
+      cluster: cluster01
+      # Storage Network
+      storage_network: subnet01
+      # Public Network
+      public_network: subnet02
+      # First 2 Static IPs should be storage network static IPs.
+      # Rest of the Static IPs will be assigned as Public static IPs.
+      static_ip_list:
+        - ip1
+        - ip2
+        - ip3
+        - ip4
+      num_worker_nodes: 1
+      buckets:
+        - name: bucket1
+          user_access_list:
+            - darshan@eng.company.com
+            - kousalya@eng.company.com
+
+#Delete
+objects:
+  objectstores:
+    - name: objectstore01
+
+
+######################################## SCHEMA DOCUMENTATION ########################################
+### 			---CREATE SCHEMA --- 			 ###
+
+# objects:
+#   type: dict
+#   schema:
+#     objectstores:
+#       type: list
+#       schema:
+#         type: dict
+#         schema:
+#           name:
+#             type: string
+#             required: true
+#           domain:
+#             type: string
+#             required: true
+#           cluster:
+#             type: string
+#             required: true
+#           storage_network:
+#             type: string
+#             required: true
+#           public_network:
+#             type: string
+#             required: true
+#           static_ip_list:
+#             type: list
+#             required: true
+#             schema:
+#               type: string
+#           num_worker_nodes:
+#             type: integer
+#             required: true
+#           buckets:
+#             type: list
+#             schema:
+#               type: dict
+#               schema:
+#                 name:
+#                   type: string
+#                   required: true
+#                 user_access_list:
+#                   type: list
+#                   required: true
+# 
+
+
+### 			---DELETE SCHEMA --- 			 ###
+
+# objects:
+#   type: dict
+#   schema:
+#     objectstores:
+#       type: list
+#       schema:
+#         type: dict
+#         schema:
+#           name:
+#             type: string
+#             required: true
+# 
+
+####################################################################################################

@@ -1,0 +1,148 @@
+pc_ip: valid-pc-ip
+# Specify a user with permission to make API calls.
+pc_credential: pc_user # credential reference from "vaults" in global.yml file
+
+pe_creds: &pe_creds
+  pe_credential: pe_user # credential reference from "vaults" in global.yml file
+
+#Create
+pe_networks: &pe_networks
+  name: "vlan-110"
+  subnet_type: VLAN # only VLAN is supported yet
+  vlan_id: 110
+  # virtual_switch: "vs0" # Optional. If not specified, the first virtual switch will be used
+  # comment ip_config section if AHV IP address management is not required
+  ip_config:
+    network_ip: valid-ip
+    network_prefix: 24
+    default_gateway_ip: valid-ip
+    # comment pool_list section if there are no pools for the subnet
+    pool_list:
+      - range: "valid-ip-start valid-ip-end" # Eg "10.10.10.31 10.10.10.40"
+    #  comment dhcp_options section if you don't want dhcp. Over-riding dhcp is not supported yet
+    dhcp_options:
+      domain_name_server_list: [ 10.10.10.10 ]
+      domain_search_list: [ eng.company.com ]
+      domain_name: eng.company.com
+
+clusters:
+  # configure the below clusters in the site
+  valid-cluster-01-ip:
+    name: cluster-01
+    # Use global pe creds for authentication
+    <<: *pe_creds
+    networks:
+      # Use global network config
+      - <<: *pe_networks
+  valid-cluster-02-ip:
+    name: cluster-02
+    # can be defined locally as well
+    pe_credential: pe_user # credential reference from "vaults" in global.yml file
+    # can be defined locally as well
+    networks:
+      - name: "vlan-110"
+        subnet_type: VLAN # only VLAN is supported yet
+        vlan_id: 110
+        ip_config:
+          network_ip: valid-ip
+          network_prefix: 24
+          default_gateway_ip: valid-ip
+          # comment pool_list section if there are no pools for the subnet
+          pool_list:
+            - range: "valid-ip-start valid-ip-end" # Eg "10.10.10.31 10.10.10.40"
+          #  comment dhcp_options section if you don't want dhcp. Over-riding dhcp is not supported yet
+          dhcp_options:
+            domain_name_server_list: [ 10.10.10.10 ]
+            domain_search_list: [ eng.company.com ]
+            domain_name: eng.company.com
+
+#Delete
+clusters:
+  valid-cluster-01-ip:
+    pe_credential: pe_user
+    networks:
+      - uuid: <valid-uuid> #Recommended
+      # Delete Subnets can be done by passing Names as well. But it is not recommended 
+      # since it will remove all the networks with the given name as multiple networks can have same names
+      - name: "vlan-110" 
+
+
+######################################## SCHEMA DOCUMENTATION ########################################
+### 			---CREATE SCHEMA --- 			 ###
+
+# networks:
+#   type: list
+#   schema:
+#     type: dict
+#     required: false
+#     schema:
+#       name:
+#         type: string
+#         required: true
+#       vlan_id:
+#         required: true
+#         type: integer
+#       ip_config:
+#         required: false
+#         type: dict
+#         schema:
+#           network_ip:
+#             type: string
+#             required: true
+#           network_prefix:
+#             required: true
+#             type: integer
+#           default_gateway_ip:
+#             type: string
+#           pool_list:
+#             type: list
+#             schema:
+#               type: dict
+#               schema:
+#                 range:
+#                   type: string
+#           dhcp_options:
+#             type: dict
+#             schema:
+#               domain_name_server_list:
+#                 type: list
+#                 schema:
+#                   type: string
+#               domain_search_list:
+#                 type: list
+#               domain_name:
+#                 type: string
+# 
+
+
+### 			---DELETE SCHEMA --- 			 ###
+
+# networks:
+#   type: list
+#   schema:
+#     type: dict
+#     schema:
+#       vlan_id:
+#         type: integer
+#         required: true
+#       name:
+#         type: string
+#       managed:
+#         type: boolean
+#       ip_config:
+#         network_ip:
+#           type: string
+#         network_prefix:
+#           type: integer
+#         default_gateway_ip:
+#           type: string
+#         pool_list:
+#           type: list
+#           schema:
+#             type: dict
+#             schema:
+#               range:
+#                 type: string
+# 
+
+####################################################################################################
