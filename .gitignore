@@ -42,7 +42,6 @@ pip-delete-this-directory.txt
 
 # Unit test / coverage reports
 .github/workflows/black-duck.yml
-tests/
 htmlcov/
 .tox/
 .coverage
