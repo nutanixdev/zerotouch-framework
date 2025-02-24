@@ -4,7 +4,7 @@ from framework.helpers.log_utils import get_logger
 from framework.scripts.python.helpers.karbon.karbon_clusters import KarbonCluster, KarbonClusterV1
 from framework.scripts.python.helpers.karbon.karbon_image import KarbonImage
 from framework.scripts.python.helpers.state_monitor.karbon_image_monitor import KarbonImageDownloadMonitor
-from framework.scripts.python.helpers.state_monitor.pc_task_monitor import PcTaskMonitor
+from framework.scripts.python.helpers.state_monitor.task_monitor import PcTaskMonitor as TaskMonitor
 from framework.scripts.python.script import Script
 
 logger = get_logger(__name__)
@@ -92,7 +92,7 @@ class CreateKarbonClusterPc(Script):
 
                         # create nke cluster
                         self.logger.info(f"Creating new NKE cluster '{name}'")
-                        spec = karbon_cluster_v1.get_payload(cluster_to_create, data=self.data)
+                        spec = karbon_cluster_v1.get_payload(cluster_to_create)
                         response = karbon_cluster_v1.create(data=spec)
 
                         if response.get("task_uuid"):
@@ -104,8 +104,8 @@ class CreateKarbonClusterPc(Script):
                     self.exceptions.append(f"Failed to create NKE cluster {name}: {e}")
 
             if self.task_uuid_list:
-                app_response, status = PcTaskMonitor(self.pc_session,
-                                                     task_uuid_list=self.task_uuid_list).monitor()
+                app_response, status = TaskMonitor(self.pc_session,
+                                                   task_uuid_list=self.task_uuid_list).monitor()
 
                 if app_response:
                     self.exceptions.append(f"Some tasks have failed. {app_response}")

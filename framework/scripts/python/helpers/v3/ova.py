@@ -1,7 +1,7 @@
 from typing import List
 from framework.helpers.log_utils import get_logger
 from framework.helpers.rest_utils import RestAPIUtil
-from ..pc_entity import PcEntity
+from ..pc_entity_v3 import PcEntity
 from ..v3.cluster import Cluster as PcCluster
 
 logger = get_logger(__name__)

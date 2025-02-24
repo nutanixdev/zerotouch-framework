@@ -44,8 +44,12 @@ class PcGroupsOp:
         response = self.__groups_post_call(
             group_member_offset, group_member_count_threshold, **kwargs)
         entities_json.extend(self.__parse_response(response))
+        total_entity_count = response["group_results"][0].get("total_entity_count")
+        filtered_entity_count = response["group_results"][0].get("filtered_entity_count", None)
+        '''modified this assignment as value stays as None
         total_entity_count = response.get("total_entity_count")
-        filtered_entity_count = response.get("filtered_entity_count", None)
+        filtered_entity_count = response.get("filtered_entity_count", None)'''
+
         if filtered_entity_count is not None and kwargs.get("filter_criteria") is not None:
             # When using filters with groups call, use filtered_entity_count as total.
             total_entity_count = filtered_entity_count
@@ -83,8 +87,11 @@ class PcGroupsOp:
         Returns:
           list<dict>: The event list.
         """
-        attributes = ["title", "source_entity_name", "classification", "cluster", "_created_timestamp_usecs_", "default_message", "param_name_list", "param_value_list", "source_entity_uuid", "source_entity_type", "operation_type", "info"]
-        filter_criteria = f"classification==.*[u|U][s|S][e|E][r|R][a|A][c|C][t|T][i|I][o|O][n|N].*;_created_timestamp_usecs_=ge={start_time}"
+        attributes = ["title", "source_entity_name", "classification", "cluster", "_created_timestamp_usecs_",
+                      "default_message", "param_name_list", "param_value_list", "source_entity_uuid",
+                      "source_entity_type", "operation_type", "info"]
+        filter_criteria = (f"classification==.*[u|U][s|S][e|E][r|R][a|A][c|C][t|T][i|I][o|O][n|N].*;"
+                           f"_created_timestamp_usecs_=ge={start_time}")
         return self.list_entities(entity_type="event",
                                   attributes=attributes,
                                   filter_criteria=filter_criteria,
@@ -96,7 +103,10 @@ class PcGroupsOp:
         Returns:
           list<dict>: The event list.
         """
-        attributes = ['title', 'user_name', 'target_entity_name', 'target_entity_type', 'operation_type', 'op_start_timestamp_usecs', 'cluster', 'param_name_list', 'param_value_list', 'target_entity_uuid', 'default_message', 'component', 'user', 'client_ip', 'status', 'type_id', 'entity_name_list', 'entity_type_list', 'entity_uuid_list']
+        attributes = ['title', 'user_name', 'target_entity_name', 'target_entity_type', 'operation_type',
+                      'op_start_timestamp_usecs', 'cluster', 'param_name_list', 'param_value_list',
+                      'target_entity_uuid', 'default_message', 'component', 'user', 'client_ip', 'status', 'type_id',
+                      'entity_name_list', 'entity_type_list', 'entity_uuid_list']
         filter_criteria = f"type_id!=RecoveryPlanJobAudit;op_start_timestamp_usecs=ge={start_time}"
         return self.list_entities(entity_type="audit",
                                   attributes=attributes,

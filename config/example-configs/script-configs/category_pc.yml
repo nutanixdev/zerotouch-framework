@@ -16,7 +16,7 @@ categories:
 #Delete
 categories:
   - name: AppType # name of existing category
-    delete_only_values: True #Optional 
+    delete_only_values: True #Optional #This is not Possible in v4
   - name: AZ01-DR-01
 
 

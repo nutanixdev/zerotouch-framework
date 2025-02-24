@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import List, Dict
+from typing import List, Dict, Optional
 from framework.helpers.rest_utils import RestAPIUtil
 from ..fc_entity import FcEntity
 
@@ -41,53 +41,53 @@ class ImagedCluster(FcEntity):
             }
         )
 
-    def _build_spec_cluster_exip(self, payload, value):
+    def _build_spec_cluster_exip(self, payload, value, complete_config: Optional[Dict] = None):
         payload["cluster_external_ip"] = value
 
         return payload, None
 
-    def _build_spec_storage_node_count(self, payload, value):
+    def _build_spec_storage_node_count(self, payload, value, complete_config: Optional[Dict] = None):
         payload["storage_node_count"] = value
         return payload, None
 
-    def _build_spec_redundancy_factor(self, payload, value):
+    def _build_spec_redundancy_factor(self, payload, value, complete_config: Optional[Dict] = None):
         payload["redundancy_factor"] = value
         return payload, None
 
-    def _build_spec_cluster_name(self, payload, value):
+    def _build_spec_cluster_name(self, payload, value, complete_config: Optional[Dict] = None):
         payload["cluster_name"] = value
         return payload, None
 
-    def _build_spec_aos_package_url(self, payload, value):
+    def _build_spec_aos_package_url(self, payload, value, complete_config: Optional[Dict] = None):
         payload["aos_package_url"] = value
         return payload, None
 
-    def _build_spec_cluster_size(self, payload, value):
+    def _build_spec_cluster_size(self, payload, value, complete_config: Optional[Dict] = None):
         payload["cluster_size"] = value
         return payload, None
 
-    def _build_spec_aos_package_sha256sum(self, payload, value):
+    def _build_spec_aos_package_sha256sum(self, payload, value, complete_config: Optional[Dict] = None):
         payload["aos_package_sha256sum"] = value
         return payload, None
 
-    def _build_spec_timezone(self, payload, value):
+    def _build_spec_timezone(self, payload, value, complete_config: Optional[Dict] = None):
         payload["timezone"] = value
         return payload, None
 
-    def _build_spec_skip_cluster_creation(self, payload, value):
+    def _build_spec_skip_cluster_creation(self, payload, value, complete_config: Optional[Dict] = None):
         payload["skip_cluster_creation"] = value
         return payload, None
 
-    def _build_spec_common_network_settings(self, payload, nsettings):
+    def _build_spec_common_network_settings(self, payload, nsettings, complete_config: Optional[Dict] = None):
         net = self._get_default_network_settings(nsettings)
         payload["common_network_settings"] = net
         return payload, None
 
-    def _build_spec_hypervisor_iso_details(self, payload, value):
+    def _build_spec_hypervisor_iso_details(self, payload, value, complete_config: Optional[Dict] = None):
         payload["hypervisor_isos"] = value
         return payload, None
 
-    def _build_spec_nodes_list(self, payload, node_details):
+    def _build_spec_nodes_list(self, payload, node_details, complete_config: Optional[Dict] = None):
         nodes_list = []
         for node in node_details:
             spec = self._get_default_nodes_spec(node)
@@ -95,7 +95,7 @@ class ImagedCluster(FcEntity):
         payload["nodes_list"] = node_details
         return payload, None
 
-    def _build_spec_filters(self, payload, value):
+    def _build_spec_filters(self, payload, value, complete_config: Optional[Dict] = None):
         payload["filters"] = value
         return payload, None
 
@@ -182,6 +182,10 @@ class ImagedCluster(FcEntity):
         }
 
     # Helper function
+    # todo this function has a lot of flaws
+    # rdma_passthrough, hypervisor_type can be added only if it present
+    # image now set to true or false based on cluster info, doesn't have any connection to use_existing_network_settings
+    # cvm_ram_gb is set to 12 if not present, doesn't have any connection to use_existing_network_settings
     def update_node_details(self, node_detail_list: list, cluster_info: Dict) -> List:
         """Update the node details with the given parameters
 
@@ -194,23 +198,30 @@ class ImagedCluster(FcEntity):
         """
         updated_node_list = []
         for node in node_detail_list:
+            # fixme: wrong if condition
             if not cluster_info.get("use_existing_network_settings", cluster_info["use_existing_network_settings"]):
                 node_spec = {
                     "rdma_passthrough": cluster_info.get("rdma_passthrough", False),
                     "hypervisor_type": cluster_info["imaging_parameters"]["hypervisor_type"],
                     "image_now": cluster_info.get("re-image", False),
-                    "cvm_ram_gb": cluster_info.get("cvm_ram", 12),
                     "use_existing_network_settings": False
                 }
+                if cluster_info.get("cvm_ram"):
+                    node_spec["cvm_ram_gb"] = cluster_info["cvm_ram"]
                 if cluster_info.get("cvm_vlan_id"):
                     node_spec["cvm_vlan_id"] = cluster_info["cvm_vlan_id"]
             else:
                 node_spec = {
-                    "use_existing_network_settings": True,
+                    "use_existing_network_settings": False,
                     "imaged_node_uuid": node["imaged_node_uuid"],
+                    "cvm_ram_gb": cluster_info.get("cvm_ram", 12),
                     "image_now": cluster_info.get("re-image", False),
-                    }
+                }
+                node.pop("ipmi_gateway")
+                node.pop("ipmi_ip")
+                node.pop("ipmi_netmask")
             node.update(node_spec)
+
             updated_node_list.append(node)
         return updated_node_list
 
@@ -220,7 +231,7 @@ class ImagedCluster(FcEntity):
 
         Args:
             cluster_info (Dict): Cluster information provided in the input file
-            existing_node_detail_dict (List): Exsiting node details for the given cluster info
+            existing_node_detail_dict (List): Existing node details for the given cluster info
 
         Returns:
             (list, str): (List of node details, Error Message)
@@ -235,9 +246,12 @@ class ImagedCluster(FcEntity):
                 "hypervisor_dns_servers": cluster_info["dns_servers"],
                 "cvm_ntp_servers": cluster_info["ntp_servers"],
                 "hypervisor_ntp_servers": cluster_info["ntp_servers"],
-            }
+            },
+            "nodes_list": self.update_node_details(existing_node_detail_dict, cluster_info)
         }
-        cluster_data["nodes_list"] = self.update_node_details(existing_node_detail_dict, cluster_info)
+        if "timezone" in cluster_info:
+            cluster_data["timezone"] = cluster_info["timezone"]
+
         if cluster_info.get("re-image", False):
             cluster_data.update(self.get_aos_ahv_spec(cluster_info["imaging_parameters"]))
         return cluster_data, None

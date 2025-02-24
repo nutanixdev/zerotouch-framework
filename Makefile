@@ -9,8 +9,7 @@ dev:
 		venv/bin/pip install --no-cache -r requirements/prod.txt
 
 test: dev
-	# In progress
-	pytest
+	pytest --cov=framework --cov-report=html --cov-config=.coveragerc
 
 dist: dev
 	venv/bin/python setup.py build

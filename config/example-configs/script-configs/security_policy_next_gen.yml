@@ -1,0 +1,151 @@
+pc_ip: x.x.x.x # IP/FQDN of the PC instance
+# Specify a user with permission to make API calls.
+pc_credential: pc_user # credential reference from "vaults" in global.yml file
+
+#Create
+security_policies:
+  - name: Example-AZ01-Calm #Name of the security policy
+    description: Example Security Policy #Optional
+    type: APPLICATION # APPLICATION/QUARANTINE/ISOLATION - One of the three types
+    allow_ipv6_traffic: true #Optional #true/false #Policy rules apply only to IPv4 Traffic and all IPv6 traffic are blocked by default.
+    hitlog: true # true/ false # Log traffic flow hits on the policy rules
+    policy_mode: MONITOR # ENFORCE/MONITOR/SAVE
+    # Only app rules are supported for now
+    app_rule: #Rule for Type APPLICATION
+      # Secure this app
+      - description: Example Security Policy #Optional
+        target_group:
+          categories:
+            - AppType: AZ01LAMP01
+            - ADGroup: Default
+            - TemplateType: VM
+          intra_group: true # true/false #VMs in this group talk to each other or not
+        inbounds: # Provide either inbounds or outbounds per rule. Do not provide both in same rule
+          allow_all: false # true/false # Allow all traffic #Optional #If True, do not provide categories/address/subnet
+          allow_none: false # true/false # Allow no traffic #Optional #If True, do not provide categories/address/subnet
+          descpription: Inbound rule Example
+          categories:
+            - AppTier: WEB
+            - AppType: AZ01LAMP01
+            - Project: default
+        services: # Dont provide if allow_none is true
+          udp:
+            - start_port: 82
+              end_port: 8080
+            - start_port: 84
+              end_port: 9440
+          tcp:
+            - start_port: 80
+              end_port: 80
+          icmp:
+            - type: 8 # Integer 0 to 43 or "Any"
+              code: 0 # Integer 0 to 15 or "Any"
+          service_group:
+            - name: arns
+          all: true # Other services can not be specified if all is set to true
+
+      - description: Example Security Policy 6
+        target_group:
+          categories:
+            - Category: Value
+          intra_group: false # true/false #VMs in this group talk to each other or not
+        outbounds: # Provide either inbounds or outbounds per rule. Do not provide both in same rule
+          descpription: outbound rule Example
+          address: # Only One address Group can be provided
+            - name: Calm
+
+        services:
+          udp:
+            - start_port: 82
+              end_port: 8080
+            - start_port: 84
+              end_port: 9440
+          tcp:
+            - start_port: 80
+              end_port: 80
+          icmp:
+            - type: 8 # Integer 0 to 43 or "Any"
+              code: 0 # Integer 0 to 15 or "Any"
+
+      - description: Example Security Policy 2
+        target_group:
+          categories:
+            - Category: Value
+          intra_group: false # true/false #VMs in this group talk to each other or not
+        outbounds: # Provide either inbounds or outbounds per rule. Do not provide both in same rule
+          descpription: outbound rule Example
+          subnet: 10.10.10.0/24 # true/false # Allow all traffic
+        services:
+          udp:
+            - start_port: 82
+              end_port: 8080
+            - start_port: 84
+              end_port: 9440
+          tcp:
+            - start_port: 80
+              end_port: 80
+          icmp:
+            - type: 8 # Integer 0 to 43 or "Any"
+              code: 0 # Integer 0 to 15 or "Any"
+
+      - description: Example Security Policy 3
+        target_group:
+          categories:
+            - Category: Value
+          intra_group: false # true/false #VMs in this group talk to each other or not
+        inbounds:
+          descpription: Inbound rule Example #Optional
+          allow_all: true # Allow all traffic
+          services:
+            udp:
+              start_port: 82
+              end_port: 8080
+            tcp:
+              start_port: 80
+              end_port: 80
+            icmp:
+              type: 8
+              code: 0
+
+      - description: Example Security Policy 4
+        target_group:
+          categories:
+            - Category: Value
+          intra_group: false # true/false #VMs in this group talk to each other or not
+        outbounds:
+          descpription: Outbound rule Example #Optional
+          categories:
+            - Category1: value1
+            - Category2: value2
+          services:
+            service:
+              - name: arns
+
+  - name: Example-Two-Env-Isolation-Group
+    description: Example Security Policy with Two Env Isolation Group #String
+    type: ISOLATION # APPLICATION/QUARANTINE/ISOLATION
+    #allow_ipv6_traffic: true #Optional #true/false #Policy rules apply only to IPv4 Traffic and all IPv6 traffic are blocked by default.
+    hitlog: false # true/ false # Log traffic flow hits on the policy rules
+    policy_mode: MONITOR # ENFORCE/MONITOR/SAVE
+    # Only app rules are supported for now
+    two_env_isolation_rule:
+      # Secure this app
+      first_isolation_group:
+        - AppType: AZ01LAMP01
+        - ADGroup: Default
+        - TemplateType: VM
+      second_isolation_group:
+        - ADGroup: Default
+        - AppFamily: Containers
+
+#Update
+security_policies:
+  -name: Example-Name
+  -new_name: New-Name
+  #Rest All fields same as Create
+
+
+#Delete
+security_policies:
+  - name: Example-AZ01-Calm
+  - name: Example-AZ02

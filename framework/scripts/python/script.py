@@ -22,16 +22,17 @@ class Script(ABC):
 
         logger.info(f"Calling the script {type(self).__name__!r}...")
         self.execute(**kwargs)
+
+        if self.exceptions:
+            for exception in self.exceptions:
+                self.logger.error(f"{self.name}: {exception}")
+
         self.logger.info(f"Running Verification for the script {type(self).__name__!r}...")
         try:
             self.verify(**kwargs)
         except Exception as e:
             self.logger.debug(e)
-            self.logger.info(f"Exception occurred during the verification of {type(self).__name__!r}: {e}")
-
-        if self.exceptions:
-            for exception in self.exceptions:
-                self.logger.error(f"{self.name}: {exception}")
+            self.logger.error(f"Exception occurred during the verification of {type(self).__name__!r}: {e}")
 
         if self.results:
             if "clusters" in self.results:

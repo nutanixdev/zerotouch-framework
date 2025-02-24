@@ -23,8 +23,8 @@ class ChangeDefaultAdminPasswordPe(ClusterScript):
         self.logger = self.logger or logger
 
     def change_default_password(self, pe_session: RestAPIUtil, old_password: str, new_pe_password: str, cluster_info):
-        default_system_password = UtilsManager(pe_session)
-        response = default_system_password.change_default_system_password(old_password, new_pe_password)
+        utils_op = UtilsManager(pe_session)
+        response = utils_op.change_default_system_password(old_password, new_pe_password)
 
         if response.get("value"):
             self.logger.info(f"Default System password updated with new password in {cluster_info!r}")
@@ -56,7 +56,8 @@ class ChangeDefaultAdminPasswordPe(ClusterScript):
 
         cluster_info = f"{cluster_ip}/ {cluster_details['cluster_info']['name']}" if (
                 'name' in cluster_details['cluster_info']) else f"{cluster_ip}"
-        default_pe_session = RestAPIUtil(cluster_ip, user=self.DEFAULT_USERNAME,
+        default_pe_session = RestAPIUtil(cluster_ip,
+                                         user=self.DEFAULT_USERNAME,
                                          pwd=self.default_pe_password,
                                          port="9440", secured=True)
         try:

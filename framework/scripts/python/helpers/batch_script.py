@@ -33,6 +33,9 @@ class BatchScript(Script):
         super(BatchScript, self).__init__(**kwargs)
         self.logger = self.logger or logger
 
+    def __bool__(self):
+        return bool(self.script_list)
+
     @property
     def results(self):
         return self._results

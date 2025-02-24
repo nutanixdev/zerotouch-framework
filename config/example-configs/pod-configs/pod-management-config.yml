@@ -47,7 +47,7 @@ pod:
         valid-cluster-ip:
           # Use global pe creds
           <<: *pe_creds
-      
+
     - pod_block_name: block-2
       # PC IP where initial PC configuration needs to be executed
       pc_ip: x.x.x.x

@@ -1,8 +1,8 @@
 from copy import deepcopy
-from typing import Dict, List
+from typing import Dict, List, Optional
 from framework.helpers.general_utils import convert_to_secs
 from framework.helpers.rest_utils import RestAPIUtil
-from ..pc_entity import PcEntity
+from ..pc_entity_v3 import PcEntity
 from ..v3.availabilty_zone import AvailabilityZone
 
 
@@ -55,26 +55,28 @@ class ProtectionRule(PcEntity):
         )
 
     @staticmethod
-    def _build_spec_name(payload: Dict, name: str) -> (Dict, None):
+    def _build_spec_name(payload: Dict, name: str, complete_config: Optional[Dict] = None) -> (Dict, None):
         payload["spec"]["name"] = name
         return payload, None
 
     @staticmethod
-    def _build_spec_desc(payload: Dict, desc: str) -> (Dict, None):
+    def _build_spec_desc(payload: Dict, desc: str, complete_config: Optional[Dict] = None) -> (Dict, None):
         payload["spec"]["description"] = desc
         return payload, None
 
     @staticmethod
-    def _build_spec_start_time(payload: Dict, start_time: str) -> (Dict, None):
+    def _build_spec_start_time(payload: Dict, start_time: str, complete_config: Optional[Dict] = None) -> (Dict, None):
         payload["spec"]["resources"]["start_time"] = start_time
         return payload, None
 
     @staticmethod
-    def _build_spec_protected_categories(payload: Dict, categories: List) -> (Dict, None):
+    def _build_spec_protected_categories(payload: Dict, categories: List,
+                                         complete_config: Optional[Dict] = None) -> (Dict, None):
         payload["spec"]["resources"]["category_filter"]["params"] = categories
         return payload, None
 
-    def _build_spec_schedules(self, payload: Dict, schedules: List) -> (Dict, None):
+    def _build_spec_schedules(self, payload: Dict, schedules: List,
+                              complete_config: Optional[Dict] = None) -> (Dict, None):
         ordered_az_list = []
         az_connectivity_list = []
 
@@ -139,7 +141,7 @@ class ProtectionRule(PcEntity):
                 ):
                     return (
                         None,
-                        "rpo, rpo_unit, snapshot_type and atleast one policy are required fields for "
+                        "rpo, rpo_unit, snapshot_type and at-least one policy are required fields for "
                         "asynchronous snapshot schedule",
                     )
 

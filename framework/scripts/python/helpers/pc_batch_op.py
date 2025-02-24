@@ -120,7 +120,6 @@ class PcBatchOp:
                     }
                 }
                 api_request_list.append(request)
-
         api_response_list = self.batch(api_request_list)
         return get_task_uuid_list(api_response_list)
 
@@ -170,7 +169,8 @@ def get_task_uuid_list(api_response_list: List) -> List:
             try:
                 api_response = json.loads(api_response)
             except Exception as e:
-                raise Exception(f"Cannot get task list to monitor for the batch call!: {e}")
+                raise (Exception(f"Cannot get task list to monitor for the batch call!: {e}")
+                       .with_traceback(e.__traceback__))
 
         if api_response and api_response.get('status', {}).get('execution_context', {}).get('task_uuid'):
             task_uuid = api_response['status']['execution_context']['task_uuid']

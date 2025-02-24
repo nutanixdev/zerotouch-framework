@@ -60,13 +60,15 @@ class Infoblox(Entity):
         response = self.read(endpoint=endpoint)
         return True if response else False
 
-    def create_host_record_with_next_available_ip(self, network: str, fqdn: str, exclude_ip_list: Optional[List] = None):
+    def create_host_record_with_next_available_ip(self, network: str, fqdn: str,
+                                                  exclude_ip_list: Optional[List] = None):
         """Create a host record for next available IP Address
             Steps:
                 1. Check if host record already exists for the given fqdn
-                   If Host record does not exists:
+                   If Host record does not exist:
                       1. Create a new host record with the given ip
-                      2. If IP not provided, reserve a free ip and then create a new host record -> use this API "Add host with next available IP address from a network"
+                      2. If IP not provided, reserve a free ip and then create a new host record -> use this API
+                      "Add host with next available IP address from a network"
                    If Host record already exists:
                       1. Get the IP and return it
         Args:

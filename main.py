@@ -32,16 +32,71 @@ parser.add_argument("--script", type=str, help="script/s to run", required=False
 parser.add_argument("--schema", type=str, help="schema for the script", required=False)
 parser.add_argument("-f", "--file", type=str, help="input file/s", required=True)
 parser.add_argument("--debug", action='store_true')
+parser.add_argument("--uuid", type=str, help="uuid for the logs", required=False)
 args = parser.parse_args()
 
 # Find path to the project root
 project_root = Path(__file__).parent
 
+WORKFLOW_CONFIG = {
+    "imaging": {
+        "schema": IMAGING_SCHEMA,
+        "pre_run_actions": [create_ipam_object],
+        "post_run_actions": [generate_html_from_json, save_pod_logs],
+        "scripts": [FoundationScript]
+    },
+    "config-cluster": {
+        "schema": CLUSTER_SCHEMA,
+        "pre_run_actions": [create_pe_objects, create_pc_objects],
+        "post_run_actions": [generate_html_from_json, save_logs],
+        "scripts": [ClusterConfig]
+    },
+    "deploy-pc": {
+        "schema": DEPLOY_PC_CONFIG_SCHEMA,
+        "pre_run_actions": [create_pe_objects],
+        "post_run_actions": [generate_html_from_json, save_logs],
+        "scripts": [DeployPC]
+    },
+    "config-pc": {
+        "schema": PC_SCHEMA,
+        "pre_run_actions": [create_pc_objects],
+        "post_run_actions": [generate_html_from_json, save_logs],
+        "scripts": [PcConfig]
+    },
+    "calm-vm-workloads": {
+        "schema": CREATE_VM_WORKLOAD_SCHEMA,
+        "scripts": [InitCalmDsl, CreateAppFromDsl, save_logs]
+    },
+    "calm-edgeai-vm-workload": {
+        "schema": CREATE_AI_WORKLOAD_SCHEMA,
+        "scripts": [InitCalmDsl, UpdateCalmProject, CreateBp, LaunchBp]
+    },
+    "pod-config": {
+        "schema": POD_CONFIG_SCHEMA,
+        "pre_run_actions": [create_ipam_object],
+        "post_run_actions": [generate_html_from_json, save_pod_logs],
+        "scripts": [PodConfig]
+    },
+    "deploy-management-pc": {
+        "schema": POD_MANAGEMENT_DEPLOY_SCHEMA,
+        "post_run_actions": [generate_html_from_json, save_pod_logs],
+        "scripts": [DeployManagementPlane]
+    },
+    "config-management-pc": {
+        "schema": POD_MANAGEMENT_CONFIG_SCHEMA,
+        "post_run_actions": [generate_html_from_json, save_pod_logs],
+        "scripts": [ConfigManagementPlane]
+    },
+    "ndb": {
+        "schema": NDB_SCHEMA,
+        "post_run_actions": [generate_html_from_json, save_logs],
+        "scripts": [NdbConfig]
+    }
+}
 
 def main():
-    # initialize the logger
     logger = get_logger(__name__)
-    pre_run_actions = []
+    pre_run_actions = [get_input_data, get_creds_from_vault, validate_input_data]
     post_run_actions = [save_logs]
     schema = {}
     scripts = []
@@ -56,93 +111,42 @@ def main():
                 raise FileNotFoundError("Specify the correct path of the input file or check the name!")
 
         if workflow_type:
-            pre_run_actions = [get_input_data, get_creds_from_vault, validate_input_data]
-            post_run_actions = [save_logs]
-            if workflow_type == "imaging":
-                schema = IMAGING_SCHEMA
-                pre_run_actions += [create_ipam_object]
-                post_run_actions = [generate_html_from_json, save_pod_logs]
-                scripts = [FoundationScript]
-            elif workflow_type == "config-cluster":
-                schema = CLUSTER_SCHEMA
-                pre_run_actions += [create_pe_objects, create_pc_objects]
-                post_run_actions.insert(0, generate_html_from_json)
-                scripts = [ClusterConfig]
-            elif workflow_type == "deploy-pc":
-                schema = DEPLOY_PC_CONFIG_SCHEMA
-                pre_run_actions += [create_pe_objects]
-                post_run_actions.insert(0, generate_html_from_json)
-                scripts = [DeployPC]
-            elif workflow_type == "config-pc":
-                schema = PC_SCHEMA
-                pre_run_actions += [create_pc_objects]
-                post_run_actions.insert(0, generate_html_from_json)
-                scripts = [PcConfig]
-            elif workflow_type == "calm-vm-workloads":
-                schema = CREATE_VM_WORKLOAD_SCHEMA
-                scripts = [InitCalmDsl, CreateAppFromDsl]
-            elif workflow_type == "calm-edgeai-vm-workload":
-                schema = CREATE_AI_WORKLOAD_SCHEMA
-                scripts = [InitCalmDsl, UpdateCalmProject, CreateBp, LaunchBp]
-            # elif workflow_type=="calm-container-workload":
-            #     schema = NKE_CLUSTER_SCHEMA
-            #     pre_run_actions += [create_pe_objects, create_pc_objects]
-            #     scripts = [EnableNke, CreateKarbonClusterPc]
-            elif workflow_type == "pod-config":
-                schema = POD_CONFIG_SCHEMA
-                pre_run_actions += [create_ipam_object]
-                post_run_actions = [generate_html_from_json, save_pod_logs]
-                scripts = [PodConfig]
-            elif workflow_type == "deploy-management-pc":
-                schema = POD_MANAGEMENT_DEPLOY_SCHEMA
-                post_run_actions = [generate_html_from_json, save_pod_logs]
-                scripts = [DeployManagementPlane]
-            elif workflow_type == "config-management-pc":
-                schema = POD_MANAGEMENT_CONFIG_SCHEMA
-                post_run_actions = [generate_html_from_json, save_pod_logs]
-                scripts = [ConfigManagementPlane]
-            # elif workflow_type=="example-workflow-type":
-            #     schema = EXAMPLE_SCHEMA  # EXAMPLE_SCHEMA is a dict defined in helpers/schema.py
-            #     pre_run_actions = [new_function1, new_function2]  # either create a new actions list (or)
-            #     post_run_actions += [new_function3] # modify existing actions list
-            #     scripts = [ExampleScript1, ExampleScript2]  # ExampleScript1 is .py file which inherits "Script" class
+            config = WORKFLOW_CONFIG.get(workflow_type)
+            if config:
+                schema = config.get("schema", {})
+                pre_run_actions += config.get("pre_run_actions", [])
+                post_run_actions = config.get("post_run_actions", post_run_actions)
+                scripts = config.get("scripts", [])
             else:
                 logger.warning("No workflow is selected")
         elif args.script:
-            # Check if scripts are valid
             try:
                 input_scripts = [eval(script.strip()) for script in args.script.split(",")] if args.script else []
             except Exception as e:
                 logger.error("Invalid Script specified. Specify the correct Script and try again")
                 raise ModuleNotFoundError(e)
 
-            pre_run_actions = [get_input_data, get_creds_from_vault, validate_input_data]
-            post_run_actions = [save_logs, generate_html_from_json]
+            pre_run_actions += [create_pe_objects, create_pc_objects, create_ipam_object]
+            scripts = input_scripts
 
-            # Check if schema is valid
-            if schema := args.schema:
+            if args.schema:
                 try:
                     schema = eval(args.schema.strip())
                 except Exception as e:
                     logger.error("Invalid Schema specified. Specify the correct Schema and try again")
                     raise ModuleNotFoundError(e)
             else:
-                pre_run_actions.pop()
-
-            pre_run_actions += [create_pe_objects, create_pc_objects, create_ipam_object]
-
-            scripts = input_scripts
+                pre_run_actions.remove(validate_input_data)
         else:
             raise Exception("Select either pre-configured workflow or script to run the framework.")
     except Exception as e:
         logger.exception(e)
 
     if validate_input_data in pre_run_actions and not schema:
-        logger.error("Schema is empty! "
-                     "Schema has to be provided if validate_input_data is specified in pre_run_actions!")
+        logger.error("Schema is empty! Schema has to be provided if validate_input_data is specified"
+                     " in pre_run_actions!")
         sys.exit(1)
 
-    # create a workflow and run it
     wf_handler = Workflow(
         workflow_type=workflow_type,
         project_root=project_root,
@@ -151,22 +155,18 @@ def main():
     )
 
     try:
-        # run the pre run functions
         wf_handler.run_functions(pre_run_actions)
-
-        # run scripts
         wf_handler.run_scripts(scripts)
-
     except Exception as e:
         logger.error(e)
     finally:
-        # run the post run functions
         wf_handler.run_functions(post_run_actions)
     logger.info("Done!")
 
-
 if __name__ == '__main__':
-    # Call the main function
     debug = args.debug
-    ConfigureRootLogger(debug)
+    if args.uuid:
+        ConfigureRootLogger(debug, file_name=f"{args.uuid}-zero_touch.log")
+    else:
+        ConfigureRootLogger(debug)
     main()

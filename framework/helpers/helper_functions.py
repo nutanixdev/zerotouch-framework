@@ -10,6 +10,7 @@ from framework.scripts.python.helpers.ipam.ipam import IPAM
 from .log_utils import get_logger
 from json2table import convert
 from framework.helpers.vault_utils import CyberArk
+from .v4_api_client import ApiClientV4
 
 logger = get_logger(__name__)
 
@@ -307,12 +308,89 @@ def create_pc_objects(data: dict, global_data: Optional[Dict] = None):
                                          user=cred_details[pc_user]['username'],
                                          pwd=cred_details[pc_user]['password'],
                                          port="9440", secured=True)
+        data["v4_api_util"] = ApiClientV4(
+            data["pc_ip"], "9440", cred_details[pc_user]['username'], cred_details[pc_user]['password']
+            )
     else:
         logger.warning(f"Using default PC credentials for {data['pc_ip']}!")
         default_pc_password = data.get('default_pc_password')
         data["pc_session"] = RestAPIUtil(data['pc_ip'], user=DEFAULT_PRISM_USERNAME,
                                          pwd=default_pc_password or DEFAULT_PRISM_PASSWORD,
                                          port="9440", secured=True)
+        data["v4_api_util"] = ApiClientV4(
+            data["pc_ip"], "9440", DEFAULT_PRISM_USERNAME, default_pc_password or DEFAULT_PRISM_PASSWORD
+            )
+
+
+# todo this func and pc func share same logic, let's create another function to handle the common component
+@enforce_data_arg
+def create_ndb_objects(data: dict, global_data: Optional[Dict] = None):
+    """
+    This function will create necessary Ndb object that can be used by the scripts
+    This script does the below actions:
+        1. Reads the input configs and creates a "ndb_session" from ndb_ip, ndb_credential from the configs
+         that can be used to query the PC
+
+    Eg config: file1
+    ----------------------------------
+    ndb_ip: 10.1.1.1
+    ndb_username: admin
+    ndb_password: nutanix/4u
+    ----------------------------------
+    Response: self.data object -> updated
+
+    {
+        'project_root': PosixPath('path'),
+        'schema': {},
+        'input_files': ['file1'],
+        'ndb_ip': '10.1.1.1',
+        'ndb_username': 'admin',
+        'ndb_password': 'nutanix/4u',
+        'ndb_session': <framework.helpers.rest_utils.RestAPIUtil object at 0x1092a9570>
+    }
+    """
+
+    # if ndb_ip is not specified
+    if "ndb_ip" not in data:
+        return
+
+    global_data = global_data if global_data else {}
+
+    # todo use read_creds after setting data as either global or data
+    # vault to use can either be in data or global data
+    if 'vaults' not in data:
+        # check in global data
+        if 'vaults' not in global_data:
+            raise Exception("Kindly verify if you've selected the correct vault and if the 'vaults' "
+                            "configuration exists in 'global.yml'.")
+        else:
+            # check vault to use is in vaults
+            if global_data.get('vault_to_use') not in global_data['vaults']:
+                raise Exception("Kindly verify if you've selected the correct vault in 'vault_to_use' in 'global.yml'")
+            cred_details = global_data['vaults'][global_data['vault_to_use']]['credentials']
+    else:
+        # check vault to use is in vaults
+        if data.get('vault_to_use') not in data['vaults']:
+            raise Exception("Kindly verify if you've selected the correct vault in 'vault_to_use' in 'global.yml'")
+        cred_details = data['vaults'][data['vault_to_use']]['credentials']
+
+    # check if ndb_username and ndb_password in cred_details
+    if data.get("ndb_credential") or global_data.get("ndb_credential"):
+        ndb_user = data.get("ndb_credential") or global_data.get("ndb_credential")
+
+        if not cred_details.get(ndb_user, {}).get('username') or not cred_details.get(ndb_user, {}).get('password'):
+            raise Exception(f"Ndb credentials not specified for the user {ndb_user!r} in 'global.yml'")
+
+        data["ndb_session"] = RestAPIUtil(data["ndb_ip"],
+                                          user=cred_details[ndb_user]['username'],
+                                          pwd=cred_details[ndb_user]['password'],
+                                          secured=True)
+    else:
+        logger.warning(f"Using default Ndb credentials for {data['ndb_ip']}!")
+        default_ndb_password = data.get('default_ndb_password')
+        data["ndb_session"] = RestAPIUtil(data['ndb_ip'], user=DEFAULT_PRISM_USERNAME,
+                                          pwd=default_ndb_password or DEFAULT_PRISM_PASSWORD,
+                                          secured=True)
 
 
 @enforce_data_arg

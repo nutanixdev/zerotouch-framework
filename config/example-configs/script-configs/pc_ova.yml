@@ -7,7 +7,7 @@ ovas:
   # OVAs that needs to be uploaded to the PC clusters
   - url: http://url-to-download-ova-from # url where the ova file is located
     name: ova-name # name of the ova to be uploaded to the PC clusters
-    cluster_name_list: [cluster-1, cluster-2] # cluster names to upload ovas. We can upload to multiple clusters
+    cluster_name_list: [ cluster-1, cluster-2 ] # cluster names to upload ovas. We can upload to multiple clusters
 
 #Delete
 #TODO Delete using UUID

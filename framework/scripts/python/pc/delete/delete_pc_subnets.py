@@ -1,6 +1,6 @@
 from typing import Dict
 from framework.helpers.log_utils import get_logger
-from ...helpers.state_monitor.pc_task_monitor import PcTaskMonitor
+from framework.scripts.python.helpers.state_monitor.task_monitor import PcTaskMonitor as TaskMonitor
 from ...helpers.v3.cluster import Cluster as PcCluster
 from ...helpers.v3.network import Network
 from ...script import Script
@@ -65,8 +65,8 @@ class DeleteSubnetsPc(Script):
             self.task_uuid_list = network.batch_delete_network(subnets_to_delete)
 
             if self.task_uuid_list:
-                pc_task_monitor = PcTaskMonitor(self.pc_session,
-                                                task_uuid_list=self.task_uuid_list)
+                pc_task_monitor = TaskMonitor(self.pc_session,
+                                              task_uuid_list=self.task_uuid_list)
                 pc_task_monitor.DEFAULT_CHECK_INTERVAL_IN_SEC = 10
                 pc_task_monitor.DEFAULT_TIMEOUT_IN_SEC = 600
                 app_response, status = pc_task_monitor.monitor()

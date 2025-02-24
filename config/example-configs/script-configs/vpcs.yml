@@ -1,0 +1,32 @@
+pc_ip: valid-pc-ip
+# Specify a user with permission to make API calls.
+pc_credential: pc_user # credential reference from "vaults" in global.yml file
+
+#Create
+vpcs:
+  - name: vpc1
+    type: TRANSIT #Optinal #TRANSIT/REGULAR # default is Regular, if not specified
+    description: Example VPC
+    routable_ips:
+      - x.x.x.x/a #Valid Subnet
+      - y.y.y.y/b #Valid Subnet
+    dns:
+      - x.x.x./a #Valid Subnet
+      - y.y.y.y/b #Valid Subnet
+
+#Update
+vpcs:
+  - name: vpc1
+    type: TRANSIT #Optinal #TRANSIT/REGULAR # default is Regular, if not specified
+    description: Example VPC
+    routable_ips:
+      - x.x.x.x/x #Valid Subnet
+      - y.y.y.y/y #Valid Subnet
+    dns:
+      - x.x.x.x/a #Valid Subnet
+      - y.y.y.y/b #Valid Subnet
+
+#Delete
+vpcs:
+  - name: vpc1
+  - name: vpc2

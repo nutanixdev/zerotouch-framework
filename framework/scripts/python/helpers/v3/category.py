@@ -1,7 +1,7 @@
 from typing import List
 
 from framework.helpers.rest_utils import RestAPIUtil
-from ..pc_entity import PcEntity
+from ..pc_entity_v3 import PcEntity
 
 
 class Category(PcEntity):
@@ -33,6 +33,14 @@ class Category(PcEntity):
         endpoint = f"{name}/list"
         values = self.list(use_base_url=True, endpoint=endpoint)
         return values
+    
+    def create_category(self, name: str, description: str = None):
+        data = {
+            "name": name,
+            "description": description
+        }
+        # We are using update as we need to use PUT to create categories
+        self.update(endpoint=name, data=data)
 
     def categories_with_values(self) -> List:
         category_entity_list = self.list()
@@ -62,7 +70,8 @@ class Category(PcEntity):
                     }
                 )
 
-        return self.batch_op.batch(api_request_list=requests)
+        api_response_list =  self.batch_op.batch(api_request_list=requests)
+        return self.batch_op.get_task_uuid_list(api_response_list)
 
     def batch_delete_values(self, category_name: str, values: List, **kwargs):
         requests = []
@@ -77,4 +86,5 @@ class Category(PcEntity):
                 }
             )
 
-        self.batch_op.batch(api_request_list=requests)
+        api_response_list = self.batch_op.batch(api_request_list=requests)
+        return self.batch_op.get_task_uuid_list(api_response_list)

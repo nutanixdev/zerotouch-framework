@@ -23,7 +23,7 @@ protection_rules:
             - source-cluster1 # regional BCDR cluster1
             - source-cluster2 # regional BCDR cluster2
         destination:
-          availability_zone: valid-local-block-pc-ip/valid-remote-pc-ip
+          availability_zone: valid-local-pc-ip/valid-remote-pc-ip
           cluster: destination-cluster
         protection_type: ASYNC # ASYNC/ SYNC
         # if protection_type is SYNC
@@ -36,9 +36,9 @@ protection_rules:
           # For Linear Retention type (Retains the n most recent snapshots. A value of 12 means that the 12 most recent snapshots are retained)
           num_snapshots: 1
           # For Roll-up retention type (Maintains a rolling window of snapshots for every schedule, starting with the hourly schedule and ending with the schedule created for the specified retention period)
-#          rollup_retention_policy:
-#            snapshot_interval_type: YEARLY # DAILY/WEEKLY/MONTHLY/YEARLY
-#            multiple: 2
+        #          rollup_retention_policy:
+        #            snapshot_interval_type: YEARLY # DAILY/WEEKLY/MONTHLY/YEARLY
+        #            multiple: 2
         remote_retention_policy:
           # For Linear Retention type
           num_snapshots: 1

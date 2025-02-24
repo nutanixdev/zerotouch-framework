@@ -29,7 +29,7 @@ class MonitorDeployment(Script):
 
     def execute(self):
         """
-        Run Image cluste nodes in Foundation Central
+        Run Image cluster nodes in Foundation Central
         """
         state = ""
         delay = 60
@@ -55,6 +55,7 @@ class MonitorDeployment(Script):
                 if time.time() > timeout:
                     message = f"Failed to poll on image node progress for cluster {self.cluster_name}. Reason: Timeout\nStatus: "
                     status = self._get_deployment_status(response, message)
+                    break
                 self.logger.debug(status)
                 self.logger.info(f"Cluster {self.cluster_name} Deployment Percentage Complete: {aggregate_percent_complete}")
                 time.sleep(delay)
@@ -113,6 +114,7 @@ class MonitorDeployment(Script):
         Returns:
             str: Status of node and cluster progress
         """
+
         return "{0}\nClusters: {1}\nNodes: {2}".format(
             message,
             self._get_cluster_progress_messages(

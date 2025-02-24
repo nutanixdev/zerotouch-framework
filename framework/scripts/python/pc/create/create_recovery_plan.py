@@ -3,7 +3,7 @@ from typing import Dict
 from framework.helpers.helper_functions import read_creds
 from framework.helpers.log_utils import get_logger
 from framework.helpers.rest_utils import RestAPIUtil
-from framework.scripts.python.helpers.state_monitor.pc_task_monitor import PcTaskMonitor
+from framework.scripts.python.helpers.state_monitor.task_monitor import PcTaskMonitor as TaskMonitor
 from framework.scripts.python.helpers.v3.cluster import Cluster as PcCluster
 from framework.scripts.python.helpers.v3.recovery_plan import RecoveryPlan
 from framework.scripts.python.script import Script
@@ -84,8 +84,8 @@ class CreateRecoveryPlan(Script):
             self.task_uuid_list = recovery_plan.batch_op.batch_create(request_payload_list=rp_list)
 
             if self.task_uuid_list:
-                app_response, status = PcTaskMonitor(self.pc_session,
-                                                     task_uuid_list=self.task_uuid_list).monitor()
+                app_response, status = TaskMonitor(self.pc_session,
+                                                   task_uuid_list=self.task_uuid_list).monitor()
 
                 if app_response:
                     self.exceptions.append(f"Some tasks have failed. {app_response}")

@@ -28,6 +28,8 @@ class FoundationScript(Script):
         2. Gather global n/w config
         3. Get node details
     """
+    NUTANIX_DEFAULT_USERNAME = "nutanix"
+    NUTANIX_DEFAULT_PASSWORD = "nutanix/4u"
 
     def __init__(self, data: Dict):
         self.data = data
@@ -68,13 +70,32 @@ class FoundationScript(Script):
         else:
             return None, "Niether Subnet or IP was provided to query IPAM"
 
-    def update_node_ip_details(self, existing_node_detail_dict: Dict, cluster_node_details: List, network: Dict) -> tuple:
+    def update_node_ip_details_with_existing_network_settings(self, existing_node_detail_dict: Dict, cluster_node_details: List) -> Dict:
+        """Update Node Hypervisor hostname
+
+        Args:
+            existing_node_detail_dict (Dict): Existing Node details
+            cluster_node_details (List): Cluster node details passed in config
+
+        Returns:
+            tuple (dict, str): Return Updated node dict & error message if there is an error
+        """
+        for node in cluster_node_details:
+            node_info = existing_node_detail_dict[node["node_serial"]]
+            hypervisor_hostname = node.get("hypervisor_hostname", node_info["hypervisor_hostname"])
+            node_info["hypervisor_hostname"] = hypervisor_hostname
+            if node.get("cvm_vlan_id"):
+                node_info["cvm_vlan_id"] = node["cvm_vlan_id"]
+        return existing_node_detail_dict
+
+    def update_node_ip_details(self, existing_node_detail_dict: Dict, cluster_node_details: List, network: Dict, network_bond_settings: Dict) -> tuple:
         """Update Node IP details
 
         Args:
             existing_node_detail_dict (Dict): Existing Node details
             cluster_node_details (List): Cluster node details passed in config
             network (Dict): Network details to update
+            network_bond_settings (Dict): Network bond settings
 
         Returns:
             tuple (dict, str): Return Updated node dict & error message if there is an error
@@ -103,16 +124,25 @@ class FoundationScript(Script):
                 host_ip = node.get("host_ip", node_info["hypervisor_ip"])
                 cvm_ip = node.get("cvm_ip", node_info["cvm_ip"])
                 ipmi_ip = node.get("ipmi_ip", node_info["ipmi_ip"])
+
             node_info["hypervisor_ip"] = host_ip
             node_info["hypervisor_gateway"] = network["host_gateway"]
-            node_info["hypervisor_netmask"] = get_subnet_mask(subnet=network["host_subnet"])
+            node_info["hypervisor_netmask"] = get_subnet_mask(subnet=network["host_subnet"]) \
+                if network.get("host_subnet") else network.get("host_netmask")
             node_info["cvm_ip"] = cvm_ip
+            if node.get("cvm_vlan_id"):
+                node_info["cvm_vlan_id"] = node["cvm_vlan_id"]
             node_info["hypervisor_hostname"] = hypervisor_hostname
             node_info["cvm_gateway"] = network["host_gateway"]
-            node_info["cvm_netmask"] = get_subnet_mask(subnet=network["host_subnet"])
+            node_info["cvm_netmask"] = get_subnet_mask(subnet=network["host_subnet"]) \
+                if network.get("host_subnet") else network.get("host_netmask")
             node_info["ipmi_ip"] = ipmi_ip
-            node_info["ipmi_gateway"] = network["ipmi_gateway"]
-            node_info["ipmi_netmask"] = get_subnet_mask(subnet=network["ipmi_subnet"])
+            node_info["ipmi_gateway"] = (node.get("ipmi_gateway") or network.get("ipmi_gateway") or
+                                         node_info.get("ipmi_gateway"))
+            node_info["ipmi_netmask"] = get_subnet_mask(subnet=node.get("ipmi_gateway") or network.get("ipmi_gateway") or
+                                         node_info.get("ipmi_gateway"))
+            if network_bond_settings:
+                node_info["network_bond_settings"] = network_bond_settings
         return existing_node_detail_dict, None
 
     def update_cluster_info_with_site_info(self, cluster_info: Dict, site_info: Dict):
@@ -125,7 +155,8 @@ class FoundationScript(Script):
         Returns:
             dict: Updated cluster info
         """
-        cluster_info["use_existing_network_settings"] = cluster_info.get("use_existing_network_settings", site_info["use_existing_network_settings"])
+        cluster_info["use_existing_network_settings"] = cluster_info.get("use_existing_network_settings",
+                                                                         site_info["use_existing_network_settings"])
         cluster_info["network"] = cluster_info.get("network", site_info.get("network"))
         cluster_info["re-image"] = cluster_info.get("re-image", site_info["re-image"])
         cluster_info["dns_servers"] = cluster_info.get("name_servers_list", site_info["name_servers_list"])
@@ -157,7 +188,8 @@ class FoundationScript(Script):
                 node_serial_list = [node["node_serial"] for node in cluster_info["node_details"]]
 
                 # Get the existing node_details for the given node_serials
-                existing_node_detail_dict = imaged_node_obj.node_details_by_node_serial(node_serial_list, fc_available_node_list)
+                existing_node_detail_dict = imaged_node_obj.node_details_by_node_serial(node_serial_list,
+                                                                                        fc_available_node_list)
                 if cluster_info["cluster_size"] != len(existing_node_detail_dict):
                     self.exceptions.append(f"{cluster_info['cluster_name']}: Not enough available nodes found in Foundation Central for "
                                            f"given cluster_size: {cluster_info['cluster_size']} & node_serails: {node_serial_list}")
@@ -166,43 +198,55 @@ class FoundationScript(Script):
                     ip_error = ""
                     if not cluster_info["use_existing_network_settings"]:
                         if cluster_info["network"]:
+
                             updated_node_detail_dict, ip_error = self.update_node_ip_details(existing_node_detail_dict, cluster_info["node_details"],
-                                                                                             cluster_info["network"])
+                                                                                             cluster_info["network"], cluster_info.get("network_bond_settings"))
                             if not self.ipam_obj:
                                 if not cluster_info.get("cluster_vip"):
-                                    self.logger.warning(f"Cluster VIP not provided. Proceeding without Cluster VIP for cluster {cluster_info['cluster_name']}")
+                                    self.logger.warning(f"Cluster VIP not provided. Proceeding without Cluster VIP "
+                                                        f"for cluster {cluster_info['cluster_name']}")
                             else:
                                 cluster_vip, cluster_vip_error = self.get_ip_and_create_host_record(
-                                    fqdn=f"{cluster_info['cluster_name']}.{cluster_info['network']['domain']}", subnet=cluster_info["network"].get("host_subnet"),
+                                    fqdn=f"{cluster_info['cluster_name']}.{cluster_info['network']['domain']}",
+                                    subnet=cluster_info["network"].get("host_subnet"),
                                     ip=cluster_info.get("cluster_vip"))
                                 if cluster_vip_error:
                                     ip_error += cluster_vip_error
                                 else:
                                     cluster_info["cluster_vip"] = cluster_vip
                         else:
-                            ip_error = f"Network details not provided to assign new network settings for cluster {cluster_info['cluster_name']}"
+                            ip_error = (f"Network details not provided to assign new network settings for cluster "
+                                        f"{cluster_info['cluster_name']}")
                     else:
-                        # Re-using exisiting network settings
-                        updated_node_detail_dict = existing_node_detail_dict
+                        # Re-using existing network settings
+                        updated_node_detail_dict = self.update_node_ip_details_with_existing_network_settings(
+                                                                                existing_node_detail_dict,
+                                                                                cluster_info["node_details"])
 
                     if not ip_error:
                         imaged_cluster_obj = ImagedCluster(self.pc_session)
-                        fc_payload, error = imaged_cluster_obj.create_fc_deployment_payload(cluster_info, updated_node_detail_dict.values())
+                        fc_payload, error = (
+                            imaged_cluster_obj.create_fc_deployment_payload(cluster_info,
+                                                                            updated_node_detail_dict.values()))
                         if error:
-                            self.exceptions.append(f"Error creating deployment payload for cluster {cluster_info['cluster_name']}: {error}")
+                            self.exceptions.append(f"Error creating deployment payload for cluster "
+                                                   f"{cluster_info['cluster_name']}: {error}")
+                        # todo eliminate cluster_size, instead check length of node_details
                         if cluster_info["cluster_size"] == 1 and cluster_info["re-image"]:
                             single_node_imaging_deployment_payload_list.append(fc_payload)
                         else:
                             fc_deployment_payload_list.append(fc_payload)
                     else:
                         self.exceptions.append(ip_error)
-            self.logger.debug(f"single_node_imaging_deployment_payload_list: {single_node_imaging_deployment_payload_list}")
+            self.logger.debug(f"single_node_imaging_deployment_payload_list: "
+                              f"{single_node_imaging_deployment_payload_list}")
             self.logger.debug(f"fc_deployment_payload_list: {fc_deployment_payload_list}")
             return single_node_imaging_deployment_payload_list, fc_deployment_payload_list
         else:
             self.exceptions.append("There are no nodes discovered in FC. Please check if FC is enabled/nodes are been discovered")
 
-    def get_imaging_node_deployment_list(self, single_node_imaging_deployment_payload_list: List, fc_deployment_payload_list: List, site_config: Dict):
+    def get_imaging_node_deployment_list(self, single_node_imaging_deployment_payload_list: List,
+                                         fc_deployment_payload_list: List, site_config: Dict):
         """Get imaging only FC deployment payload lists & deploy only cluster deployment payload lists for the imaging nodes
 
         Args:
@@ -220,6 +264,7 @@ class FoundationScript(Script):
         image_node_list = []
         if len(single_node_imaging_deployment_payload_list) > 1:
             for deployment in single_node_imaging_deployment_payload_list:
+                # todo won't length of nodes_list be just 1
                 for node in deployment["nodes_list"]:
                     node_data = deepcopy(node)
                     image_node_list.append(node_data)
@@ -245,9 +290,12 @@ class FoundationScript(Script):
             return None, None, None
         else:
             # Divide into chuck of 'nodes_per_imaging_deployment'
-            nodes_per_imaging_deployment = self.data.get("nodes_per_imaging_deployment") if self.data.get("nodes_per_imaging_deployment") else 3
+            # todo single_node_imaging_deployment_payload_list already has image_nodes_list in it, but creating another
+            nodes_per_imaging_deployment = self.data.get("nodes_per_imaging_deployment") \
+                if self.data.get("nodes_per_imaging_deployment") else 3
             image_nodes_list = [i for i in divide_chunks(image_node_list, nodes_per_imaging_deployment)]
             if len(image_nodes_list[-1]) == 1:
+                # todo fix this logic?
                 # if nodes_per_imaging_deployment is 2, add the extra node to another deployment
                 if nodes_per_imaging_deployment == 2:
                     extra_node = image_nodes_list[-1]
@@ -261,6 +309,7 @@ class FoundationScript(Script):
             imaging_only_deployment_list = []
             index = 1
             imaged_cluster_obj = ImagedCluster(self.pc_session)
+            # todo Use enumerate
             for nodes_list in image_nodes_list:
                 image_node_spec = imaged_cluster_obj._get_default_spec()
                 image_node_spec["cluster_name"] = "imaging_nodes_set_{0}".format(index)
@@ -294,12 +343,17 @@ class FoundationScript(Script):
             enable_one_node_op = BatchScript(parallel=True, max_workers=10)
         for image_node_deployment in deployments_to_run:
             for node in image_node_deployment["nodes_list"]:
-                update_fc_heartbeat_interval_op.add(UpdateFCHeartbeatInterval(node["cvm_ip"], self.cvm_username, self.cvm_password,
-                                                                              interval_min=1, fc_deployment_logger=fc_deployment_logger))
+                update_fc_heartbeat_interval_op.add(UpdateFCHeartbeatInterval(node["cvm_ip"], self.cvm_username,
+                                                                              self.cvm_password,
+                                                                              interval_min=1,
+                                                                              fc_deployment_logger=fc_deployment_logger)
+                                                    )
                 if self.data.get("test_enable_one_node"):
-                    enable_one_node_op.add(EnableOneNode(node["cvm_ip"], self.cvm_username, self.cvm_password, fc_deployment_logger=fc_deployment_logger))
-            post_imaging_deployment_op.add(ImageClusterScript(pc_session=self.pc_session, cluster_data=image_node_deployment,
-                                                          fc_deployment_logger=fc_deployment_logger))
+                    enable_one_node_op.add(EnableOneNode(node["cvm_ip"], self.cvm_username, self.cvm_password,
+                                                         fc_deployment_logger=fc_deployment_logger))
+            post_imaging_deployment_op.add(ImageClusterScript(pc_session=self.pc_session,
+                                                              cluster_data=image_node_deployment,
+                                                              fc_deployment_logger=fc_deployment_logger))
         post_imaging_scripts_op.add(update_fc_heartbeat_interval_op)
         if self.data.get("test_enable_one_node"):
             post_imaging_scripts_op.add(enable_one_node_op)
@@ -317,12 +371,12 @@ class FoundationScript(Script):
         """
         fc_deployment_op = BatchScript(parallel=True, max_workers=10)
         for deployment in fc_deployment_payload_list:
-            fc_deployment_op.add(ImageClusterScript(pc_session=self.pc_session, cluster_data=deployment, fc_deployment_logger=fc_deployment_logger))
+            fc_deployment_op.add(ImageClusterScript(pc_session=self.pc_session, cluster_data=deployment,
+                                                    fc_deployment_logger=fc_deployment_logger))
         return fc_deployment_op
 
     def get_imaged_node_deployments_to_run(self, deployment_result: Dict, imaging_deployment_payload_list: List):
-        """Get the deployments to run after imaging the nodes. Remove the deloyments for failed imaging
-           Remove the deloyments for failed imaging
+        """Get the deployments to run after imaging the nodes. Remove the deployments for failed imaging
 
         Args:
             deployment_result (Dict): Result of FC deployments
@@ -338,7 +392,8 @@ class FoundationScript(Script):
             if 'imaging' in cluster_name:
                 if result["result"] != "COMPLETED":
                     deployment_details = imaging.read(result["imaged_cluster_uuid"])
-                    failed_nodes_list.extend([node["node_serial"] for node in deployment_details["discovered_node_details"]])
+                    failed_nodes_list.extend(
+                        [node["node_serial"] for node in deployment_details["discovered_node_details"]])
 
         # Get only the deployments to run for which the nodes imaging were successfully completed
         deployments_to_run = []
@@ -350,11 +405,14 @@ class FoundationScript(Script):
             if not remove_deployment:
                 deployments_to_run.append(payload)
             else:
-                self.logger.warning(f"Removing deployment of cluster {payload['cluster_name']} as imaging failed for its nodes")
-                self.exceptions.append(f"Deployment of cluster {payload['cluster_name']} skipped as imaging failed for its nodes")
+                self.logger.warning(f"Removing deployment of cluster {payload['cluster_name']}"
+                                    f" as imaging failed for its nodes")
+                self.exceptions.append(f"Deployment of cluster {payload['cluster_name']} "
+                                       f"skipped as imaging failed for its nodes")
         return deployments_to_run
 
-    def run_fc_deployments(self, single_node_imaging_deployment_payload_list: List, fc_deployment_payload_list: List, site_config: Dict, block_info: Dict):
+    def run_fc_deployments(self, single_node_imaging_deployment_payload_list: List, fc_deployment_payload_list: List,
+                           site_config: Dict, block_info: Dict):
         """Run Foundation Central imaging and cluster deployments
 
         Args:
@@ -371,20 +429,24 @@ class FoundationScript(Script):
         fc_deployment_logger = get_logger(deployment_log_file, file_name=deployment_log_file)
         fc_imaging_logger = get_logger(imaging_log_file, file_name=imaging_log_file)
 
-        # If there are any single nodes to be imaged, create a separate imaging payload with chunk of nodes into multiple deployments
+        # If there are any single nodes to be imaged, create a separate imaging payload with chunk of nodes
+        # into multiple deployments
         if single_node_imaging_deployment_payload_list:
             imaging_only_deployment_list, imaging_deployment_payload_list, fc_deployment_payload_list = \
-                self.get_imaging_node_deployment_list(single_node_imaging_deployment_payload_list, fc_deployment_payload_list, site_config)
+                self.get_imaging_node_deployment_list(single_node_imaging_deployment_payload_list,
+                                                      fc_deployment_payload_list, site_config)
 
         if imaging_only_deployment_list:
             # Get CVM Credentials for post imaging operations
             cvm_user = block_info.get("cvm_credential")
-            self.cvm_username, self.cvm_password = self.cred_details.get(cvm_user, {}).get('username'), self.cred_details.get(cvm_user, {}).get('password')
+            self.cvm_username = self.cred_details.get(cvm_user, {}).get('username') or self.NUTANIX_DEFAULT_USERNAME
+            self.cvm_password = self.cred_details.get(cvm_user, {}).get('password') or self.NUTANIX_DEFAULT_PASSWORD
             if not self.cvm_username and not self.cvm_password:
                 self.exceptions.append("CVM Credentials are not provided")
             else:
                 # Get batch script to run image only deployments
-                imaging_deployment_op = self.get_deployment_batch_scripts(imaging_only_deployment_list, fc_imaging_logger)
+                imaging_deployment_op = self.get_deployment_batch_scripts(imaging_only_deployment_list,
+                                                                          fc_imaging_logger)
                 # Run the image only deployment(s)
                 imaging_uuid_dict = imaging_deployment_op.run()
 
@@ -400,14 +462,18 @@ class FoundationScript(Script):
         # Start FC deployment monitoring
         if imaging_uuid_dict:
             for cluster_name, imaged_cluster_uuid in imaging_uuid_dict.items():
-                monitor_deployment_script.add(MonitorDeployment(pc_session=self.pc_session, cluster_name=cluster_name,
-                                                                imaged_cluster_uuid=imaged_cluster_uuid, fc_deployment_logger=fc_imaging_logger))
+                monitor_deployment_script.add(MonitorDeployment(pc_session=self.pc_session,
+                                                                cluster_name=cluster_name,
+                                                                imaged_cluster_uuid=imaged_cluster_uuid,
+                                                                fc_deployment_logger=fc_imaging_logger))
         if imaged_cluster_uuid_dict:
             for cluster_name, imaged_cluster_uuid in imaged_cluster_uuid_dict.items():
                 monitor_deployment_script.add(MonitorDeployment(pc_session=self.pc_session, cluster_name=cluster_name,
-                                                                imaged_cluster_uuid=imaged_cluster_uuid, fc_deployment_logger=fc_deployment_logger))
+                                                                imaged_cluster_uuid=imaged_cluster_uuid,
+                                                                fc_deployment_logger=fc_deployment_logger))
         if imaging_uuid_dict or imaged_cluster_uuid_dict:
-            self.logger.info(f"Wait for 15 minutes to monitor deployment status for Block {block_name} Site {site_config['site_name']}")
+            self.logger.info(f"Wait for 15 minutes to monitor deployment status for Block {block_name} "
+                             f"Site {site_config['site_name']}")
             time.sleep(15 * 60)
             deployment_result = monitor_deployment_script.run()
             results.update(deployment_result)
@@ -415,20 +481,27 @@ class FoundationScript(Script):
         # Start executing post imaging actions to update interval times in cvms
         if imaging_uuid_dict:
             # check the nodes which are re-imaged
-            deployments_to_run = self.get_imaged_node_deployments_to_run(deployment_result, imaging_deployment_payload_list)
+            deployments_to_run = self.get_imaged_node_deployments_to_run(deployment_result,
+                                                                         imaging_deployment_payload_list)
             if deployments_to_run:
-                post_imaging_scripts_op, post_imaging_deployment_op = self.get_post_imaging_batch_scripts(deployments_to_run, fc_deployment_logger)
+                post_imaging_scripts_op, post_imaging_deployment_op = (
+                    self.get_post_imaging_batch_scripts(deployments_to_run, fc_deployment_logger))
                 post_imaging_scripts_op.run()
                 self.logger.info("Sleep 5 mins for the nodes to be discovered")
                 time.sleep(5 * 60)
                 post_imaging_uuid_dict = post_imaging_deployment_op.run()
-                self.logger.info(f"Wait for 15 minutes to monitor deployment status for Block {block_name} Site {site_config['site_name']}")
+                self.logger.info(f"Wait for 15 minutes to monitor deployment status for Block {block_name} "
+                                 f"Site {site_config['site_name']}")
+                # todo check if do we really have to wait for 15 mins even for cluster creation after sleeping 5 mins
+                # for heartbeat update as well
                 time.sleep(15 * 60)
                 if post_imaging_uuid_dict:
                     monitor_deployment_script = BatchScript(parallel=True, max_workers=40)
                     for cluster_name, imaged_cluster_uuid in post_imaging_uuid_dict.items():
-                        monitor_deployment_script.add(MonitorDeployment(pc_session=self.pc_session, cluster_name=cluster_name,
-                                                                        imaged_cluster_uuid=imaged_cluster_uuid, fc_deployment_logger=fc_imaging_logger))
+                        monitor_deployment_script.add(MonitorDeployment(pc_session=self.pc_session,
+                                                                        cluster_name=cluster_name,
+                                                                        imaged_cluster_uuid=imaged_cluster_uuid,
+                                                                        fc_deployment_logger=fc_imaging_logger))
                     post_imaging_deployment_result = monitor_deployment_script.run()
                     results.update(post_imaging_deployment_result)
             else:
@@ -439,16 +512,18 @@ class FoundationScript(Script):
         """Deploy clusters in block-sites
 
         Args:
-            block_name (str): Name of pod-block
+            block_info (dict): pod-block info
             site_config (dict): Site configuration
         """
         site_name = site_config["site_name"]
         self.logger.info(f"Start deployment for site {site_name}")
         # Get Foundation Central Deployment Payloads
-        single_node_imaging_deployment_payload_list, fc_deployment_payload_list = self.get_fc_deployment_payloads(site_config)
+        single_node_imaging_deployment_payload_list, fc_deployment_payload_list = (
+            self.get_fc_deployment_payloads(site_config))
 
         # Run Foundation Central Deployments for each site
-        results = self.run_fc_deployments(single_node_imaging_deployment_payload_list, fc_deployment_payload_list, site_config, block_info)
+        results = self.run_fc_deployments(single_node_imaging_deployment_payload_list, fc_deployment_payload_list,
+                                          site_config, block_info)
         self.logger.info(json.dumps(results, indent=2))
         return results
 

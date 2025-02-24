@@ -1,5 +1,5 @@
 from typing import List
-from ..pc_entity import PcEntity
+from ..pc_entity_v3 import PcEntity
 
 
 class Task(PcEntity):
@@ -28,6 +28,6 @@ class Task(PcEntity):
 
         # Add 5 sec more for the Rest timeout, so that it doesn't bail
         # before task/poll returns
-        return self.create(data=payload, endpoint=endpoint, timeout=poll_timeout_secs+5)
+        return self.read(data=payload, method="POST", endpoint=endpoint, timeout=poll_timeout_secs+5)
 
     # todo don't make other PcEntity methods available for Tasks

@@ -1,7 +1,7 @@
 import logging
 from framework.scripts.python.script import Script
 from framework.helpers.log_utils import get_logger
-from ..ssh_cvm import SSHCVM
+from ..cvm.ssh_cvm import SSHCvm
 
 logger = get_logger(__name__)
 
@@ -21,7 +21,7 @@ class EnableOneNode(Script):
         self.cvm_ip = cvm_ip
         super(EnableOneNode, self).__init__()
         self.logger = fc_deployment_logger or logger
-        self.ssh_cvm = SSHCVM(cvm_ip, cvm_username, cvm_password)
+        self.ssh_cvm = SSHCvm(cvm_ip, cvm_username, cvm_password)
 
     def execute(self):
         status, error_message = self.ssh_cvm.enable_one_node()

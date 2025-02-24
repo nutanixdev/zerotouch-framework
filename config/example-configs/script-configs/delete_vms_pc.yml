@@ -3,7 +3,7 @@ pc_ip: valid-pc-ip
 pc_credential: pc_user # credential reference from "vaults" in global.yml file
 
 vms:
-  - name: image-name 
-    cluster_name: cluster-name 
+  - name: image-name
+    cluster_name: cluster-name
   - name: image-name
     cluster_name: cluster-name

@@ -1,5 +1,4 @@
 from typing import Union
-
 from framework.helpers.rest_utils import RestAPIUtil
 from ..pe_entity_v1 import PeEntityV1
 
@@ -12,6 +11,13 @@ class ProgressMonitor(PeEntityV1):
         self.resource_type = "/progress_monitors"
         self.session = session
         super(ProgressMonitor, self).__init__(session=session, proxy_cluster_uuid=proxy_cluster_uuid)
+
+    def poll(self, task_uuid_list: list):
+        task_uuid_list = ",".join([f"uuid=={task_uuid}" for task_uuid in task_uuid_list])
+        query = {
+            "filterCriteria": f"internal_task==false;{task_uuid_list}"
+        }
+        return self.read(query=query)
 
     def get_progress_monitors(self, start_time: Union[int, float]) -> dict:
         query = {

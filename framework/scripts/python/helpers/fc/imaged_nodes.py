@@ -54,7 +54,7 @@ class ImagedNode(FcEntity):
         """
         node_details = {}
         if not fc_available_node_list:
-            fc_available_node_list = self.node_details()
+            fc_available_node_list, error = self.node_details()
         for node in fc_available_node_list:
             if node["node_serial"] in node_serial_list:
                 node_details[node["node_serial"]] = node

@@ -1,0 +1,81 @@
+images_to_upload: &images_to_upload
+  - name: ndb-2.6.1
+    url: https://url-to-download-ndb-2.6.1
+    image_type: DISK_IMAGE  # DISK_IMAGE or ISO_IMAGE
+    container_name: SelfServiceContainer  # Existing container name in which the image needs to be uploaded
+
+ndb_vm_config: &ndb_vm_config
+  hypervisor_type: AHV
+  timezone: UTC # select valid timezone from timezone.json file in the config directory or use UTC
+  memory_mb: 32768 # Memory in MB
+  num_vcpus: 16 # Number of vCPUs
+  num_cores_per_vcpu: 1 # Number of cores per vCPU
+  boot_type: LEGACY # LEGACY or SECURE_BOOT
+  boot_disk: # boot disk details
+    is_cdrom: false
+    is_empty: false
+    device_bus: SCSI # SCSI/IDE/SATA
+    vm_disk_clone:
+      image: ndb-2.6.1 # Specify the image name to clone from
+  vm_nics:
+    - network: vlan0-managed  # Network to attach to
+      static_ip: x.x.x.x # Static IP to assign to the VM, comment out this line if DHCP is to be used
+
+compute_profiles: &compute_profiles
+  - name: ndb
+    num_vcpus: 16
+    num_cores_per_vcpu: 1
+    memory_gib: 16
+
+ndb:
+  # Required section
+  # Here you can specify if you want to deploy a new NDB VM in the cluster or use an existing one
+  deployment_cluster:
+    cluster_ip: x.x.x.x # Cluster where NDB is already deployed or to be deployed
+    pe_credential: admin_cred # PE creds of the cluster
+    ndb_vm_name: ndb   # Name of NDB VM to be created in the cluster or the name of the existing NDB VM
+    images: *images_to_upload # Upload NDB image in the cluster. Can be commented out if the image is already uploaded or VM need not be created
+    ndb_vm_config: *ndb_vm_config    # Deploy NDB VM in the cluster. Can be commented out if the VM is already deployed
+
+  ndb_credential: admin_cred # NDB credential to be used. This will also set the default admin credential for the NDB VM if it is deployed
+  enable_pulse: true # Enable pulse for NDB
+  compute_profiles: # List of Compute Profiles to be created
+    <<: *compute_profiles
+
+  # Optional section, if you want to register clusters in NDB
+  register_clusters:
+    - cluster_ip: x.x.x.x # Cluster IP
+      initial_cluster: true # this will be the first cluster to be registered
+      pe_credential: admin_cred # PE creds of the cluster
+      name: cluster1 # Cluster name
+      storage_container: SelfServiceContainer # Storage container to be used by NDB
+      dhcp_networks: [ "vlan0-managed" ] # DHCP network for NDB VMs. Comment out if not needed
+      # Static network is needed for HA and Agent VMs
+      static_networks:
+        vlan0: # Network name
+          gateway: x.x.x.x
+          netmask: x.x.x.x
+          ip_pools:
+            - [ "x.x.x.x", "x.x.x.x" ] # IP start, IP end
+      agent_vm_vlan: vlan0 # Network for Agent VM if multi-cluster needs to be enabled
+      default_network_profile_vlan: vlan0 # Default network profile for NDB VMs
+      network_profiles: # Network profiles for this cluster
+        - name: vlan0
+          engine: postgres_database # postgres_database / mysql_database / oracle_database / sqlserver_database / mariadb_database / mongodb_database
+          topology: single # single / cluster / ALL / instance
+          vlan: vlan0-managed # VLAN name
+          enable_ip_address_selection: false # true / false
+    - cluster_ip: x.x.x.x # Cluster IP
+      pe_credential: pe_user # PE creds of the cluster
+      name: cluster1 # Cluster name
+      storage_container: SelfServiceContainer # Storage container to be used by ndb
+      dhcp_networks: [ "vlan0-managed" ] # DHCP network for NDB VMs. Comment out if not needed
+      # Static network is needed for Agent VMs
+      static_networks: # Network name
+        vlan110: # Network name
+          gateway: x.x.x.x
+          netmask: x.x.x.x
+          ip_pools:
+            - [ "x.x.x.x", "x.x.x.x" ] # IP start, IP end
+      agent_vm_vlan: vlan110
+      agent_vm_ip: x.x.x.x

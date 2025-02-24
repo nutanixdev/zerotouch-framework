@@ -1,32 +1,34 @@
 import time
 from typing import Dict
 from framework.helpers.log_utils import get_logger
-from framework.scripts.python.helpers.v3.category import Category
-from framework.scripts.python.script import Script
+from framework.scripts.python.helpers.state_monitor.task_monitor import PcTaskMonitor as TaskMonitor
+from framework.scripts.python.pc.pc_script import PcScript
 
 logger = get_logger(__name__)
 
 
-class CreateCategoryPc(Script):
+class CreateCategoryPc(PcScript):
     """
     Class that creates Categories in PC
     """
     def __init__(self, data: Dict, **kwargs):
         self.response = None
+        self.task_uuid_list = []
         self.data = data
         self.categories = self.data.get("categories")
         self.pc_session = self.data["pc_session"]
+        self.v4_api_util = self.data["v4_api_util"]
         super(CreateCategoryPc, self).__init__(**kwargs)
         self.logger = self.logger or logger
+        self.category_util = self.import_helpers_with_version_handling("Category")
 
-    def execute(self, **kwargs):
+    def execute(self):
         try:
             if not self.categories:
                 self.logger.warning(f"No categories to create. Skipping category creation in {self.data['pc_ip']!r}")
                 return
 
-            category = Category(self.pc_session)
-            existing_categories_list = category.categories_with_values()
+            existing_categories_list = self.category_util.categories_with_values()
 
             category_list = []
             for category_to_create in self.categories:
@@ -45,19 +47,15 @@ class CreateCategoryPc(Script):
                     else:
                         # create category first
                         self.logger.info(f"Creating category {name} in {self.data['pc_ip']!r}")
-                        data = {
-                            "name": name,
-                            "description": description
-                        }
-                        # We are using update as we need to use PUT to create categories
-                        category.update(endpoint=name, data=data)
+                        self.category_util.create_category(name, description)
 
                     if values:
                         # add values to the category
                         self.logger.info(f"Adding values {values} to category {name} in {self.data['pc_ip']!r}")
                         category_list.append({
                             "name": name,
-                            "values": values
+                            "values": values,
+                            "description": description
                         })
                 except Exception as e:
                     self.exceptions.append(f"Failed to create category {name}: {e}")
@@ -67,11 +65,24 @@ class CreateCategoryPc(Script):
                 return
 
             self.logger.info(f"Trigger batch create API for Categories in {self.data['pc_ip']!r}")
-            category.batch_values_add(category_list)
+            self.task_uuid_list = self.category_util.batch_values_add(category_list)
+            # Monitor the tasks
+            if self.task_uuid_list:
+                app_response, status = PcTaskMonitor(
+                    self.pc_session,
+                    task_uuid_list=self.task_uuid_list,
+                    task_op=self.import_helpers_with_version_handling('Task')).monitor()
+
+                if app_response:
+                    self.exceptions.append(f"Some tasks have failed. {app_response}")
+
+                if not status:
+                    self.exceptions.append("Timed out. Creation of Categories in PC didn't happen in the"
+                                           " prescribed timeframe")
         except Exception as e:
             self.exceptions.append(e)
 
-    def verify(self, **kwargs):
+    def verify(self):
         if not self.categories:
             return
 
@@ -80,19 +91,23 @@ class CreateCategoryPc(Script):
 
         # There is no monitor option for creation. Hence, waiting for creation before verification
         time.sleep(5)
-        category = Category(self.pc_session)
-        existing_categories_list = []
 
         # todo modify verifications to include values
+        existing_categories_list = []
         for category_to_create in self.categories:
+            existing_categories_list = existing_categories_list or self.category_util.categories_with_values() 
             name = category_to_create.get("name")
-
+            values = category_to_create.get("values")
             # Initial status
             self.results["Create_Categories"][name] = "CAN'T VERIFY"
-            existing_categories_list = existing_categories_list or category.categories_with_values()
-            category_exists = next((existing_category for existing_category in existing_categories_list
-                                    if existing_category["name"] == name), None)
-
+            
+            category_exists = False
+            
+            for existing_category in existing_categories_list:
+                if ( existing_category["name"] == name and 
+                all(item in existing_category["values"] for item in values) ):
+                    category_exists = True
+                    break
             if category_exists:
                 self.results["Create_Categories"][name] = "PASS"
             else:

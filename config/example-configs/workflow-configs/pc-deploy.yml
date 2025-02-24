@@ -1,6 +1,5 @@
 ---
-# This configuration is used to deploy NCM, upload OVAs & Images in Management PC.
-# Deploy PC VMs in the PEs specified in clusters
+# Deploy PC VMs in the PEs specified in "clusters"
 
 pe_creds: &pe_creds
   # This can be admin/ ad user. Note ad creds will be used after adding AD to PE
@@ -10,58 +9,100 @@ cvm_creds: &cvm_creds
   # This will be nutanix user used to log in to CVM CLI. Required to download deployment files
   cvm_credential: cvm_credential # credential reference from "vaults" in global.yml file
 
-deploy_pc_file_urls: &deploy_pc_file_urls
-  # Files to deploy PC in PE. PC software tar file, its metafile & pc_version are required to download & upload software to PE
-  file_url: https://url-to-download-pc-xxxx.x.x.tar
-  metadata_file_url: https://url-to-download-metadata.json
-  pc_version: pc.xxxx.x.x
-  # Optional. If specified, md5sum of the existing PC tar file or downloaded tar file, is compared with specified md5sum to verify the integrity of PC tar file
-  md5sum: md5sum-of-pc-xxxx.x.x.tar-file
+common_pc_config: &common_pc_config
+  pc_version: pc.xxxx.x.x # PC version to be deployed. Required to download & upload software to PE
+  file_url: https://url-to-download-pc-xxxx.x.x.tar # PC tar file URL. Optional if pc_version is already uploaded to PE.
+  metadata_file_url: https://url-to-download-metadata.json # PC metafile URL. Optional if pc_version is already uploaded to PE
+  md5sum: md5sum-of-pc-xxxx.x.x.tar-file # Optional. If specified, md5sum of the existing PC tar file or downloaded tar file, is compared with specified md5sum to verify the integrity of PC tar file
+  # PC VM configs below
+  num_pc_vms: 3 # Number of PC vms to deploy i.e. Single PC (1) or Scale-out-PC(3). Allowed values: 1, 3
+  pc_size: large # Size of the PC VM. Based on the size the VM spec will be used. Allowed values: [small, large, xlarge]
+  ntp_server_list: [ ntp-server1, ntp-server2 ] # List of NTP Servers to be added to PC VMs.
+  dns_server_ip_list: [ dns-server-ip1, dns-server-ip2 ] # List of DNS Server IP addresses to be added to PC VMs.
+  container_name: SelfServiceContainer # Container in which the VMs need to be created
 
-# Clusters where the PC has to be deployed
+cmsp_config: &cmsp_config
+  deploy_cmsp: true
+  prism_central_service_domain_name: prism-central.cluster.local # This domain name refers to PC services only and is not a FQDN. It is only accessible from within the PC infrastructure.
+  cmsp_internal_network: kPrivateNetwork # Supported values kPrivateNetwork or kFull  # This network will be used by the Microservices Infrastructure
+  # Below are default settings for Private Network (kPrivateNetwork), you need to modify if you are using Full Internal Network (kFull)
+  cmsp_subnet_mask: 255.255.255.0
+  cmsp_default_gateway: 192.168.5.1
+  cmsp_ip_address_range: [ 192.168.5.2 192.168.5.64 ] # 5 IPs needed for CMSP
+
+# Clusters where PC/PCs need to be deployed
 clusters:
   valid-cluster-01-ip:
-      # Use global pe creds
-      <<: *pe_creds
-      # Use global cvm creds
-      <<: *cvm_creds
+    # Use global pe creds
+    <<: *pe_creds
+    # Use global cvm creds
+    <<: *cvm_creds
 
-      # Config required to deploy PC in PE
-      deploy_pc_config:
-        # Use global deploy pc files urls config
-        <<: *deploy_pc_file_urls
-        pc_vm_name_prefix: MGMT-PC  # PC VM name prefix, numbers will be added to the name based on number of pc vms Eg: MGMT-PC-0
-        num_pc_vms: 3 # Number of PC vms to deploy i.e. Single PC (1) or Scale-out-PC(3). Allowed values: 1, 3
-        pc_size: large # Size of the PC VM. Based on the size the VM spec will be used. Allowed values: [small, large, xlarge]
+    # Config required to deploy PC in PE
+    pc_configs:
+      - <<: *common_pc_config # Use global pc-config
+        pc_vm_name_prefix: PC-VM  # PC VM name prefix, numbers will be added to the name based on number of pc vms Eg: PC-VM-0
         pc_vip: x.x.x.x # PC VIP Address, Optional
-        ip_list: [x.x.x.x, x.x.x.x, x.x.x.x] # IP addresses for PC VMs. Depends on the number of PC VMs
-        ntp_server_list: [ntp-server1, ntp-server2] # List of NTP Servers to be added to PC VMs.
-        dns_server_ip_list: [dns-server-ip1, dns-server-ip2] # List of DNS Server IP addresses to be added to PC VMs.
-        container_name: SelfServiceContainer # Container in which the VMs need to be created
+        ip_list: [ x.x.x.x, x.x.x.x, x.x.x.x ] # IP addresses for PC VMs. Depends on the number of PC VMs
         network_name: MGMTVLAN0 # Subnet to use for PC VM creation
         default_gateway: x.x.x.1 # Subnet gateway
         subnet_mask: 255.255.255.0 # Subnet mask
         delete_existing_software: false # Delete the software with same version if it already exists in PE
-  
+        check_existing_pc: true # Optional. Check if the cluster is already registered to a PC. Set this to false if you want to deploy PC to a cluster which is already registered to a PC
+        register_to_pc: true # Optional. Register this PC to PE
   valid-cluster-02-ip:
     # Use global pe creds
-      <<: *pe_creds
-      # Use global cvm creds
-      <<: *cvm_creds
+    <<: *pe_creds
+    # Use global cvm creds
+    <<: *cvm_creds
 
-      # Config required to deploy PC in PE
-      deploy_pc_config:
-        # Use global deploy pc files urls config
-        <<: *deploy_pc_file_urls
-        pc_vm_name_prefix: MGMT-PC  # PC VM name prefix, numbers will be added to the name based on number of pc vms Eg: MGMT-PC-0
+    # Config required to deploy PC in PE
+    # You can deploy multiple PCs in a cluster and register only one of them to the PE
+    pc_configs:
+      - <<: *common_pc_config # Use global pc-config
+        pc_vm_name_prefix: PC-VM1  # PC VM name prefix, numbers will be added to the name based on number of pc vms Eg: PC-VM1-0
+        pc_vip: x.x.x.x # PC VIP Address, Optional
+        ip_list: [ x.x.x.x, x.x.x.x, x.x.x.x ] # IP addresses for PC VMs. Depends on the number of PC VMs
+        network_name: MGMTVLAN0 # Subnet to use for PC VM creation
+        default_gateway: x.x.x.1 # Subnet gateway
+        subnet_mask: 255.255.255.0 # Subnet mask
+        delete_existing_software: false # Delete the software with same version if it already exists in PE
+        check_existing_pc: true # Optional. Check if the cluster is already registered to a PC. Set this to false if you want to deploy PC to a cluster which is already registered to a PC
+        register_to_pc: true # Optional. Register this PC to PE
+        <<: *cmsp_config # If CMSP needs to be enabled and configured
+      - <<: *common_pc_config # Use global pc-config
+        pc_vm_name_prefix: PC-VM2  # PC VM name prefix, numbers will be added to the name based on number of pc vms Eg: PC-VM2-0
+        pc_vip: x.x.x.x # PC VIP Address, Optional
+        ip_list: [ x.x.x.x, x.x.x.x, x.x.x.x ] # IP addresses for PC VMs. Depends on the number of PC VMs
+        network_name: MGMTVLAN0 # Subnet to use for PC VM creation
+        default_gateway: x.x.x.1 # Subnet gateway
+        subnet_mask: 255.255.255.0 # Subnet mask
+        delete_existing_software: false # Delete the software with same version if it already exists in PE
+        check_existing_pc: false # Optional. Check if the cluster is already registered to a PC. Set this to false if you want to deploy PC to a cluster which is already registered to a PC
+        <<: *cmsp_config # If CMSP needs to be enabled and configured
+      - # We can define all the PC configs here or use common_pc_config to inherit the common configs
+        pc_version: pc.xxxx.x.x # PC version to be deployed. Required to download & upload software to PE
+        file_url: https://url-to-download-pc-xxxx.x.x.tar # PC tar file URL. Optional if pc_version is already uploaded to PE.
+        metadata_file_url: https://url-to-download-metadata.json # PC metafile URL. Optional if pc_version is already uploaded to PE
+        md5sum: md5sum-of-pc-xxxx.x.x.tar-file # Optional. If specified, md5sum of the PC tar file, is compared with md5sum of existing pc_version to check if Software needs to be downloaded
+        pc_vm_name_prefix: PC-VM3  # PC VM name prefix, numbers will be added to the name based on number of pc vms Eg: PC-VM-0
         num_pc_vms: 1 # Number of PC vms to deploy i.e. Single PC (1) or Scale-out-PC(3). Allowed values: 1, 3
         pc_size: small # Size of the PC VM. Based on the size the VM spec will be used. Allowed values: [small, large, xlarge]
         pc_vip: x.x.x.x # PC VIP Address, Optional
-        ip_list: [x.x.x.x] # IP addresses for PC VMs. Depends on the number of PC VMs
-        ntp_server_list: [ntp-server1, ntp-server2] # List of NTP Servers to be added to PC VMs.
-        dns_server_ip_list: [dns-server-ip1, dns-server-ip2] # List of DNS Server IP addresses to be added to PC VMs.
+        ip_list: [ x.x.x.x ] # IP addresses for PC VMs. Depends on the number of PC VMs
+        ntp_server_list: [ ntp-server1, ntp-server2 ] # List of NTP Servers to be added to PC VMs.
+        dns_server_ip_list: [ dns-server-ip1, dns-server-ip2 ] # List of DNS Server IP addresses to be added to PC VMs.
         container_name: SelfServiceContainer # Container in which the VMs need to be created
         network_name: MGMTVLAN0 # Subnet to use for PC VM creation
         default_gateway: x.x.x.1 # Subnet gateway
         subnet_mask: 255.255.255.0 # Subnet mask
         delete_existing_software: false # Delete the software with same version if it already exists in PE
+        check_existing_pc: false # Optional. Check if the cluster is already registered to a PC. Set this to false if you want to deploy PC to a cluster which is already registered to a PC
+        # If CMSP needs to be enabled and configured
+        deploy_cmsp: true
+        prism_central_service_domain_name: prism-central.cluster.local # This domain name refers to PC services only and is not a FQDN. It is only accessible from within the PC infrastructure.
+        cmsp_internal_network: kPrivateNetwork # Supported values kPrivateNetwork or kFull  # This network will be used by the Microservices Infrastructure
+        # Below are default settings for Private Network (kPrivateNetwork), you need to modify if you are using Full Internal Network (kFull)
+        cmsp_subnet_mask: 255.255.255.0
+        cmsp_default_gateway: 192.168.5.1
+        cmsp_ip_address_range: [ 192.168.5.2, 192.168.5.64 ] # 5 IPs needed for CMSP

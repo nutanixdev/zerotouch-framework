@@ -1,0 +1,41 @@
+pc_ip: valid-pc-ip
+pc_username: pc-user
+pc_password: pc-password
+
+pe_vms: &pe_networkpe_vmss
+  name: "vm-name"
+  num_vcpus: 1 # Number of vCPUs. Default value is 1.
+  num_cores_per_vcpu: 2 # Number of cores per vCPU. Default value is 2.
+  memory_mb: 1024 # Memory MB. Default value is 1024
+  include_cdrom: false # Attach CDROM. Default value is false
+  power_state: ON # Power State of the VM, eg "ON" , "OFF". Default value is OFF
+  image_list: [ image-1 ] # List of images to clone from.
+  hardware_clock_timezone: UTC # Optional. Default time zone 'UTC'
+  nic_list:
+    - name: valid-vlan-name-1 # Name of the Network interface
+      ip_endpoint_list: [ valid-ip ] # Optional. list of IP address, for assigning static IPs
+    - name: valid-vlan-name-2 # Name of the Network interface
+
+clusters:
+  # configure the below clusters in the site
+  valid-cluster-01-ip:
+    name: cluster-01
+    networks:
+      # Use global network config
+      - <<: *pe_vms
+  valid-cluster-02-ip:
+    name: cluster-02
+    # can define locally as well
+    vms:
+      - name: "vm-name-2"
+        num_vcpus: 2 # Number of vCPUs. Default value is 1.
+        num_cores_per_vcpu: 4 # Number of cores per vCPU. Default value is 2.
+        memory_mb: 2048 # Memory MB. Default value is 1024
+        include_cdrom: false # Attach CDROM. Default value is false
+        power_state: ON # Power State of the VM, eg "ON" , "OFF". Default value is OFF
+        image_list: [ image-2 ] # List of images to clone from.
+        hardware_clock_timezone: UTC # Optional. Default time zone 'UTC'
+        nic_list:
+          - name: valid-vlan-name-1 # Name of the Network interface
+            ip_endpoint_list: [ valid-ip ] # Optional. list of IP address, for assigning static IPs
+          - name: valid-vlan-name-2 # Name of the Network interface

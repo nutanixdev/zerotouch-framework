@@ -1,13 +1,12 @@
 from typing import Dict
 from framework.helpers.log_utils import get_logger
-from framework.scripts.python.helpers.state_monitor.pc_task_monitor import PcTaskMonitor
-from framework.scripts.python.helpers.v3.security_rule import SecurityPolicy
-from framework.scripts.python.script import Script
+from framework.scripts.python.helpers.state_monitor.task_monitor import PcTaskMonitor as TaskMonitor
+from framework.scripts.python.pc.pc_script import PcScript
 
 logger = get_logger(__name__)
 
 
-class DeleteNetworkSecurityPolicy(Script):
+class DeleteNetworkSecurityPolicy(PcScript):
     """
     Class that deletes Security policies
     """
@@ -17,27 +16,22 @@ class DeleteNetworkSecurityPolicy(Script):
         self.data = data
         self.security_policies = self.data.get("security_policies")
         self.pc_session = self.data["pc_session"]
+        self.v4_api_util = self.data["v4_api_util"]
         super(DeleteNetworkSecurityPolicy, self).__init__(**kwargs)
         self.logger = self.logger or logger
+        self.security_policy_util = self.import_helpers_with_version_handling("SecurityPolicy")
 
-    def execute(self, **kwargs):
+    def execute(self):
         try:
-            security_policy = SecurityPolicy(self.pc_session)
-            security_policy_list = security_policy.list(length=10000)
-
-            security_policy_name_uuid_dict = {
-                sp.get("spec").get("name"): sp.get("metadata").get("uuid")
-                for sp in security_policy_list
-                if sp.get("spec", {}).get("name")
-            }
+            security_policy_name_uuid_dict = self.security_policy_util.get_name_uuid_dict()
 
             if not self.security_policies:
                 self.logger.warning(
-                    f"No security_policies to delete in {self.data['pc_ip']!r}. Skipping..."
+                    f"No security_policies provided to delete in {self.data['pc_ip']!r}"
                 )
                 return
 
-            sps_to_delete_uuids = []
+            sps_to_delete = []
             for sg in self.security_policies:
                 if sg['name'] not in security_policy_name_uuid_dict.keys():
                     self.logger.warning(
@@ -45,25 +39,29 @@ class DeleteNetworkSecurityPolicy(Script):
                     )
                     continue
                 try:
-                    sps_to_delete_uuids.append(security_policy_name_uuid_dict[sg['name']])
+                    sps_to_delete.append(
+                        self.security_policy_util.delete_security_policy_spec(
+                            security_policy_name_uuid_dict[sg['name']]
+                            )
+                        )
                 except Exception as e:
                     self.exceptions.append(f"Failed to delete Security policy {sg['name']}: {e}")
 
-            if not sps_to_delete_uuids:
+            if not sps_to_delete:
                 self.logger.warning(
                     f"No security_policies to delete in {self.data['pc_ip']!r}. Skipping..."
                 )
                 return
 
             self.logger.info(f"Trigger batch delete API for Security Policies in {self.data['pc_ip']!r}")
-            self.task_uuid_list = security_policy.batch_op.batch_delete(entity_list=sps_to_delete_uuids)
+            self.task_uuid_list = self.security_policy_util.batch_op.batch_delete(entity_list=sps_to_delete)
 
             # Monitor the tasks
             if self.task_uuid_list:
-                app_response, status = PcTaskMonitor(
+                app_response, status = TaskMonitor(
                     self.pc_session,
-                    task_uuid_list=self.task_uuid_list
-                ).monitor()
+                    task_uuid_list=self.task_uuid_list,
+                    task_op=self.import_helpers_with_version_handling('Task')).monitor()
 
                 if app_response:
                     self.exceptions.append(f"Some tasks have failed. {app_response}")
@@ -76,26 +74,19 @@ class DeleteNetworkSecurityPolicy(Script):
         except Exception as e:
             self.exceptions.append(e)
 
-    def verify(self, **kwargs):
+    def verify(self):
         if not self.security_policies:
             return
 
         # Initial status
         self.results["Delete_Security_policies"] = {}
-        security_policy = SecurityPolicy(self.pc_session)
-        security_policy_list = []
         security_policy_name_list = []
 
         for sec_pol in self.security_policies:
+            security_policy_name_list = security_policy_name_list or self.security_policy_util.get_name_list()
             # Initial status
             self.results["Delete_Security_policies"][sec_pol['name']] = "CAN'T VERIFY"
 
-            security_policy_list = security_policy_list or security_policy.list(length=10000)
-            security_policy_name_list = security_policy_name_list or [
-                sp.get("spec").get("name") for
-                sp in security_policy_list if
-                sp.get("spec", {}).get("name")
-            ]
             if sec_pol["name"] not in security_policy_name_list:
                 self.results["Delete_Security_policies"][sec_pol['name']] = "PASS"
             else:

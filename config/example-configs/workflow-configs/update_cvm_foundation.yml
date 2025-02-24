@@ -1,0 +1,6 @@
+cvm_credential: cvm_credential # credential reference from "vaults" in global.yml file
+foundation:
+  foundation_build_url: http://url-path-to-foundation-tar/ # url path to download the foundation tar file
+  foundation_version: "5.6" # Foundation version to be updated to in CVM
+nameserver: valid-nameserver # Optional. Provide a nameserver, if nameserver needs to be added to /etc/resolv.conf to download the tar file from the webserver
+cvm_ips: [ "valid-cvm-ip1", "valid-cvm-ip-2" ] # Valid CVM IPs for which the foundation needs to be updated

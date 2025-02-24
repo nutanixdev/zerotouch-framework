@@ -29,12 +29,48 @@
             "subnet": "vlan110",
             "image": "ubuntu_2204_519041_100gb",
             "variable_list": [
-                { "value": { "value": "10.10.1.1:/ai" }, "context": "AHV_Small", "name": "NFS_PATH"},
-                { "value": { "value": "1" }, "context": "AHV_Small", "name": "WORKER"},
-                { "value": { "value": "10.10.1.1:/ai" }, "context": "AHV_Medium", "name": "NFS_PATH"},
-                { "value": { "value": "1" }, "context": "AHV_Medium", "name": "WORKER"},
-                { "value": { "value": "10.10.1.1:/ai" }, "context": "AHV_Large", "name": "NFS_PATH"},
-                { "value": { "value": "1" }, "context": "AHV_Large", "name": "WORKER"}
+                {
+                    "value": {
+                        "value": "10.10.1.1:/ai"
+                    },
+                    "context": "AHV_Small",
+                    "name": "NFS_PATH"
+                },
+                {
+                    "value": {
+                        "value": "1"
+                    },
+                    "context": "AHV_Small",
+                    "name": "WORKER"
+                },
+                {
+                    "value": {
+                        "value": "10.10.1.1:/ai"
+                    },
+                    "context": "AHV_Medium",
+                    "name": "NFS_PATH"
+                },
+                {
+                    "value": {
+                        "value": "1"
+                    },
+                    "context": "AHV_Medium",
+                    "name": "WORKER"
+                },
+                {
+                    "value": {
+                        "value": "10.10.1.1:/ai"
+                    },
+                    "context": "AHV_Large",
+                    "name": "NFS_PATH"
+                },
+                {
+                    "value": {
+                        "value": "1"
+                    },
+                    "context": "AHV_Large",
+                    "name": "WORKER"
+                }
             ]
         }
     ]

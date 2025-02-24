@@ -155,10 +155,10 @@ pod:
             # First 2 Static IPs should be storage network static IPs.
             # Rest of the Static IPs will be assigned as Public static IPs.
             static_ip_list:
-             - ip1
-             - ip2
-             - ip3
-             - ip4
+              - ip1
+              - ip2
+              - ip3
+              - ip4
             num_worker_nodes: 1
             buckets:
               - name: bucket1
