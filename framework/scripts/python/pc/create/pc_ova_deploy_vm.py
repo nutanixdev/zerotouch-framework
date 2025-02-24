@@ -5,7 +5,7 @@ from framework.scripts.python.helpers.v3.vm import VM
 from framework.scripts.python.helpers.v3.ova import Ova
 from framework.scripts.python.script import Script
 from framework.scripts.python.helpers.v3.network import Network
-from framework.scripts.python.helpers.state_monitor.pc_task_monitor import PcTaskMonitor
+from framework.scripts.python.helpers.state_monitor.task_monitor import PcTaskMonitor as TaskMonitor
 from framework.scripts.python.helpers.v3.cluster import Cluster as PcCluster
 
 logger = get_logger(__name__)
@@ -96,8 +96,8 @@ class PcOvaDeployVM(Script):
             vm = VM(self.pc_session)
             self.task_uuid_list = vm.batch_create_vm(vm_create_payload_list=request_payload_list)
             if self.task_uuid_list:
-                app_response, status = PcTaskMonitor(self.pc_session,
-                                                     task_uuid_list=self.task_uuid_list).monitor()
+                app_response, status = TaskMonitor(self.pc_session,
+                                                   task_uuid_list=self.task_uuid_list).monitor()
 
                 if app_response:
                     self.exceptions.append(f"Some tasks have failed while creating VM. {app_response}")

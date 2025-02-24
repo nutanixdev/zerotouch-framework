@@ -3,7 +3,7 @@ from copy import deepcopy
 from typing import Dict
 from urllib.request import urlopen
 from framework.helpers.log_utils import get_logger
-from framework.scripts.python.helpers.state_monitor.pc_task_monitor import PcTaskMonitor
+from framework.scripts.python.helpers.state_monitor.task_monitor import PcTaskMonitor as TaskMonitor
 from framework.scripts.python.helpers.v3.identity_provider import IdentityProvider
 from framework.scripts.python.script import Script
 
@@ -88,8 +88,8 @@ class CreateIdp(Script):
 
                 # Monitor the tasks
                 if task_uuid_list:
-                    app_response, status = PcTaskMonitor(self.pc_session,
-                                                         task_uuid_list=task_uuid_list).monitor()
+                    app_response, status = TaskMonitor(self.pc_session,
+                                                       task_uuid_list=task_uuid_list).monitor()
 
                     if app_response:
                         self.exceptions.append(f"Some tasks have failed. {app_response}")

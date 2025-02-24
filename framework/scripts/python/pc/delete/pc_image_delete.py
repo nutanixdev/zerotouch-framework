@@ -3,7 +3,7 @@ from typing import Dict
 from framework.helpers.log_utils import get_logger
 from framework.scripts.python.helpers.v3.image import Image
 from framework.scripts.python.script import Script
-from framework.scripts.python.helpers.state_monitor.pc_task_monitor import PcTaskMonitor
+from framework.scripts.python.helpers.state_monitor.task_monitor import PcTaskMonitor as TaskMonitor
 
 logger = get_logger(__name__)
 
@@ -47,7 +47,7 @@ class PcImageDelete(Script):
 
                 #Monitor Tasks
                 if task_uuid_list:
-                    app_response, status = PcTaskMonitor(
+                    app_response, status = TaskMonitor(
                         self.pc_session,
                         task_uuid_list=task_uuid_list
                     ).monitor()

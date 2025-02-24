@@ -51,9 +51,9 @@ class PodConfig(Script):
                     # First configure clusters in all the edge sites
                     if edge_site.get("clusters", []):
                         # add block pc details to cluster configurations
-                        edge_site["pc_ip"] = block["pc_ip"]
-                        edge_site["pc_credential"] = block["pc_credential"]
-                        edge_site["pc_session"] = block["pc_session"]
+                        edge_site["pc_ip"] = block.get("pc_ip")
+                        edge_site["pc_credential"] = block.get("pc_credential")
+                        edge_site["pc_session"] = block.get("pc_session")
                         self.block_batch_scripts[block_name].add(
                             ClusterConfig(data=deepcopy(edge_site), global_data=self.data, results_key=site_name,
                                           log_file=f"{block_name}_{site_name}_pe_ops.log"))

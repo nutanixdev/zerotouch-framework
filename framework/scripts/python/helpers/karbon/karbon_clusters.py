@@ -1,6 +1,5 @@
 from copy import deepcopy
 from typing import Dict, List, Optional
-
 from framework.helpers.helper_functions import read_creds
 from framework.helpers.rest_utils import RestAPIUtil
 from .karbon import Karbon
@@ -26,7 +25,7 @@ class KarbonClusterV1(Karbon):
             "storage_class": self._build_spec_storage_class,
         }
 
-    def get_payload(self, cluster_spec: Dict, data: Dict) -> Dict:
+    def get_payload(self, cluster_spec: Dict) -> Dict:
         """
         Payload for creating a karbon cluster
         """
@@ -49,7 +48,7 @@ class KarbonClusterV1(Karbon):
 
         spec, error = super(KarbonClusterV1, self).get_spec(params=cluster_spec)
         if error:
-            raise Exception("Failed generating nke-cluster spec: {}".format(error))
+            raise Exception(f"Failed generating nke-cluster spec: {error}")
 
         return spec
 
@@ -68,17 +67,17 @@ class KarbonClusterV1(Karbon):
         )
 
     @staticmethod
-    def _build_spec_name(payload: Dict, value) -> (Dict, None):
+    def _build_spec_name(payload: Dict, value, complete_config: Optional[Dict] = None) -> (Dict, None):
         payload["name"] = value
         return payload, None
 
     @staticmethod
-    def _build_spec_k8s_version(payload: Dict, value) -> (Dict, None):
+    def _build_spec_k8s_version(payload: Dict, value, complete_config: Optional[Dict] = None) -> (Dict, None):
         payload["version"] = value
         return payload, None
 
     @staticmethod
-    def _build_spec_cni(payload: Dict, config: Dict) -> (Dict, None):
+    def _build_spec_cni(payload: Dict, config: Dict, complete_config: Optional[Dict] = None) -> (Dict, None):
         cni = {
             "node_cidr_mask_size": config["node_cidr_mask_size"],
             "service_ipv4_cidr": config["service_ipv4_cidr"],
@@ -94,7 +93,8 @@ class KarbonClusterV1(Karbon):
         payload["cni_config"] = cni
         return payload, None
 
-    def _build_spec_node_configs(self, payload: Dict, config: Dict) -> (Dict, None):
+    def _build_spec_node_configs(self, payload: Dict, config: Dict,
+                                 complete_config: Optional[Dict] = None) -> (Dict, None):
         self.type_is_dev = self.cluster_type != "PROD"
         control_plane_virtual_ip = self.control_plane_virtual_ip
         for key, value in config.items():
@@ -105,14 +105,13 @@ class KarbonClusterV1(Karbon):
             )
             if err:
                 return None, err
-
             payload[spec_key]["node_pools"] = [node_pool]
             if spec_key == "masters_config":
                 if node_pool["num_instances"] > 1:
 
                     if not control_plane_virtual_ip:
-                        err = "control_plane_virtual_ip is required if the number of master nodes is 2 or cluster_type " \
-                              "is 'PROD'."
+                        err = ("control_plane_virtual_ip is required if the number of master nodes is 2 or "
+                               "cluster_type is 'PROD'.")
                         return None, err
 
                     payload[spec_key].pop("single_master_config")
@@ -122,14 +121,15 @@ class KarbonClusterV1(Karbon):
 
         return payload, None
 
-    def _build_spec_storage_class(self, payload: Dict, config: Dict) -> (Dict, None):
+    def _build_spec_storage_class(self, payload: Dict, config: Dict,
+                                  complete_config: Optional[Dict] = None) -> (Dict, None):
         pe_credential = config.get("pe_credential")
         # get credentials from the payload
         try:
             config["pe_username"], config["pe_password"] = (
                 read_creds(data=self.data, credential=pe_credential))
         except Exception as e:
-            raise Exception(e)
+            raise Exception(e).with_traceback(e.__traceback__)
 
         storage_class = {
             "default_storage_class": config.get("default_storage_class"),

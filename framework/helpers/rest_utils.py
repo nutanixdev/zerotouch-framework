@@ -23,8 +23,9 @@ class TimeoutHTTPAdapter(HTTPAdapter):
         super(TimeoutHTTPAdapter, self).__init__(*args, **kwargs)
 
     def send(self, request, **kwargs):
+        # todo can we read this timeout from global.json?
         if not kwargs.get("timeout"):
-            kwargs["timeout"] = (5, 60)
+            kwargs["timeout"] = (5, 300)
         return super().send(request, **kwargs)
 
 
@@ -77,7 +78,7 @@ def rest_api_call(func):
                 if r:
                     error["response"] = r
 
-            if status_code == "401":
+            if str(status_code) == "401":
                 err_msg = "Unauthorized. Please check your credentials."
             elif hasattr(r, "json") and callable(getattr(r, "json")):
                 try:
@@ -112,19 +113,16 @@ class RestAPIUtil:
             backend='sqlite',
             allowable_methods=('GET',),
         )
-        self.__headers = headers if headers else {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        }
+        self.__headers = headers if headers is not None else {'content-type': 'application/json'}
         if user and pwd:
             self.__session.auth = HTTPBasicAuth(user, pwd)
 
         # Define the retry strategy
         retry_strategy = Retry(
             total=3,  # Maximum number of retries (including the initial request)
-            backoff_factor=1.5,  # Backoff factor between retries, keeping it to 1.5 seconds
+            backoff_factor=2,  # Backoff factor between retries, keeping it to 1.5 seconds
             status_forcelist=[429, 500, 502, 503, 504],  # HTTP status codes to retry
-            method_whitelist=[
+            allowed_methods=[
                 "GET",
                 "PUT",
                 "DELETE",
@@ -149,11 +147,12 @@ class RestAPIUtil:
 
     @rest_api_call
     def post(self, uri: str, headers: dict = None, data: dict = None, jsonify=True, verify=False, **kwargs):
-        headers = headers if headers else self.__headers
+        headers = headers if headers is not None else self.__headers
         data = {} if not data else data
         url = self.prepare_url(uri)
 
         logger.debug("POST request for the URL: " + url)
+        logger.debug(kwargs)
         data = json.dumps(data) if jsonify else data
 
         if data:
@@ -163,7 +162,7 @@ class RestAPIUtil:
 
     @rest_api_call
     def put(self, uri: str, headers: dict = None, data: dict = None, jsonify=True, verify=False, **kwargs):
-        headers = headers if headers else self.__headers
+        headers = headers if headers is not None else self.__headers
         data = {} if not data else data
         url = self.prepare_url(uri)
 
@@ -177,7 +176,7 @@ class RestAPIUtil:
 
     @rest_api_call
     def get(self, uri: str, headers: dict = None, data: dict = None, verify=False, **kwargs):
-        headers = headers if headers else self.__headers
+        headers = headers if headers is not None else self.__headers
         data = {} if not data else data
         url = self.prepare_url(uri)
         headers = {} if not headers else headers
@@ -192,7 +191,7 @@ class RestAPIUtil:
 
     @rest_api_call
     def delete(self, uri: str, headers: dict = None, verify=False, **kwargs):
-        headers = headers if headers else self.__headers
+        headers = headers if headers is not None else self.__headers
         url = self.prepare_url(uri)
         headers = {} if not headers else headers
 
@@ -202,7 +201,7 @@ class RestAPIUtil:
 
     @rest_api_call
     def patch(self, uri: str, headers: dict = None, data: dict = None, jsonify=True, verify=False, **kwargs):
-        headers = headers if headers else self.__headers
+        headers = headers if headers is not None else self.__headers
         data = {} if not data else data
         url = self.prepare_url(uri)
 
@@ -211,7 +210,9 @@ class RestAPIUtil:
 
         if data:
             logger.debug(f"PATCH payload: {data}")
-        response = self.__session.patch(url, headers=headers, data=data, verify=verify, **kwargs)
+            response = self.__session.patch(url, headers=headers, data=data, verify=verify, **kwargs)
+        else:
+            response = self.__session.patch(url, headers=headers, verify=verify, **kwargs)
         return response
 
     def prepare_url(self, uri):

@@ -1,7 +1,7 @@
 from typing import Dict
 from framework.helpers.log_utils import get_logger
-from framework.scripts.python.helpers.state_monitor.pc_task_monitor import PcTaskMonitor
-from framework.scripts.python.helpers.state_monitor.vm_ip_monitor import VmIpMonitor
+from framework.scripts.python.helpers.state_monitor.task_monitor import PcTaskMonitor as TaskMonitor
+from framework.scripts.python.helpers.state_monitor.vm_ip_monitor_pc import VmIpMonitorPc
 from framework.scripts.python.helpers.v3.vm import VM, VmPowerState
 from framework.scripts.python.script import Script
 
@@ -38,16 +38,19 @@ class PowerOnVmPc(Script):
             # Get VM info list if only VM names are passed
             filter_criteria = f"cluster_name=={self.pe_cluster}"
             if not self.vm_list and self.vm_name_list:
-                self.vm_list = [vm for vm in vm_op.list(filter=filter_criteria) if vm.get("spec", {}).get("name") in self.vm_name_list]
+                self.vm_list = [vm for vm in vm_op.list(filter=filter_criteria) if vm.get("spec", {}).get("name")
+                                in self.vm_name_list]
 
             # Filter the VMs which are in state power OFF state
+            # todo Incorrect logic
             self.vms_to_power_on = vm_op.list(timeout=120, custom_filters={"power_state": VmPowerState.OFF})
-            self.vms_to_power_on = [{"uuid": vm["metadata"]["uuid"], "spec": vm["spec"], "metadata": vm["metadata"]} for vm in self.vms_to_power_on]
+            self.vms_to_power_on = [{"uuid": vm["metadata"]["uuid"], "spec": vm["spec"], "metadata": vm["metadata"]}
+                                    for vm in self.vms_to_power_on]
             if self.vms_to_power_on:
                 self.task_uuid_list = vm_op.batch_power_on_vm(self.vms_to_power_on)
 
                 if self.task_uuid_list:
-                    app_response, status = PcTaskMonitor(self.pc_session, task_uuid_list=self.task_uuid_list).monitor()
+                    app_response, status = TaskMonitor(self.pc_session, task_uuid_list=self.task_uuid_list).monitor()
 
                     if app_response:
                         self.exceptions.append(f"Some tasks have failed. {app_response}")
@@ -72,11 +75,13 @@ class PowerOnVmPc(Script):
                     self.vm_name_list = [vm.get("spec", {}).get("name") for vm in self.vm_list]
 
                 # Filter all the VMs which are in power ON state
-                existing_vm_list = vm_op.list(timeout=120, filter=filter_criteria, custom_filters={"power_state": VmPowerState.ON})
+                existing_vm_list = vm_op.list(timeout=120, filter=filter_criteria,
+                                              custom_filters={"power_state": VmPowerState.ON})
                 self.logger.debug(f"existing_vm_list: {len(existing_vm_list)}")
 
                 # Check if the VMs created are in existing power ON vm list
-                vm_powered_on_list = [vm for vm in existing_vm_list if vm.get("spec", {}).get("name") in self.vm_name_list]
+                vm_powered_on_list = [vm for vm in existing_vm_list if vm.get("spec", {}).get("name") in
+                                      self.vm_name_list]
                 self.logger.debug(f"vm_powered_on_list: {len(vm_powered_on_list)}")
 
                 # Updating the result as PASS if the VMs are in powered_on_list
@@ -84,7 +89,8 @@ class PowerOnVmPc(Script):
                 if len(self.vm_name_list) == len(vm_powered_on_list):
                     self.logger.info(f"{len(vm_powered_on_list)} VMs are Powered ON")
                 else:
-                    vms_failed_power_on_list = [val["spec"]["name"] for val in self.vm_list if val not in existing_vm_list]
+                    vms_failed_power_on_list = [val["spec"]["name"] for val in self.vm_list if val not in
+                                                existing_vm_list]
                     self.results["PowerOnVM"].update({vm: "FAIL" for vm in vms_failed_power_on_list})
                     self.exceptions.append(f"Failed to power on VMs: {vms_failed_power_on_list}")
 
@@ -92,7 +98,7 @@ class PowerOnVmPc(Script):
                 self.logger.info("Check VM IP status")
                 if vm_powered_on_list:
                     vm_uuid_list = [val["metadata"]["uuid"] for val in vm_powered_on_list]
-                    _, status = VmIpMonitor(self.pc_session, vm_uuid_list=vm_uuid_list).monitor()
+                    _, status = VmIpMonitorPc(self.pc_session, vm_uuid_list=vm_uuid_list).monitor()
 
                     if status:
                         logger.info(f"{len(vm_powered_on_list)} VMs are assigned with IP Address")

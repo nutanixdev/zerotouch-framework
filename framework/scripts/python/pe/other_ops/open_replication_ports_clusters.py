@@ -2,7 +2,7 @@ from typing import Dict
 from framework.helpers.helper_functions import read_creds
 from framework.helpers.log_utils import get_logger
 from framework.scripts.python.pe.cluster_script import ClusterScript
-from framework.scripts.python.helpers.ssh_cvm import SSHCVM
+from framework.scripts.python.helpers.cvm.ssh_cvm import SSHCvm
 
 logger = get_logger(__name__)
 
@@ -42,7 +42,7 @@ class OpenRepPort(ClusterScript):
                     return
 
             # todo need to find a way to fix this
-            cvm_session = SSHCVM(cvm_ip=cluster_ip, cvm_username=cvm_username, cvm_password=cvm_password)
+            cvm_session = SSHCvm(cvm_ip=cluster_ip, cvm_username=cvm_username, cvm_password=cvm_password)
             self.logger.info(f"{cluster_ip} - Opening replication ports '2020, 2030, 2036, 2073, 2090'")
             out, err = cvm_session.enable_replication_ports()
             # self.logger.info(out)

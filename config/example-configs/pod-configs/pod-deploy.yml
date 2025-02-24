@@ -6,8 +6,8 @@ cvm_creds: &cvm_creds
   cvm_credential: cvm_credential
 
 dns_ntp_servers: &dns_ntp_servers
-  name_servers_list: ["valid-ip1", "valid-ip2"]
-  ntp_servers_list: ["0.us.pool.ntp.org"]
+  name_servers_list: [ "valid-ip1", "valid-ip2" ]
+  ntp_servers_list: [ "0.us.pool.ntp.org" ]
 
 imaging_parameters: &imaging_parameters
   aos_url: "http://path-to-nutanix_installer_package.tar.gz"
@@ -50,12 +50,13 @@ pod:
             - cluster_name: site01-cluster-01
               cluster_size: 3 # Cluster size will be the number of nodes for deployment
               cluster_vip: valid-cluster-vip-ip
-              cvm_ram: 12 # cvm_ram is Gigabytes. Minimum 12, no maximum. Default set it to 12.
+              cvm_ram: 12 # Optional. cvm_ram is Gigabytes. Minimum 12, no maximum.
               node_details:
                 - node_serial: node-serial-1
                   cvm_ip: valid-cvm-ip # Optional. New CVM IP
                   host_ip: valid-host-ip # Optional. New Hypervisor Host IP
                   ipmi_ip: valid-ipmi-ip # Optional. New IPMI IP
+                  cvm_vlan_id: 10 # Optional. VLAN ID for CVM
                   hypervisor_hostname: hostname-01 # Optional. It is used to setup new hypervisor hostname. In-case of IPAM, hypervisor_hostname will be used to create hostrecord
                 - node_serial: node-serial-2
                   cvm_ip: valid-cvm-ip
@@ -66,7 +67,7 @@ pod:
             - cluster_name: site01-cluster-01
               cluster_size: 3 # Cluster size will be the number of nodes for deployment
               cluster_vip: valid-cluster-vip-ip
-              cvm_ram: 12 # cvm_ram is Gigabytes. Minimum 12, no maximum. Default set it to 12.
+              cvm_ram: 12 # Optional. cvm_ram is Gigabytes. Minimum 12, no maximum.
               network:
                 # Host Subnet will be used to assign CVM & Hypervisor IPs from IPAM
                 host_subnet: "10.10.11.0/24"
@@ -101,12 +102,13 @@ pod:
             - cluster_name: site01-cluster-01
               cluster_size: 3 # Cluster size will be the number of nodes for deployment
               cluster_vip: valid-cluster-vip-ip
-              cvm_ram: 12 # cvm_ram is Gigabytes. Minimum 12, no maximum. Default set it to 12.
+              cvm_ram: 12 # Optional. cvm_ram is Gigabytes. Minimum 12, no maximum.
               node_details:
                 - node_serial: node-serial-1
                   cvm_ip: valid-cvm-ip
                   host_ip: valid-host-ip
                   ipmi_ip: valid-ipmi-ip
+                  cvm_vlan_id: 10 # Optional. VLAN ID for CVM
                 - node_serial: node-serial-2
                   cvm_ip: valid-cvm-ip
                   host_ip: valid-host-ip
@@ -115,7 +117,7 @@ pod:
             - cluster_name: site01-cluster-01
               cluster_size: 3 # Cluster size will be the number of nodes for deployment
               cluster_vip: valid-cluster-vip-ip
-              cvm_ram: 12 # cvm_ram is Gigabytes. Minimum 12, no maximum. Default set it to 12.
+              cvm_ram: 12 # Optional. cvm_ram is Gigabytes. Minimum 12, no maximum.
               network:
                 # Host Subnet will be used to assign CVM & Hypervisor IPs from IPAM
                 host_subnet: "10.10.11.0/24"

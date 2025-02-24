@@ -1,7 +1,7 @@
 from copy import deepcopy
-
+from typing import Optional, Dict
 from framework.helpers.rest_utils import RestAPIUtil
-from ..pc_entity import PcEntity
+from ..pc_entity_v3 import PcEntity
 from ..v3.address_group import AddressGroup
 from ..v3.service_group import ServiceGroup
 
@@ -13,6 +13,16 @@ class SecurityPolicy(PcEntity):
         self.resource_type = "/network_security_rules"
         self.session = session
         super(SecurityPolicy, self).__init__(session)
+        self.build_spec_methods = {
+            "name": self._build_spec_name,
+            "desc": self._build_spec_desc,
+            "allow_ipv6_traffic": self._build_allow_ipv6_traffic,
+            "is_policy_hitlog_enabled": self._build_is_policy_hitlog_enabled,
+            # "vdi_rule": self._build_vdi_rule,
+            "app_rule": self._build_app_rule,
+            # "isolation_rule": self._build_isolation_rule,
+            # "quarantine_rule": self._build_quarantine_rule,
+        }
 
     def _get_default_spec(self):
         return deepcopy(
@@ -25,43 +35,37 @@ class SecurityPolicy(PcEntity):
             }
         )
 
+    def get_name_list(self):
+        return [sp["spec"]["name"] for sp in self.list()]
+
     def create_security_policy_spec(self, sp_info):
-        spec = self._get_default_spec()
-        # Get the name
-        self._build_spec_name(spec, sp_info["name"])
-        # Get description
-        self._build_spec_desc(spec, sp_info.get("description"))
-
-        self._build_allow_ipv6_traffic(spec, sp_info.get("allow_ipv6_traffic", False))
-
-        self._build_is_policy_hitlog_enabled(spec, sp_info.get("hitlog", True))
-
-        # App policy
-        self._build_app_rule(spec, sp_info.get("app_rule"))
+        spec, error = super(SecurityPolicy, self).get_spec(params=sp_info)
+        if error:
+            raise Exception("Failed generating Security Policy spec: {}".format(error))
 
         return spec
 
     @staticmethod
-    def _build_spec_name(payload, value):
+    def _build_spec_name(payload, value, complete_config: Optional[Dict] = None):
         payload["spec"]["name"] = value
         return payload, None
 
     @staticmethod
-    def _build_spec_desc(payload, value):
+    def _build_spec_desc(payload, value, complete_config: Optional[Dict] = None):
         payload["spec"]["description"] = value
         return payload, None
 
     @staticmethod
-    def _build_allow_ipv6_traffic(payload, value):
+    def _build_allow_ipv6_traffic(payload, value, complete_config: Optional[Dict] = None):
         payload["spec"]["resources"]["allow_ipv6_traffic"] = value
         return payload, None
 
     @staticmethod
-    def _build_is_policy_hitlog_enabled(payload, value):
+    def _build_is_policy_hitlog_enabled(payload, value, complete_config: Optional[Dict] = None):
         payload["spec"]["resources"]["is_policy_hitlog_enabled"] = value
         return payload, None
 
-    def _build_app_rule(self, payload, value):
+    def _build_app_rule(self, payload, value, complete_config: Optional[Dict] = None):
         app_rule = payload["spec"]["resources"].get("app_rule", {})
         payload["spec"]["resources"]["app_rule"] = self._build_spec_rule(
             app_rule, value

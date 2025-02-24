@@ -14,6 +14,13 @@ class Network(PeEntityV2):
         data = self.get_json_for_create(**kwargs)
         return super(Network, self).create(data=data)
 
+    def get_uuid_by_name(self, name: str) -> str:
+        networks = self.read()
+        for network in networks:
+            if network.get("name") == name:
+                return network.get("uuid")
+        raise ValueError(f"Network with name {name} not found!")
+
     def get_json_for_create(self, **kwargs) -> Dict:
         """
         Create PE Network Payload
@@ -59,8 +66,8 @@ class Network(PeEntityV2):
         """
         name = kwargs.get("name")
         vlan_id = kwargs.get("vlan_id", None)
-        ip_config = kwargs.get("ip_config", None)
-        virtual_switch = kwargs.get("virtual_switch", None)
+        ip_config = kwargs.get("ip_config", {})
+        virtual_switch = kwargs.get("virtual_switch", "")
 
         payload = {
                 "name": name,

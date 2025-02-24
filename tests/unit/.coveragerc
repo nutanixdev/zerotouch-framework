@@ -1,0 +1,7 @@
+[run]
+omit =
+    */helpers/doc_generator_for_eg_configs.py
+    */helpers/schema.py
+
+[report]
+show_missing = True

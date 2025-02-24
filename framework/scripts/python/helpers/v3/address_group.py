@@ -1,6 +1,6 @@
 from copy import deepcopy
 from typing import Optional, List, Dict
-from ..pc_entity import PcEntity
+from ..pc_entity_v3 import PcEntity
 
 
 class AddressGroup(PcEntity):
@@ -14,10 +14,14 @@ class AddressGroup(PcEntity):
         kwargs.pop("filter", None)
         filter_criteria = f"name=={entity_name}"
         response = self.list(filter=filter_criteria, **kwargs)
-
+        #edited the method to access UUID from the nested address_group dict
         for entity in response:
             if entity.get("address_group", {}).get("name") == entity_name:
-                return entity.get("uuid")
+                return entity["address_group"]["uuid"]
+        return None
+    
+    def get_name_list(self):
+        return [entity.get("address_group", {}).get("name") for entity in self.list()]
 
     def create_address_group_spec(self, ag_info) -> Dict:
         spec = self._get_default_spec()

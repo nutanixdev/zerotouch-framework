@@ -14,6 +14,7 @@ from framework.scripts.python.pc.create.create_security_policy_pc import CreateN
 from framework.scripts.python.pc.create.create_service_groups_pc import CreateServiceGroups
 from framework.scripts.python.pc.enable.enable_dr_pc import EnableDR
 from framework.scripts.python.pc.enable.enable_flow_pc import EnableMicrosegmentation
+from framework.scripts.python.pc.enable.enable_network_controller import EnableNetworkController
 from framework.scripts.python.pc.enable.enable_nke_pc import EnableNke
 from framework.scripts.python.helpers.batch_script import BatchScript
 from framework.scripts.python.script import Script
@@ -57,6 +58,7 @@ class PcConfig(Script):
             # Initial PC config
             # Assumed this is already taken care in management config
             if "new_pc_admin_credential" in self.data:
+                # todo this will change for a CMSP PC. Need to check
                 pc_batch_scripts.add(ChangeDefaultAdminPasswordPc(self.data, log_file=self.log_file))
             if "eula" in self.data:
                 pc_batch_scripts.add(AcceptEulaPc(self.data, log_file=self.log_file))
@@ -87,7 +89,8 @@ class PcConfig(Script):
                 pc_enable_scripts.add(AddNameServersPc(self.data, log_file=self.log_file))
             if "pc_directory_services" in self.data or "directory_services" in self.data:
                 pc_enable_scripts.add(CreateRoleMappingPc(self.data, log_file=self.log_file))
-
+            if "enable_network_controller" in self.data and self.data["enable_network_controller"] is True:
+                pc_enable_scripts.add(EnableNetworkController(self.data, log_file=self.log_file))
             if pc_enable_scripts.script_list:
                 pc_batch_scripts.add(pc_enable_scripts)
 

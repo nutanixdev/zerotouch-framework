@@ -12,8 +12,13 @@ address_groups:
   - name: Calm
     description: "Example Calm Address Groups"
     subnets:
-      - network_ip: valid-ip # Eg: 10.10.10.130
-        network_prefix: valid-prefix # Eg: 32
+      - network_ip: valid-ip # Eg: 10.2.2.2
+        network_prefix: valid-prefix # Eg: 24
+    ranges: #Only supported for v4 APIs
+      - start_ip: valid-ip # Eg: 10.10.10.1
+        end_ip: valid-ip # Eg: 10.10.10.10
+      - start_ip: valid-ip
+        end_ip: valid-ip
 
 #Delete
 address_groups:

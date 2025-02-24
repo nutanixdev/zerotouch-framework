@@ -1,6 +1,6 @@
 from copy import deepcopy
 from typing import Optional
-from ..pc_entity import PcEntity
+from ..pc_entity_v3 import PcEntity
 
 
 class ServiceGroup(PcEntity):
@@ -14,10 +14,27 @@ class ServiceGroup(PcEntity):
         kwargs.pop("filter", None)
         filter_criteria = f"name=={entity_name}"
         response = self.list(filter=filter_criteria, **kwargs)
+        if response: #added this check to avoid error when response is empty
+            for entity in response:
+                if entity.get("service_group", {}).get("name") == entity_name:
+                    return entity["service_group"]["uuid"]
+        return None
 
-        for entity in response:
-            if entity.get("service_group", {}).get("name") == entity_name:
-                return entity.get("uuid")
+    def get_name_list(self):
+        service_group_list = self.list()
+        name_list =  [
+            sg.get("service_group", {}).get("name")
+            for sg in service_group_list if sg.get("service_group", {}).get("name")
+            ]
+        return name_list
+    
+    def get_name_uuid_dict(self):
+        service_group_list = self.list()
+        name_uuid_dict = {
+            sg.get("service_group", {}).get("name"): sg.get("uuid")
+            for sg in service_group_list if sg.get("service_group", {}).get("name")
+            }
+        return name_uuid_dict
 
     def create_service_group_spec(self, sg_info):
         spec = self._get_default_spec()
@@ -51,7 +68,6 @@ class ServiceGroup(PcEntity):
         payload["description"] = value
 
     def _build_spec_service_details(self, payload, config):
-
         service = None
         if config.get("tcp"):
             service = {"protocol": "TCP"}

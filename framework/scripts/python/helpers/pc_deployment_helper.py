@@ -5,6 +5,8 @@ from framework.helpers.rest_utils import RestAPIUtil
 logger = get_logger(__name__)
 
 
+# todo Need to eliminate this class. Not needed. Can be added to PC class itself
+
 class PCDeploymentUtil:
     """
     PC deployment Helper

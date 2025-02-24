@@ -41,6 +41,7 @@ pip-log.txt
 pip-delete-this-directory.txt
 
 # Unit test / coverage reports
+.github/workflows/black-duck.yml
 htmlcov/
 .tox/
 .coverage
@@ -80,7 +81,6 @@ pyvenv.cfg
 
 # celery beat schedule file
 celerybeat-schedule
-
 
 # virtualenv
 .venv/

@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Optional
 from framework.helpers.rest_utils import RestAPIUtil
 from ..pe_entity_v1 import PeEntityV1
 from ..v1.storage_pool import StoragePool
@@ -14,6 +14,13 @@ class Container(PeEntityV1):
         data = self.get_json_for_create(**kwargs)
         return super(Container, self).create(data=data)
 
+    def get_uuid_by_name(self, name: str) -> str:
+        containers = self.read()
+        for container in containers:
+            if container.get("name") == name:
+                return container.get("containerUuid")
+        raise ValueError(f"Container with name {name} not found!")
+
     def get_json_for_create(self, **kwargs) -> Dict:
         """
         Helper function to generate container config spec(json) for creation.
@@ -22,17 +29,20 @@ class Container(PeEntityV1):
           kwargs(dict):
             name(str): the name to container.
             storage_pool_uuid(str,optional): The uuid of the storage pool.
+            reserved_in_gb(int, optional): The reserved capacity of the container.
             advertised_capacity(int, optional): The advertised capacity of the
               container.
             replication_factor(int, optional): The replication factor value.
             compression_enabled(bool, optional): enable compression or not.
             compression_delay_in_secs(int, optional): compression delay in seconds.
+            enable_software_encryption(bool, optional): enable software encryption
             erasure_code(str,optional): Turn on erasure code or not. Default value
               is OFF.
             finger_print_on_write(str, optional): Turn on dedup or not. Default
               value is OFF.
             on_disk_dedup(str, optional): Turn on disk dedup or not. Default
               value is OFF.
+            affinity_host_uuid(str, optional): The uuid of the affinity host.
 
         Returns:
           dict: The container config spec for creation.

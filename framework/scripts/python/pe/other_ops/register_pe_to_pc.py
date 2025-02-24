@@ -16,11 +16,18 @@ class RegisterToPc(ClusterScript):
     Class that takes multiple clusters and registers them to PC
     """
     SYNC_TIME = 300
+    DEFAULT_USERNAME = "admin"
+    DEFAULT_SYSTEM_PASSWORD = "Nutanix/4u"
 
     def __init__(self, data: Dict, **kwargs):
         self.data = data
         self.pc_ip = self.data["pc_ip"]
-        self.pc_credential = self.data["pc_credential"]
+        # get credentials from the payload
+        try:
+            self.pc_credential = self.data["pc_credential"]
+            self.pc_username, self.pc_password = read_creds(data=self.data, credential=self.pc_credential)
+        except Exception as e:
+            self.pc_username, self.pc_password = self.DEFAULT_USERNAME, self.DEFAULT_SYSTEM_PASSWORD
         self.pc_session = self.data["pc_session"]
         self.pe_uuids = []
         super(RegisterToPc, self).__init__(data, **kwargs)
@@ -78,16 +85,9 @@ class RegisterToPc(ClusterScript):
                 self.logger.warning(f"Cluster {pe_ip!r} is already registered to a PC with IP: {pc_ip!r}")
                 return False
 
-        # get credentials from the payload
-        try:
-            pc_username, pc_password = read_creds(data=self.data, credential=self.pc_credential)
-        except Exception as e:
-            self.exceptions.append(e)
-            return False
-
         response = cluster.register_pe_to_pc(pc_ip=self.pc_ip,
-                                             pc_username=pc_username,
-                                             pc_password=pc_password)
+                                             pc_username=self.pc_username,
+                                             pc_password=self.pc_password)
 
         exception_msg = f"Failed to register {pe_ip!r}. Got the following response for " \
                         f"'add_to_multicluster' API: {response}"

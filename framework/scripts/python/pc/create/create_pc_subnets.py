@@ -1,7 +1,7 @@
 from typing import Dict
 from framework.helpers.log_utils import get_logger
 from framework.scripts.python.helpers.pc_groups_op import PcGroupsOp
-from framework.scripts.python.helpers.state_monitor.pc_task_monitor import PcTaskMonitor
+from framework.scripts.python.helpers.state_monitor.task_monitor import PcTaskMonitor as TaskMonitor
 from framework.scripts.python.helpers.v3.cluster import Cluster as PcCluster
 from framework.scripts.python.helpers.v3.network import Network
 from framework.scripts.python.script import Script
@@ -72,8 +72,8 @@ class CreateSubnetsPc(Script):
             self.task_uuid_list = network.batch_create_network(subnets_to_create)
 
             if self.task_uuid_list:
-                pc_task_monitor = PcTaskMonitor(self.pc_session,
-                                                task_uuid_list=self.task_uuid_list)
+                pc_task_monitor = TaskMonitor(self.pc_session,
+                                              task_uuid_list=self.task_uuid_list)
                 pc_task_monitor.DEFAULT_CHECK_INTERVAL_IN_SEC = 10
                 pc_task_monitor.DEFAULT_TIMEOUT_IN_SEC = 600
                 app_response, status = pc_task_monitor.monitor()

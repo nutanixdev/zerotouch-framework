@@ -9,4 +9,8 @@ netaddr==0.10.1
 requests-cache==1.1.1
 paramiko==3.3.1
 cryptography==41.0.2
-calm-whl/calm.dsl-3.7.0-py3-none-any.whl
+ntnx-microseg-py-client==4.0.1
+ntnx-networking-py-client==4.0.1
+ntnx-prism-py-client==4.0.1
+ntnx-vmm-py-client==4.0.1
+calm-whl/calm.dsl-3.8.1-py3-none-any.whl

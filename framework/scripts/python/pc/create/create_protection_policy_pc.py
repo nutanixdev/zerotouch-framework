@@ -1,7 +1,7 @@
 from typing import Dict
 from framework.helpers.log_utils import get_logger
 from framework.helpers.rest_utils import RestAPIUtil
-from framework.scripts.python.helpers.state_monitor.pc_task_monitor import PcTaskMonitor
+from framework.scripts.python.helpers.state_monitor.task_monitor import PcTaskMonitor as TaskMonitor
 from framework.scripts.python.helpers.v3.cluster import Cluster as PcCluster
 from framework.scripts.python.helpers.v3.protection_rule import ProtectionRule
 from framework.scripts.python.script import Script
@@ -49,7 +49,8 @@ class CreateProtectionPolicy(Script):
                     remote_pc_credential = details.get("pc_credential")
                     # get credentials from the payload
                     try:
-                        remote_pc_username, remote_pc_password = read_creds(data=self.data, credential=remote_pc_credential)
+                        remote_pc_username, remote_pc_password = read_creds(data=self.data,
+                                                                            credential=remote_pc_credential)
                     except Exception as e:
                         self.exceptions.append(e)
                         continue
@@ -83,8 +84,8 @@ class CreateProtectionPolicy(Script):
 
             # Monitor the tasks
             if self.task_uuid_list:
-                app_response, status = PcTaskMonitor(self.pc_session,
-                                                     task_uuid_list=self.task_uuid_list).monitor()
+                app_response, status = TaskMonitor(self.pc_session,
+                                                   task_uuid_list=self.task_uuid_list).monitor()
 
                 if app_response:
                     self.exceptions.append(f"Some tasks have failed. {app_response}")

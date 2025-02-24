@@ -17,8 +17,8 @@ jobs:
       FILE: ${{ steps.set-vars.outputs.FILE }}
       WORKFLOW: ${{ steps.set-vars.outputs.WORKFLOW }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: tj-actions/changed-files@v42
+      - uses: actions/checkout@v4
+      - uses: tj-actions/changed-files@v45
         id: changed_files
         with:
           json: "true"
@@ -70,6 +70,11 @@ jobs:
         run: |
           echo "FILE=config/edge-ai.json" >> $GITHUB_ENV
           echo "WORKFLOW=calm-edgeai-vm-workload" >> $GITHUB_ENV
+      - name: Set ndb if ndb file changed
+        if: contains(steps.changed_files.outputs.all_changed_files, 'config/ndb.yml')
+        run: |
+          echo "FILE=config/ndb.yml" >> $GITHUB_ENV
+          echo "WORKFLOW=ndb" >> $GITHUB_ENV
       - name: Set file and workflow vars
         id: set-vars
         run: |

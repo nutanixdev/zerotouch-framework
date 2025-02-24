@@ -2,7 +2,7 @@ from typing import Dict
 from framework.scripts.python.helpers.v2.cluster import Cluster as PeCluster
 from framework.scripts.python.pe.cluster_script import ClusterScript
 from framework.scripts.python.helpers.v0_8.ha import HA
-from framework.scripts.python.helpers.state_monitor.pc_task_monitor import PcTaskMonitor as TaskMonitor
+from framework.scripts.python.helpers.state_monitor.progress_monitor import TaskMonitor
 from framework.helpers.log_utils import get_logger
 
 logger = get_logger(__name__)

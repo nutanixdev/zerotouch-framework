@@ -29,4 +29,4 @@ class CyberArk:
             user_pwd_details = self.session.get(uri, verify=self.cert_file, cert=(self.cert_file, self.cert_key))
             return user_pwd_details.get("UserName"), user_pwd_details.get("Content")
         except Exception as e:
-            raise Exception(f"Failed to fetch password for user: {username!r}. Error is: {e}")
+            raise Exception(f"Failed to fetch password for user: {username!r}. Error is: {e}").with_traceback(e.__traceback__)

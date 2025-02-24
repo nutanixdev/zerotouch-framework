@@ -30,7 +30,7 @@ class ClusterConfig(Script):
 
     def __init__(self, data: Dict, global_data: Dict = None, results_key: str = "", log_file: Optional[str] = None,
                  **kwargs):
-        self.data = data
+        self.data = deepcopy(data)
         self.global_data = deepcopy(global_data) if global_data else {}
         self.results_key = results_key
         self.log_file = log_file

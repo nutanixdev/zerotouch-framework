@@ -7,18 +7,16 @@ from rainbow_logging_handler import RainbowLoggingHandler
 
 class ConfigureRootLogger:
     """
-    customization the root logger
+    Customization of the root logger.
     """
 
-    def __init__(self, debug: False, file_name: str = "zero_touch.log"):
+    def __init__(self, debug: bool = False, file_name: str = "zero_touch.log"):
         """
-        Build CustomLogger based on logging module
+        Build CustomLogger based on logging module.
 
         Args:
-           debug: If we want to set debug or not
-
-        Returns:
-           None
+            debug (bool): If we want to set debug or not.
+            file_name (str): Name of the log file.
         """
         # create console handler
         self._ch = RainbowLoggingHandler(sys.stderr, color_message_info=('green', None, False))
@@ -39,17 +37,13 @@ class ConfigureRootLogger:
         )
 
     @staticmethod
-    def __add_console_formatter(ch: RainbowLoggingHandler):
+    def __add_console_formatter(ch: RainbowLoggingHandler) -> None:
         """
-        add ColorFormatter with custom colors for each log level
+        Add ColorFormatter with custom colors for each log level.
 
         Args:
-            ch
-
-        Returns
-            None
+            ch (RainbowLoggingHandler): Console handler to add formatter to.
         """
-
         fmt = (
             "[%(asctime)s] "
             "[%(threadName)s] "
@@ -63,15 +57,12 @@ class ConfigureRootLogger:
         ch.setFormatter(formatter)
 
 
-def add_file_formatter(fh: logging.FileHandler):
+def add_file_formatter(fh: logging.FileHandler) -> None:
     """
-    add file formatter with custom colors for each log level
+    Add file formatter with custom colors for each log level.
 
     Args:
-        fh
-
-    Returns
-        None
+        fh (logging.FileHandler): File handler to add formatter to.
     """
     fmt = (
         "[%(asctime)s] "
@@ -87,9 +78,17 @@ def add_file_formatter(fh: logging.FileHandler):
     fh.setFormatter(formatter)
 
 
-def get_logger(name: str, file_name: Optional[str] = None):
-    """returns a new logger"""
+def get_logger(name: str, file_name: Optional[str] = None) -> logging.Logger:
+    """
+    Returns a new logger.
 
+    Args:
+        name (str): Name of the logger.
+        file_name (Optional[str]): Optional file name for the logger.
+
+    Returns:
+        logging.Logger: Configured logger.
+    """
     logging_handle = logging.getLogger(name)
     # We are taking file_name as optional parameter. If file_name is passed, we'll create a new Filehandler and add
     # this filename to the handler. By doing this, the logger will write to the new file along with the

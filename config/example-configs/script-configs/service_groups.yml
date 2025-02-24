@@ -9,11 +9,18 @@ service_groups:
     service_details:
       tcp:
         - "2074"
+        - "22-30" # Give in this format for range of ports
+      icmp:
+        - code: 1 #Code can be in Range 0-43
+          type: 8 #Type Can be in Range 0-15
+        - code: 2
+          type: 9
   - name: dns
     description: Example Service Group DNS - UDP
     service_details:
       udp:
         - "53"
+      any_icmp: true # If true, ICMP will be allowed for all types of ICMP
 
 #Delete
 service_groups:

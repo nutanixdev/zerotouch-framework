@@ -1,7 +1,7 @@
 from typing import Optional
 
 from framework.helpers.rest_utils import RestAPIUtil
-from ..pc_entity import PcEntity
+from ..pc_entity_v3 import PcEntity
 
 
 class RemoteSyslog(PcEntity):

@@ -3,7 +3,7 @@ from typing import Dict
 from framework.helpers.log_utils import get_logger
 from framework.scripts.python.helpers.v3.ova import Ova
 from framework.scripts.python.script import Script
-from framework.scripts.python.helpers.state_monitor.pc_task_monitor import PcTaskMonitor
+from framework.scripts.python.helpers.state_monitor.task_monitor import PcTaskMonitor as TaskMonitor
 
 logger = get_logger(__name__)
 
@@ -36,8 +36,8 @@ class PcOVAUpload(Script):
                 # Upload OVAs to PC clusters
                 task_uuid_list = ova_upload.url_upload(ova_config_list)
                 if task_uuid_list:
-                    pc_task_monitor = PcTaskMonitor(self.pc_session,
-                                                    task_uuid_list=task_uuid_list)
+                    pc_task_monitor = TaskMonitor(self.pc_session,
+                                                  task_uuid_list=task_uuid_list)
                     pc_task_monitor.DEFAULT_CHECK_INTERVAL_IN_SEC = 10
                     pc_task_monitor.DEFAULT_TIMEOUT_IN_SEC = 600
                     app_response, status = pc_task_monitor.monitor()

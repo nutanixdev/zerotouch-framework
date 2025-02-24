@@ -22,7 +22,7 @@ class ImageClusterScript(Script):
 
     def execute(self):
         """
-        Run Image cluste nodes in Foundation Central
+        Run Image cluster nodes in Foundation Central
         """
         cluster_name = self.cluster_data["cluster_name"]
         self.logger.info(f"Running Image cluster nodes in Foundation Central {cluster_name}")

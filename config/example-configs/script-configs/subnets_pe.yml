@@ -60,7 +60,7 @@ clusters:
       - uuid: <valid-uuid> #Recommended
       # Delete Subnets can be done by passing Names as well. But it is not recommended 
       # since it will Remove all networks with the given name which can included un intended existing newtorks
-      - name: "vlan-110" 
+      - name: "vlan-110"
 
 ######################################## SCHEMA DOCUMENTATION ########################################
 ### 			---CREATE SCHEMA --- 			 ###

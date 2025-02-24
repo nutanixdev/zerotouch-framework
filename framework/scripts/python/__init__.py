@@ -2,6 +2,9 @@ from .configure_pod import PodConfig
 from .ncm.bps.create_bp_calm import CreateBp
 from .ncm.apps.create_calm_application_from_dsl import CreateAppFromDsl
 from .ncm.project.create_calm_project import CreateNcmProject
+from .ndb.configure_ndb import NdbConfig
+from .ndb.register_initial_cluster import RegisterInitClusterNdb
+from .ndb.update_password_ndb import UpdatePasswordNdb
 from .objects.configure_objects import OssConfig
 from .pc.configure_pc import PcConfig
 from .pc.create.create_identity_provider import CreateIdp
@@ -49,14 +52,19 @@ from .pc.enable.enable_dr_pc import EnableDR
 from .pc.enable.enable_flow_pc import EnableMicrosegmentation
 from .pc.enable.enable_nke_pc import EnableNke
 from .pc.enable.enable_objects import EnableObjects
+from .pc.enable.enable_network_controller import EnableNetworkController
 from .pc.other_ops.accept_eula import AcceptEulaPc
 from .pc.other_ops.change_default_system_password import ChangeDefaultAdminPasswordPc
 from .pc.other_ops.power_on_vm_pc import PowerOnVmPc
 from .pc.other_ops.update_pulse_pc import UpdatePulsePc
 from .pc.disable.disable_microsegmentation import DisableMicrosegmentation
+from .pc.disable.disable_network_controller import DisableNetworkController
+from .pe.create.create_vm_pe import CreateVmPe
+from .pe.upload.upload_image import UploadImagePe
 from .pe.deploy_pc import DeployPC
 from .pe.other_ops.accept_eula import AcceptEulaPe
 from .pe.other_ops.change_system_password import ChangeDefaultAdminPasswordPe
+from .pe.other_ops.power_transition_vm_pe import PowerTransitionVmPe
 from .pe.other_ops.register_pe_to_pc import RegisterToPc
 from .pe.create.add_ad_server_pe import AddAdServerPe
 from .pe.create.add_ntp_server_pe import AddNtpServersPe
@@ -81,6 +89,10 @@ from .pe.update.rebuild_capacity_reservation import RebuildCapacityReservation
 from .pe.delete.delete_rolemapping_pe import DeleteRoleMappingPe
 from .objects.objectstore.delete_objectstore import DeleteObjectStore
 from .cvm.update_cvm_foundation import UpdateCvmFoundation
+from .pc.create.create_vpc_pc import CreateVPC
+from .pc.delete.delete_vpc_pc import DeleteVPC
+from .pc.update.update_vpc_pc import UpdateVPC
+
 
 __all__ = ["AddAdServerPe", "PodConfig", "ConnectToAz", "CreateBp", "CreateCategoryPc",
            "CreateContainerPe", "CreateServiceGroups", "CreateRoleMappingPe", "CreateNetworkSecurityPolicy",
@@ -99,4 +111,8 @@ __all__ = ["AddAdServerPe", "PodConfig", "ConnectToAz", "CreateBp", "CreateCateg
            "PcOVADelete", "DeleteVmPc", "DeleteVmPe", "DisconnectAz", "AcceptEulaPc", "ChangeDefaultAdminPasswordPc",
            "PowerOnVmPc", "UpdatePulsePc", "PcOVADelete", "DeleteVmPc", "DisconnectAz", "ChangeDefaultAdminPasswordPe",
            "UpdatePulsePe", "AcceptEulaPe", "PcConfig", "ClusterConfig", "OssConfig", "DeployPC", "DeleteSubnetsPc",
-           "DeleteSubnetsPe", "PcImageUpload", "PcOVAUpload", "CreateIdp", "UpdateCvmFoundation"]
+           "DeleteSubnetsPe", "PcImageUpload", "PcOVAUpload", "CreateIdp", "UpdateCvmFoundation", "CreateVPC",
+           "DeleteVPC", "UpdateVPC", "EnableNetworkController", "DisableNetworkController", "DeleteSubnetsPe",
+           "PcImageUpload", "PcOVAUpload", "CreateIdp", "UpdateCvmFoundation", "UploadImagePe",
+           "CreateVmPe", "PowerTransitionVmPe", "NdbConfig", "UpdatePasswordNdb", "RegisterInitClusterNdb"]
+

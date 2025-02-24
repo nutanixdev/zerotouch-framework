@@ -1,0 +1,61 @@
+pe_creds: &pe_creds
+  pe_credential: admin_cred
+
+# Comment out if image is already uploaded
+images_to_upload: &images_to_upload
+  images:
+    - name: image-name
+      url: https://url-to-download-image
+      image_type: DISK_IMAGE  # DISK_IMAGE or ISO_IMAGE
+      container_name: SelfServiceContainer  # Existing container name in which the image needs to be uploaded
+
+vms: &vms
+  vms:
+    - name: vm-name
+      description: description
+      hypervisor_type: AHV # only AHV is supported for now
+      timezone: UTC # select valid timezone from timezone.json file in the config directory or use UTC
+      memory_mb: 1024 # Memory in MB
+      num_vcpus: 1 # Number of vCPUs
+      num_cores_per_vcpu: 1 # Number of cores per vCPU
+      boot_type: LEGACY # LEGACY or SECURE_BOOT
+      boot_disk: # boot disk details
+        is_cdrom: false
+        is_empty: false
+        device_bus: SATA # SCSI/IDE/SATA
+        vm_disk_clone:
+          image: image-name # Specify the image name to clone from
+      vm_disks: # Additional disks
+        - is_cdrom: false
+          is_empty: false
+          device_bus: SCSI # SCSI/IDE/SATA
+          vm_disk_create:
+            size_mib: 8192 # Disk size in MB
+            storage_container: SelfServiceContainer # Storage container to use
+      vm_nics:
+        - network: vlan0-managed  # Network to attach to
+          static_ip: x.x.x.x # Static IP to assign to the VM, comment out this line if DHCP is to be used
+      # Uncomment the below section if you want to use guest customization.
+      # this section is optional and an example is provided below.
+      guest_customization:
+        user_data: |
+          #cloud-config
+          runcmd:
+          - configure_static_ip ip=10.10.10.10 gateway=10.10.10.1 netmask=255.255.255.0 nameserver=10.12.12.5
+
+# Add VMs to the clusters
+clusters:
+  x.x.x.x: # cluster IP
+    name: cluster-name
+    # Use global pe creds
+    <<: *pe_creds
+    # Use global images to upload if image is not already uploaded
+    <<: *images_to_upload
+    <<: *vms
+  y.y.y.y: # cluster IP
+    name: cluster-name1
+    # Use global pe creds
+    <<: *pe_creds
+    # Use global images to upload if image is not already uploaded
+    <<: *images_to_upload
+    <<: *vms

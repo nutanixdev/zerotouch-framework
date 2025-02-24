@@ -1,7 +1,7 @@
 from copy import deepcopy
-from typing import List, Dict
+from typing import List, Dict, Optional
 from framework.helpers.rest_utils import RestAPIUtil
-from ..pc_entity import PcEntity
+from ..pc_entity_v3 import PcEntity
 from ..v3.availabilty_zone import AvailabilityZone
 from ..v3.vm import VM
 
@@ -10,9 +10,8 @@ class RecoveryPlan(PcEntity):
     kind = "recovery_plan"
 
     def __init__(self, session: RestAPIUtil):
-        self.network_type = self.source_pe_clusters = self.primary_location_cluster_list = \
-            self.recovery_location_cluster_list = self.primary_location = self.primary_location_url = \
-            self.recovery_location_url = self.remote_pe_clusters = None
+        self.source_pe_clusters = self.primary_location_cluster_list = self.recovery_location_cluster_list = \
+            self.primary_location_url = self.recovery_location_url = self.remote_pe_clusters = None
         self.resource_type = "/recovery_plans"
         super(RecoveryPlan, self).__init__(session)
         self.build_spec_methods = {
@@ -30,8 +29,6 @@ class RecoveryPlan(PcEntity):
         Payload for creating a Recovery plan
         """
         self.source_pe_clusters = source_pe_clusters
-        self.network_type = rp_spec.get("network_type", "NON_STRETCH")
-        self.primary_location = rp_spec.get("primary_location", {})
         spec, error = super(RecoveryPlan, self).get_spec(params=rp_spec)
         if error:
             raise Exception("Failed generating recovery-plan spec: {}".format(error))
@@ -59,16 +56,16 @@ class RecoveryPlan(PcEntity):
         )
 
     @staticmethod
-    def _build_spec_name(payload: Dict, name: str) -> (Dict, None):
+    def _build_spec_name(payload: Dict, name: str, complete_config: Optional[Dict] = None) -> (Dict, None):
         payload["spec"]["name"] = name
         return payload, None
 
     @staticmethod
-    def _build_spec_desc(payload: Dict, desc: str) -> (Dict, None):
+    def _build_spec_desc(payload: Dict, desc: str, complete_config: Optional[Dict] = None) -> (Dict, None):
         payload["spec"]["description"] = desc
         return payload, None
 
-    def _build_spec_stages(self, payload: Dict, stages: List) -> (Dict, None):
+    def _build_spec_stages(self, payload: Dict, stages: List, complete_config: Optional[Dict] = None) -> (Dict, None):
         stage_list = []
         for stage in stages:
             stage_spec = {
@@ -155,11 +152,12 @@ class RecoveryPlan(PcEntity):
 
         return ntw_spec
 
-    def _build_spec_network_mappings(self, payload: Dict, network_mappings: List) -> (Dict, None):
+    def _build_spec_network_mappings(self, payload: Dict, network_mappings: List,
+                                     complete_config: Optional[Dict] = None) -> (Dict, None):
 
         # set flag to apply these settings to all network mappings
         are_network_stretched = False
-        if self.network_type == "STRETCH":
+        if complete_config.get("network_type") == "STRETCH":
             are_network_stretched = True
 
         # create primary and recovery location spec to be used in each network mappings
@@ -241,7 +239,8 @@ class RecoveryPlan(PcEntity):
         ] = network_mapping_specs
         return payload, None
 
-    def _build_spec_primary_location(self, payload: Dict, primary_location: Dict) -> (Dict, None):
+    def _build_spec_primary_location(self, payload: Dict, primary_location: Dict,
+                                     complete_config: Optional[Dict] = None) -> (Dict, None):
         primary_location_index = payload["spec"]["resources"]["parameters"][
             "primary_location_index"
         ]
@@ -270,14 +269,16 @@ class RecoveryPlan(PcEntity):
         ] = spec
         return payload, None
 
-    def _build_spec_recovery_location(self, payload, recovery_location):
+    def _build_spec_recovery_location(self, payload, recovery_location: Dict,
+                                      complete_config: Optional[Dict] = None) -> (Dict, None):
         recovery_location_index = (
             payload["spec"]["resources"]["parameters"]["primary_location_index"] ^ 1
         )
 
         if recovery_location.get("availability_zone"):
             az_pc = AvailabilityZone(self.session)
-            if recovery_location['availability_zone'] == self.primary_location.get("availability_zone"):
+            if (recovery_location['availability_zone'] ==
+               complete_config.get("primary_location", {}).get("availability_zone")):
                 self.recovery_location_url = recovery_location["url"] = az_pc.get_mgmt_url_by_name("Local AZ")
             else:
                 self.recovery_location_url = recovery_location["url"] = \
@@ -304,7 +305,8 @@ class RecoveryPlan(PcEntity):
         ] = spec
         return payload, None
 
-    def _build_spec_floating_ip_assignments(self, payload: Dict, floating_ip_assignments: List) -> (Dict, None):
+    def _build_spec_floating_ip_assignments(self, payload: Dict, floating_ip_assignments: List,
+                                            complete_config: Optional[Dict] = None) -> (Dict, None):
         floating_ip_assignment_specs = []
         for config in floating_ip_assignments:
             floating_ip_assignment_spec = {"availability_zone_url": config[
@@ -372,6 +374,7 @@ class RecoveryPlan(PcEntity):
             name = resp["status"]["name"]
         elif "uuid" not in vm_config:
             vm = VM(self.session)
+            # pass cluster info
             uuid = vm.get_uuid_by_name(vm_config.get("name"))
             if not uuid:
                 error = f"VM {0} not found.".format(name)

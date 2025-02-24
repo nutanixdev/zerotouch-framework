@@ -30,7 +30,7 @@ class CreateSubnetPe(ClusterScript):
 
                 for network_to_create in cluster_details["networks"]:
                     try:
-                        self.logger.info(f"Creating a new network '{network_to_create['name']}' in {cluster_info!r}")
+                        self.logger.info(f"Creating a new network {network_to_create['name']!r} in {cluster_info!r}")
                         response = network_op.create(**network_to_create)
 
                         if response.get("network_uuid"):
