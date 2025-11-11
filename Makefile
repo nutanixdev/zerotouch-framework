@@ -3,7 +3,7 @@ dev:
 	# This step assumes python3 is installed on your dev machine as python
 	[ -f venv/bin/python ] || (python -m venv venv)
 		. venv/bin/activate
-		venv/bin/pip install --upgrade pip setuptools
+		venv/bin/pip install --upgrade "pip<25.3" setuptools
 		venv/bin/pip install pip-tools
 		venv/bin/pip-compile --output-file=requirements/prod.txt requirements/prod.in
 		venv/bin/pip install --no-cache -r requirements/prod.txt

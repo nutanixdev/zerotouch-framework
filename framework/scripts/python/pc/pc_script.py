@@ -30,7 +30,6 @@ ENTITY_VERSION_MAP = {
     "RecoveryPlan": ("default", "recovery_plan"),
     "RemoteSyslog": ("default", "syslog"),
     "VM": ("default", "vm"),
-    "NetworkController": ("pc.2024.3", "network_controller"),
 }
 
 class PcScript(Script):
@@ -56,7 +55,8 @@ class PcScript(Script):
         if not pc_version.startswith("pc"):
             # If the version is not in the format pc.x.x.x or pc.x.x, return False
             return False
-
+        if pc_version.startswith("pc.7"): #Temporary Fix to allow PC.7.x Versions
+            return True
         # Strip the "pc." prefix for version comparison
         pc_version_number = pc_version[3:]
         threshold_version_number = threshold_version[3:]

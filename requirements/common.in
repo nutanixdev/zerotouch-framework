@@ -13,5 +13,5 @@ ntnx-microseg-py-client==4.0.1
 ntnx-networking-py-client==4.0.1
 ntnx-prism-py-client==4.0.1
 ntnx-vmm-py-client==4.0.1
-ntnx-iam-py-client==4.0.1
+ntnx_iam_py_client==4.0.1
 calm-whl/calm.dsl-3.8.1-py3-none-any.whl

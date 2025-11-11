@@ -185,7 +185,7 @@ class PrismCentral(PcEntity):
         if task_uuid:
             pc_task_monitor = PcTaskMonitor(self.session, task_uuid_list=[task_uuid])
             pc_task_monitor.DEFAULT_CHECK_INTERVAL_IN_SEC = 60
-            pc_task_monitor.DEFAULT_TIMEOUT_IN_SEC = 3600
+            pc_task_monitor.DEFAULT_TIMEOUT_IN_SEC = (90 * 60) # 90 mins wait timeout
             try:
                 app_response, status = pc_task_monitor.monitor()
             except Exception as e:

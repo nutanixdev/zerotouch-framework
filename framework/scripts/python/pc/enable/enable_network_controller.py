@@ -20,10 +20,11 @@ class EnableNetworkController(PcScript):
         self.v4_api_util = self.data["v4_api_util"]
         super(EnableNetworkController, self).__init__(**kwargs)
         self.logger = self.logger or logger
-        self.network_controller_helper = self.import_helpers_with_version_handling("NetworkController")
+        
 
     def execute(self, **kwargs):
         try:
+            self.network_controller_helper = NetworkController(v4_api_util = self.data["v4_api_util"])
             if self.network_controller_helper.get_network_controller_status():
                 self.logger.warning(f"SKIP: Network Controller is already enabled in {self.data['pc_ip']!r}")
                 return

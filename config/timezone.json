@@ -1,4 +1,5 @@
-{
+{   
+    "instructions": "If a value contains '|', it means 'or'. Use only one of the timezones, e.g. 'Africa/Abidjan' or 'Africa/Bamako' , not the whole string.",
     "timezones": [
         "Africa/Abidjan|Africa/Bamako",
         "Africa/Abidjan|Africa/Banjul",

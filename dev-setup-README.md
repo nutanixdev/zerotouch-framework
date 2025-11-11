@@ -9,6 +9,7 @@
   and `export CFLAGS="-I$(brew --prefix openssl)/include"`
 - Install Python >= 3.9 (you can use pyenv to manage multiple Python versions): `brew install pyenv`
   and `pyenv install 3.10.6`
+- Ensure pip version is <= 25.2 and piptools <=7.5.1
 - Clone this repo
 - Install required python modules: `make dev`
 - Getting into virtualenv: `source venv/bin/activate`
