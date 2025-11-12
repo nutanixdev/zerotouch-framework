@@ -207,7 +207,7 @@ class ImagedCluster(FcEntity):
             if not cluster_info.get("use_existing_network_settings", cluster_info["use_existing_network_settings"]):
                 node_spec = {
                     "rdma_passthrough": cluster_info.get("rdma_passthrough", False),
-                    "hypervisor_type": (cluster_info.get("imaging_parameters"),{}).get("hypervisor_type") or None,
+                    "hypervisor_type": cluster_info.get("imaging_parameters",{}).get("hypervisor_type") or None,
                     "image_now": cluster_info.get("re-image", False),
                     "use_existing_network_settings": False
                 }

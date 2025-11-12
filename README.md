@@ -9,6 +9,10 @@ hence the name Zero Touch. The tool can also be extended to manage Day-1 and Day
 > scripts have been tested against: AOS: 6.5.x, 6.7.x, 6.8.x, 7.0 PC 2022.6.x, 2023.4.x, 2024.1.x, 2024.3 Calm 3.5.2,
 > 3.6.0 and 3.8.1
 
+
+## Setting up
+Refer the [dev-setup-README.md](./dev-setup-README.md) File for the Setting up Steps
+
 ## Prerequisites
 
 - For Imaging and Cluster creation:

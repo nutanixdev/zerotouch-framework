@@ -21,7 +21,7 @@ class PcEntity(Entity):
         payload = {
             "kind": kwargs.pop("kind", self.kind),
             "offset": kwargs.pop("offset", 0),
-            "filter": kwargs.pop("filter", ""),
+            #"filter": kwargs.pop("filter", ""),
             "length": kwargs.pop("length", self.V3_LIST_CHUNKSIZE),
             #"sort_order": kwargs.pop("sort_order", None),
             #"sort_attribute": kwargs.pop("sort_attribute", None)
@@ -30,6 +30,8 @@ class PcEntity(Entity):
             payload["sort_order"] = kwargs.pop("sort_order")
         if kwargs.pop("sort_attribute", None):
             payload["sort_attribute"] = kwargs.pop("sort_attribute")
+        if kwargs.pop("filter", None):
+            payload["filter"] = kwargs.pop("filter")
 
         if payload["length"] > self.V3_LIST_CHUNKSIZE:
             length = payload["length"]

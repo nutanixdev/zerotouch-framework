@@ -101,10 +101,15 @@ class FoundationScript(Script):
         Returns:
             tuple (dict, str): Return Updated node dict & error message if there is an error
         """
+        updated_node_detail_dict = {}
         for node in cluster_node_details:
-            node_info = existing_node_detail_dict[node["node_serial"]]
-            hypervisor_hostname = node.get("hypervisor_hostname", node_info["hypervisor_hostname"])
+            existing_node_info = existing_node_detail_dict[node["node_serial"]]
+            updated_node_detail_dict[node["node_serial"]] = {}
+            node_info = updated_node_detail_dict[node["node_serial"]]
+            hypervisor_hostname = node.get("hypervisor_hostname", existing_node_info["hypervisor_hostname"])
             # If there is ipam_obj, fetch IPs from IPAM & Create host record
+
+            node_info['imaged_node_uuid'] = existing_node_info['imaged_node_uuid']
             if self.ipam_obj:
                 host_ip, error = self.get_ip_and_create_host_record(
                     fqdn=f"{hypervisor_hostname}.{network['domain']}", subnet=network.get("host_subnet"),
@@ -122,9 +127,9 @@ class FoundationScript(Script):
                 if error:
                     self.logger.warning(f"Failed to update IPMI IP: {error}")
             else:
-                host_ip = node.get("host_ip", node_info["hypervisor_ip"])
-                cvm_ip = node.get("cvm_ip", node_info["cvm_ip"])
-                ipmi_ip = node.get("ipmi_ip", node_info["ipmi_ip"])
+                host_ip = node.get("host_ip", existing_node_info["hypervisor_ip"])
+                cvm_ip = node.get("cvm_ip", existing_node_info["cvm_ip"])
+                ipmi_ip = node.get("ipmi_ip", None)
 
             node_info["hypervisor_ip"] = host_ip
             node_info["hypervisor_gateway"] = network["host_gateway"]
@@ -137,13 +142,15 @@ class FoundationScript(Script):
             node_info["cvm_gateway"] = network["host_gateway"]
             node_info["cvm_netmask"] = get_subnet_mask(subnet=network["host_subnet"]) \
                 if network.get("host_subnet") else network.get("host_netmask")
-            node_info["ipmi_ip"] = ipmi_ip
-            node_info["ipmi_gateway"] = (node.get("ipmi_gateway") or network.get("ipmi_gateway") or
-                                         node_info.get("ipmi_gateway"))
-            node_info["ipmi_netmask"] = get_subnet_mask(subnet=network["ipmi_subnet"]) if network.get("ipmi_subnet") else node_info.get("ipmi_netmask")
+            if ipmi_ip:
+                node_info["ipmi_ip"] = ipmi_ip
+            if node.get("ipmi_gateway") or network.get("ipmi_gateway"):
+                node_info["ipmi_gateway"] = (node.get("ipmi_gateway") or network.get("ipmi_gateway") )
+            if network.get("ipmi_subnet"):
+                node_info["ipmi_netmask"] = get_subnet_mask(subnet=network["ipmi_subnet"])
             if network_bond_settings:
                 node_info["network_bond_settings"] = network_bond_settings
-        return existing_node_detail_dict, None
+        return updated_node_detail_dict, None
 
     def update_cluster_info_with_site_info(self, cluster_info: Dict, site_info: Dict):
         """Update cluster info with site info

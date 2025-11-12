@@ -65,7 +65,7 @@ IMAGING_NETWORK = {
             'validator': validate_netmask
         },
         'ipmi_gateway': {
-            'required': True,
+            'required': False,
             'empty': True,
             'type': 'string',
             'validator': validate_ip
