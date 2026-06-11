@@ -1,7 +1,0 @@
-pytest==6.2.4
-pytest-cov==2.12.1
-requests_mock==1.9.3
-flake8==3.9.2
-pyinstaller==6.0.0
-cx_Freeze==7.0.0
--r common.in

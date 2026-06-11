@@ -1,306 +1,450 @@
-[![License: MIT](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE)  [![GitHub: Actions](https://img.shields.io/badge/GitHub-Actions-blue.svg?logo=github)](ACTIONS)
+# ZTF: Zero Touch Framework
 
-# Zero Touch Framework
+ZTF is a Python-based Infrastructure as Code (IaC) framework for managing resources across multiple Nutanix Prism Central domains. It uses declarative YAML configuration files and Nutanix v4 SDKs to orchestrate creation, update,
+deletion, and custom operations on infrastructure entities. ZTF supports all the v4 APIs except for Nutanix Files APIs due to a dependency conflict with the published Files package.
 
-ZTF is a tool used to automate end-to-end deployment and configuration of Nutanix Cloud Platform without human
-intervention,
-hence the name Zero Touch. The tool can also be extended to manage Day-1 and Day-2 operations as well.
-> Note: ZTF has been primarily built to automate Nutanix Validated Designs at scale. All the existing workflows and
-> scripts have been tested against: AOS: 6.5.x, 6.7.x, 6.8.x, 7.0 PC 2022.6.x, 2023.4.x, 2024.1.x, 2024.3 Calm 3.5.2,
-> 3.6.0 and 3.8.1
+> **Beta Notice:** Update, delete, and certain advanced operations (`create_before_destroy`, `operations`, `destroy`) are functional but considered **beta**. Always run `ztf plan` before `ztf apply`, review the diff carefully, and use `--auto-approve` only in trusted CI/CD pipelines.
 
+> **Migrating from ZTF 1.x?** ZTF 2.x is a ground-up rewrite on Nutanix v4 SDKs. PE (v2) APIs, Foundation Central imaging / cluster-create, NCM / Calm DSL workflows, NDB scripts, and the Pod conceptual workflows that shipped in 1.x are **not yet ported**. If you need any of those features, stay on the [`1.x branch`](https://github.com/nutanixdev/zerotouch-framework/tree/1.5.2) (last 1.x release: `v1.5.2`). See [Migrating from ZTF 1.x](#migrating-from-ztf-1x) below for the full feature delta and how to keep using the legacy tree.
 
-## Setting up
-Refer the [dev-setup-README.md](./dev-setup-README.md) File for the Setting up Steps
+## Table of Contents
 
-## Prerequisites
+- [ZTF: Zero Touch Framework](#ztf-zero-touch-framework)
+  - [Table of Contents](#table-of-contents)
+  - [Features](#features)
+  - [Concepts at a Glance](#concepts-at-a-glance)
+  - [Migrating from ZTF 1.x](#migrating-from-ztf-1x)
+  - [Known Limitations](#known-limitations)
+    - [Nutanix Files APIs Not Supported](#nutanix-files-apis-not-supported)
+  - [Installation](#installation)
+    - [Local](#local)
+    - [Docker](#docker)
+  - [Minimal Configuration](#minimal-configuration)
+  - [Quick Start](#quick-start)
+    - [Discovering values for `data` filters](#discovering-values-for-data-filters)
+  - [Commands](#commands)
+  - [CLI Flags](#cli-flags)
+  - [Simple Project Layout](#simple-project-layout)
+  - [Custom Config Directories](#custom-config-directories)
+  - [Interpolation](#interpolation)
+  - [Lifecycle Rules](#lifecycle-rules)
+  - [Using Example Configurations](#using-example-configurations)
+  - [Documentation](#documentation)
+  - [License](#license)
 
-- For Imaging and Cluster creation:
-    - Foundation Central is enabled and configured such that it can access the networks, the nodes are discoverable on.
-      For how to enable, set up Foundation Central and provide the API key to your DHCP server, refer to
-      the [Foundation Central Guide](https://portal.nutanix.com/page/documents/details?targetId=Foundation-Central-v1_5:Foundation-Central-v1_5).
-    - Set up a local web server for downloading AOS tar and AHV iso files.
-    - If AOS and AHV files are downloaded over https from Web Server, it needs to have a valid cert issued by a trusted
-      certificate authority (CA). Certificates from a custom CA are not accepted. If
-      we need to skip this validation for https, we need to upgrade the Foundation version on the CVMs to 5.6.0.1 and
-      above.
-- For dark-site deployments:
-    - Web Server needs to be setup to download the images, if there are any operations related to image upload and
-      download (PC deploy, Image Upload, Ova upload etc.)
-- For running ZTF using GitHub Actions (GitHub workflows):
-    - A GitHub Self-hosted Runner Ubuntu VM with access to deploy and run configurations on the intended infrastructure
-      configured in the GitHub actions to run the workflows.
-- For running ZTF locally on a VM
-    - Click [here](dev-setup-README.md) to read about how to set up environment to run ZTF locally
+## Features
 
-## Running ZTF using GitHub Actions
+- **Multi-domain orchestration** -- manage resources across many PC, FC instances in parallel
+- **Dependency resolution** -- automatic topological ordering via interpolation analysis (extId dependancy) and provision for explicit dependancy mapping using `depends_on`
+- **State management** -- YAML state file with advisory locking, backups, and incremental writes
+- **Plan before apply** -- preview creates, updates (field-level diff), and deletes with live data sources
+- **Auto-refresh** -- plan and apply refresh state from infrastructure automatically before computing changes
+- **Confirmation prompt** -- interactive `"yes"` confirmation before apply/destroy with post-apply summary
+- **Interpolation** -- reference variables, data sources, resources, and cross-domain state
+- **Variables and var-files** -- multi-source variables with auto-loading (`ztfvars.yml`)
+- **Dynamic resources** -- `for_each` expansion for repeatable resource patterns
+- **Lifecycle rules** -- `prevent_destroy`, `ignore_changes`, `create_before_destroy`
+- **Data sources** -- fetch existing infrastructure data for use in config
+- **Schema negotiation** -- version-aware request body filtering across PC versions
+- **Import** -- bring existing infrastructure under management, with config snippet generation and bulk import
+- **Outputs** -- extract and export values after apply
+- **Operations** -- custom post-CRUD operations (Beta)
+- **Custom functions** -- user-defined Python functions (`{fn.*}` tokens) for computed values, templates, and base64 encoding
+- **Example generation** -- auto-generated per-entity YAML examples, Markdown reference docs, and starter functions file
 
-This tool works as GitOps, i.e. using this repository to manage Infrastructure as Code (IaC). The workflows and scripts
-can
-be directly triggered from GitHub through various actions.
-Click [here](config/README.md) to read more about triggering GitHub Actions.
+## Concepts at a Glance
 
-## Running ZTF locally on a VM
+- **variables**: static inputs you define once and reuse within the input file; referenced as `{var.name}`.
+- **ztfvars.yml**: auto-loaded variable file intended for secrets; keep out of git.
+- **domains**: one or more Prism Central or Foundation Central targets; each domain has its own `data` and `resources`.
+- **data**: read-only lookups of existing entities (resolved at apply time); used to fetch IDs for resources.
+- **resources**: entities ZTF creates/updates/deletes; grouped by entity type.
+- **resource_name**: user-defined identifier under a resource type; used for interpolation and state tracking. Must be unique within a domain.
+- **outputs**: values computed after apply; good for surfacing IDs or sharing with other tools.
+- **functions.py**: optional user-defined Python functions; referenced as `{fn.name(args)}` in YAML.
+- **state.yml**: ZTF-managed state file; DO NOT edit manually.
 
-The first file that needs to be configured is the [global.yml](config/global.yml). Here, we will define the Vault and
-IPAM configuration.
+## Migrating from ZTF 1.x
 
-Once global.yml is defined, you can either run the pre-existing **_functional workflows_** using the `WORKFLOW`
-and `FILE` parameters or run
-specific **_scripts_** using `SCRIPT`, `SCHEMA`, and `FILE` parameters.
+ZTF 2.x is a ground-up rewrite on Nutanix v4 SDKs. The legacy 1.x line kept v2 / v3 API support so it could reach Prism Element directly, drive Foundation Central imaging, and run NCM / Calm / NDB workflows. Those surfaces are **not yet ported** to 2.x. If your automation depends on any of the features below, stay on `[ZTF 1.x](https://github.com/nutanixdev/zerotouch-framework/tree/1.x)` (last release `v1.5.2`) until parity lands here.
 
-### Running existing Workflows
+**Features only available on the 1.x branch**
 
-Below are the pre-defined workflows and how to run these workflows.
+- **Foundation Central — imaging & cluster creation:** The `cluster-create`, `imaging`, `imaging-only`, and `site-deploy` workflows; `UpdateCvmFoundation` for CVM Foundation upgrades.
+- **Prism Element (v2) operations:** `CreateContainerPe`, `CreateVmPe`, `UploadImagePe`, `PowerTransitionVmPe`, `AddAdServerPe`, `CreateRoleMappingPe`, `UpdateDsip`, `HaReservation`, `RebuildCapacityReservation`, `ChangeDefaultAdminPasswordPe`, `AcceptEulaPe`, `UpdatePulsePe`, `AddNameServersPe`, `AddNtpServersPe`, `DeleteSubnetsPe`, and the rest of the `*Pe` script family.
+- **Pod / pod-block conceptual workflows:** `pod-config`, `deploy-management-pc`, `config-management-pc`, `deploy-pc`, `config-pc`, `config-cluster`.
+- **NCM / Calm DSL workloads:** `calm-vm-workloads`, `calm-edgeai-vm-workload`, `CreateAppFromDsl`, `CreateNcmProject`, `CreateNcmAccount`, `CreateNcmUser`, `InitCalmDsl`.
+- **NDB:** Deploy and configure the NDB management VM (`ndb` workflow: password change, pulse, multi-cluster, compute / network profiles, HA).
+- **NKE / Karbon:** `EnableNke`, `CreateKarbonClusterPc`.
+- **Objects (legacy script-based flow):** `EnableObjects`, `CreateObjectStore`, `CreateBuckets`, `ShareBucket`,
+  `AddAdUsersOss`. (v4 SDK coverage for `objects` is partial; track parity in the roadmap.)
 
-Also, there are several workflows below that support **_Pod_** deployment and configuration.
-Here, ["Enterprise Edge Pod Conceptual Design"](https://portal.nutanix.com/page/documents/solutions/details?targetId=NVD-2180-Enterprise-Edge-AI:NVD-2180-Enterprise-Edge-AI)
-is used to deploy and manage infrastructure at scale. In this design, a **_Pod_** can manage several
-**_blocks (pod_blocks)_** and each **_block (pod_block)_** can manage multiple **_edge_sites_** and each **_edge_site_**
-can manage multiple **_clusters_** at the edge.
+**Using the 1.x tree:**
 
-- `cluster-create`
-    - This workflow is used to **Create Clusters** using Foundation Central. An example Config is provided 
-      in [config/example-configs/workflow-configs/create_cluster.yml]. Copy this into the **config** directory, modify
-      the configuration and then run this workflow using the command below inside **virtualenv**
-      ```sh
-      python main.py --workflow cluster-create -f config/cluster-create.yml
-      ```
-- `imaging-only`
-    - This workflow is used to **Image Nodes** using Foundation Central (without having to create Cluster). An
-      example Config is provided in [config/example-configs/workflow-configs/imaging_only.yml]. Copy this 
-      into the **config** directory, modify the configuration and then run this workflow using the 
-      command below inside **virtualenv**
-      ```sh
-      python main.py --workflow imaging-only -f config/imaging-only.yml
-      ```
-- `site-deploy`
-    - This workflow is used to **Deploy Sites**, each Site consisting of **Clusters** including the
-      Imaging and Cluster Creation using Foundation Central. An example Config is provided
-      in [config/example-configs/pod-configs/sites-deploy.yml](config/example-configs/workflow-configs/sites-deploy.yml).
-      Copy
-      this to the **config** directory, modify the configuration and then run this workflow using the command below
-      inside **virtualenv**.
-      ```sh
-      python main.py --workflow sites-deploy -f config/sites-deploy.yml
-      ```
-- `imaging`
-    - This is a **_Pod_** workflow.
-    - This workflow is used to **Image the nodes** using Foundation Central and **create Clusters**. An example config
-      template is provided
-      in [config/example-configs/pod-configs/pod-deploy.yml](config/example-configs/pod-configs/pod-deploy.yml). Copy
-      this to the **config** directory, modify the configuration and then run this workflow using the command below
-      inside **virtualenv**.
-      ```sh
-      python main.py --workflow imaging -f config/pod-deploy.yml
-      ```
-    - Note: If you are not using the **Pod** conceptual design and just want to image nodes and create clusters, just
-      enter dummy values for "pod_name" and "pod_block_name" in
-      the [example-config](config/example-configs/pod-configs/pod-deploy.yml).
-- `pod-config`
-    - This is a **_Pod_** workflow.
-    - This workflow is used to **configure** the **Pod**. An example config template is provided
-      in [config/example-configs/pod-configs/pod-config.yml](config/example-configs/pod-configs/pod-config.yml). Copy
-      this to the **config** directory, modify the configuration and then run this workflow using the command below
-      inside **virtualenv**.
-      ```sh
-      python main.py --workflow pod-config -f config/pod-config.yml
-      ```
-    - Using the **Pod** conceptual design, you can configure the block PC (pc_ip) and clusters at the edge (edge_sites).
-    - This workflow can also be used when you want to configure both PC and the clusters at the same time.
-- `deploy-management-pc`
-    - This is a **_Pod_** workflow.
-    - This will deploy **Prism Centrals** in the specified **Clusters** and also deploys **NCM** in the deployed Prism
-      Central. An example config template is provided
-      in [config/example-configs/pod-configs/pod-management-deploy.yml](config/example-configs/pod-configs/pod-management-deploy.yml).
-      Copy this to the **config** directory, modify the configuration and then run this workflow using the command below
-      inside **virtualenv**.
-      ```sh
-      python main.py --workflow deploy-management-pc -f config/pod-management-deploy.yml
-      ```
-- `config-management-pc`
-    - This is a **_Pod_** workflow.
-    - This will perform Initial configurations on the deployed **Prism Centrals** and **NCMs** in the **Pod**. We can
-      also
-      specify the **clusters** that need to be registered to this deployed Prism Central. An example config template is
-      provided
-      in [config/example-configs/pod-configs/pod-management-config.yml](config/example-configs/pod-configs/pod-management-config.yml).
-      Copy this to the **config** directory, modify the configuration and then run this workflow using the command below
-      inside **virtualenv**.
-        ```sh
-      python main.py --workflow config-management-pc -f config/pod-management-config.yml
-      ```
-- `deploy-pc`
-    - This will deploy **Prism Centrals** in the specified **Clusters**. An example config template is provided
-      in [config/example-configs/workflow-configs/pc-deploy.yml](config/example-configs/workflow-configs/pc-deploy.yml).
-      Copy this to the **config** directory, modify the configuration and then run this workflow using the command below
-      inside **virtualenv**.
-        ```sh
-      python main.py --workflow deploy-pc -f config/pc-deploy.yml
-      ```
-- `config-pc`
-    - This will configure the deployed **Prism Centrals**. An example config template is provided
-      in [config/example-configs/workflow-configs/pc-config.yml](config/example-configs/workflow-configs/pc-config.yml).
-      Copy this to the **config** directory, modify the configuration and then run this workflow using the command below
-      inside **virtualenv**.
-        ```sh
-      python main.py --workflow config-pc -f config/pc-config.yml
-      ```
-- `config-cluster`
-    - This will configure the newly deployed **Clusters**. An example config template is provided
-      in [config/example-configs/workflow-configs/cluster-config.yml](config/example-configs/workflow-configs/cluster-config.yml).
-      Copy this to the **config** directory, modify the configuration and then run this workflow using the command below
-      inside **virtualenv**.
-        ```sh
-      python main.py --workflow config-cluster -f config/cluster-config.yml
-      ```
-- `calm-vm-workloads`
-    - This will use calm-dsl to create VM workloads on Clusters using NCM Self-Service from single or multiple calm-dsl
-      files. An example config template is provided
-      in [config/example-configs/workflow-configs/create-vm-workloads.yml](config/example-configs/workflow-configs/create-vm-workloads.yml).
-      Copy this to the **config** directory, modify the configuration and then run this workflow using the command below
-      inside **virtualenv**.
-        ```sh
-      python main.py --workflow calm-vm-workloads -f config/create-vm-workloads.yml
-      ```
-- `calm-edgeai-vm-workload`
-    - This will use calm-dsl to create Edge-AI VM workload on Clusters using NCM Self-Service from single or multiple
-      calm-dsl files. An example config template is provided
-      in [config/example-configs/workflow-configs/edge-ai.json](config/example-configs/workflow-configs/edge-ai.json).
-      Copy this to the **config** directory, modify the configuration and then run this workflow using the command below
-      inside **virtualenv**.
-        ```sh
-      python main.py --workflow calm-edgeai-vm-workload -f config/edge-ai.json
-      ``` 
-- `ndb`
-    - This will deploy, configure NDB VM and register clusters to it. Also, it can enable multi-cluster and HA
-      in [config/example-configs/workflow-configs/ndb.yml](config/example-configs/workflow-configs/ndb.yml).
-      Copy this to the **config** directory, modify the configuration and then run this workflow using the command below
-      inside **virtualenv**.
-        ```sh
-      python main.py --workflow ndb -f config/ndb.yml
-      ```        
-
-To summarize, the input files can either be **json** or **yaml** files. You can find example configurations in
-[config/example-configs](config/example-configs) directory. Copy the required config file, inside [config](config)
-directory. Pass the `-f` and `--workflow` as inputs and run the workflow.
-
-### Running individual scripts or operations
-
-If we don't want to use pre-defined workflows, we can always run the needed operations with the below scripts. For this,
-the framework expects `SCRIPT`, `SCHEMA` and `FILE` parameters to run the specified scripts, where `SCHEMA` is
-optional. `SCHEMA` if specified verifies the correctness of input configuration.
-Below is the list of supported scripts available.
-
-| Script                       | Operation                                         | Example config                                                                                            |
-|:-----------------------------|:--------------------------------------------------|:----------------------------------------------------------------------------------------------------------|
-| AddAdServerPe                | Adds Active Directory in PE                       | [authentication_pe.yml](config/example-configs/script-configs/authentication_pe.yml)                      |
-| AddAdServerPc                | Adds Active Directory in PC                       | [add_ad_server_pc.py](config/example-configs/script-configs/authentication_pc.yml)                        |
-| AddAdUsersOss                | Adds AdUsers in Objects                           | [directory_services_oss.yml](config/example-configs/script-configs/directory_services_oss.yml)            |
-| AddNameServersPc             | Adds nameservers in PC                            | [dns_ntp_pc.yml](config/example-configs/script-configs/dns_ntp_pc.yml)                                    |
-| AddNameServersPe             | Adds nameservers in PE                            | [dns_ntp_pe.yml](config/example-configs/script-configs/dns_ntp_pe.yml)                                    |
-| AddNtpServersPc              | Adds NTP servers in PC                            | [dns_ntp_pc.yml](config/example-configs/script-configs/dns_ntp_pc.yml)                                    |
-| AddNtpServersPe              | Adds NTP servers in PE                            | [dns_ntp_pe.yml](config/example-configs/script-configs/dns_ntp_pe.yml)                                    |
-| ConnectToAz                  | Connects to AZs                                   | [remote_az.yml](config/example-configs/script-configs/remote_az.yml)                                      |
-| CreateAddressGroups          | Creates Address Groups in PC                      | [address_groups_pc.yml](config/example-configs/script-configs/address_groups_pc.yml)                      |
-| CreateBuckets                | Creates buckets in an Objectstore                 | [objectstore_buckets.yml](config/example-configs/script-configs/objectstore_buckets.yml)                  |
-| CreateAppFromDsl             | Creates Calm Application from calm dsl            | [create-vm-workloads.yml](config/example-configs/workflow-configs/create-vm-workloads.yml)                |
-| CreateNcmProject             | Creates Calm projects                             | [create-vm-workloads.yml](config/example-configs/workflow-configs/create-vm-workloads.yml)                |
-| CreateContainerPe            | Creates Storage container in PE                   | [storage_container_pe.yml](config/example-configs/script-configs/storage_container_pe.yml)                |
-| CreateKarbonClusterPc        | Creates NKE Clusters in PC                        | [nke_clusters.yml](config/example-configs/script-configs/nke_clusters.yml)                                |
-| CreateObjectStore            | Creates Objectstores in PC                        | [objectstore_buckets.yml](config/example-configs/script-configs/objectstore_buckets.yml)                  |
-| CreateCategoryPc             | Creates Categories in PC                          | [category_pc.yml](config/example-configs/script-configs/category_pc.yml)                                  |
-| CreateSubnetsPc              | Creates subnets in PC                             | [subnets_pc.yml](config/example-configs/script-configs/subnets_pc.yml)                                    |
-| CreateProtectionPolicy       | Creates ProtectionPolicy in PC                    | [protection_policy.yml](config/example-configs/script-configs/protection_policy.yml)                      |
-| CreateRecoveryPlan           | Creates RecoveryPlan in PC                        | [recovery_plan.yml](config/example-configs/script-configs/recovery_plan.yml)                              |
-| CreateRoleMappingPe          | Creates Role mapping in PE                        | [authentication_pe.yml](config/example-configs/script-configs/authentication_pe.yml)                      |
-| CreateRoleMappingPc          | Creates Role mapping in PC                        | [authentication_pc.yml](config/example-configs/script-configs/authentication_pc.yml)                      |
-| CreateNetworkSecurityPolicy  | Creates Security policies in PC                   | [security_policy.yml](config/example-configs/script-configs/security_policy.yml)                          |
-| CreateNcmAccount             | Creates NTNX PC account in NCM                    | [ncm_account_users.yml](config/example-configs/script-configs/ncm_account_users.yml)                      |
-| CreateNcmUser                | Creates users in NCM                              | [ncm_account_users.yml](config/example-configs/script-configs/ncm_account_users.yml)                      |
-| CreateServiceGroups          | Creates Service Groups in PC                      | [service_groups.yml](config/example-configs/script-configs/service_groups.yml)                            |
-| CreateVmPe                   | Creates VMs in PE                                 | [create_vms_pe.yml](config/example-configs/script-configs/vm.yml)                                         |
-| CreateVPC                    | Creates VPC in PC                                 | [vpcs.yml](config/example-configs/script-configs/vpcs.yml)                                                |
-| CreateVmsPc                  | Creates VMs in PC                                 | [vpcs.yml](config/example-configs/script-configs/vms_pc.yml)                                              |
-| EnableDR                     | Enables DR in PC                                  | [pc_creds.yml](config/example-configs/script-configs/pc_creds.yml)                                        |
-| EnableMicrosegmentation      | Enables Flow in PC                                | [pc_creds.yml](config/example-configs/script-configs/pc_creds.yml)                                        |
-| EnableNke                    | Enables Karbon/ NKE in PC                         | [pc_creds.yml](config/example-configs/script-configs/pc_creds.yml)                                        |
-| EnableObjects                | Enables Objects in PC                             | [pc_creds.yml](config/example-configs/script-configs/pc_creds.yml)                                        |
-| Enable Network Controller    | Enables Network Controller in PC                  | [pc_creds.yml](config/example-configs/script-configs/pc_creds.yml)                                        |
-| InitCalmDsl                  | Initialize calm dsl                               | [create-vm-workloads.yml](config/example-configs/workflow-configs/create-vm-workloads.yml)                |
-| ChangeDefaultAdminPasswordPe | Change PE admin password                          | [initial_cluster_config.yml](config/example-configs/script-configs/initial_cluster_config.yml)            |
-| AcceptEulaPe                 | Accept Eula PE                                    | [initial_cluster_config.yml](config/example-configs/script-configs/initial_cluster_config.yml)            |
-| UpdatePulsePe                | Update Pulse PE                                   | [initial_cluster_config.yml](config/example-configs/script-configs/initial_cluster_config.yml)            |
-| ChangeDefaultAdminPasswordPc | Change PC password                                | [initial_pc_config.yml](config/example-configs/script-configs/initial_pc_config.yml)                      |
-| UploadImagePe                | Uploads images to PE cluster                      | [image_upload_pe.yml](config/example-configs/script-configs/vm.yml)                                       |
-| PowerTransitionVmPe          | Power Transition VMs in PE                        | [power_transition_pe.yml](config/example-configs/script-configs/vm.yml)                                   |
-| AcceptEulaPc                 | Accept Eula PC                                    | [initial_pc_config.yml](config/example-configs/script-configs/initial_pc_config.yml)                      |
-| UpdatePulsePc                | Update Pulse PC                                   | [initial_pc_config.yml](config/example-configs/script-configs/initial_pc_config.yml)                      |
-| PcImageUpload                | Uploads images to PC clusters                     | [pc_image.yml](config/example-configs/script-configs/pc_image.yml)                                        |
-| PcOVAUpload                  | Uploads OVAs to PC clusters                       | [pc_ova.yml](config/example-configs/script-configs/pc_ova.yml)                                            |
-| RegisterToPc                 | Registers clusters to PC                          | [register_to_pc.yml](config/example-configs/script-configs/register_to_pc.yml)                            |
-| ShareBucket                  | Shares a bucket with a list of users              | [objectstore_buckets.yml](config/example-configs/script-configs/objectstore_buckets.yml)                  |
-| UpdateDsip                   | Updates DSIP in PE                                | [update_dsip.yml](config/example-configs/script-configs/update_dsip.yml)                                  |
-| EnableFC                     | Enables Foundation Central in FC                  | [pc_creds.yml](config/example-configs/script-configs/pc_creds.yml)                                        |
-| GenerateFcApiKey             | Generates Foundation Central API Key              | [generate_fc_api_key.yml](config/example-configs/script-configs/generate_fc_api_key.yml)                  |
-| DeleteSubnetsPc              | Delete Subnets in PC                              | [subnets_pc.yml](config/example-configs/script-configs/delete_subnets_pc.yml)                             |
-| DeleteSubnetsPe              | Delete Subnets in PE                              | [subnets_pe.yml](config/example-configs/script-configs/delete_subnets_pc.yml)                             |
-| DeleteAdServerPc             | Delete Active Directory in PC                     | [authentication_pc.yml](config/example-configs/script-configs/authentication_pc.yml)                      |
-| DeleteAdServerPe             | Delete Active Directory in PE                     | [authentication_pe.yml](config/example-configs/script-configs/authentication_pe.yml)                      |
-| DeleteAddressGroups          | Delete Address Groups in PC                       | [address_groups_pc.yml](config/example-configs/script-configs/address_groups_pc.yml)                      |
-| DeleteNameServersPc          | Delete Name Servers in PC                         | [dns_ntp_pc.yml](config/example-configs/script-configs/authentication_pc.yml)                             |
-| DeleteNameServersPe          | Delete Name Servers in PE                         | [dns_ntp_pe.yml](config/example-configs/script-configs/authentication_pc.yml)                             |
-| DeleteNtpServersPc           | Delete NTP Servers in PC                          | [dns_ntp_pc.yml](config/example-configs/script-configs/authentication_pc.yml)                             |
-| DeleteNtpServersPe           | Delete NTP Servers in PE                          | [dns_ntp_pe.yml](config/example-configs/script-configs/authentication_pc.yml)                             |
-| DeleteCategoryPc             | Delete Categories in PC                           | [category_pc.yml](config/example-configs/script-configs/authentication_pc.yml)                            |
-| DeleteProtectionPolicy       | Delete Protection Policies in PC                  | [protection_policy.yml](config/example-configs/script-configs/protection_policy.yml)                      |
-| DeleteRecoveryPlan           | Delete Recovery Plans in PC                       | [recovery_plan.yml](config/example-configs/script-configs/recovery_plan.yml)                              |
-| DeleteRoleMappingPc          | Delete Role Mappings in PC                        | [authentication_pc.yml](config/example-configs/script-configs/authentication_pc.yml)                      |
-| DeleteRoleMappingPe          | Delete Role Mappings in PE                        | [authentication_pc.yml](config/example-configs/script-configs/authentication_pc.yml)                      |
-| DeleteNetworkSecurityPolicy  | Delete Security Policies in PC                    | [security_policy.yml](config/example-configs/script-configs/security_policy.yml)                          |
-| DeleteServiceGroups          | Delete Service Groups in PC                       | [service_groups.yml](config/example-configs/script-configs/service_groups.yml)                            |
-| DeleteVmPc                   | Delete VMs in PC                                  | [delete_vms_pc.yml](config/example-configs/script-configs/authentication_pc.yml)                          |
-| DeleteVmPe                   | Delete VMs in PE                                  | [delete_vms_pe.yml](config/example-configs/script-configs/authentication_pc.yml)                          |
-| DeleteVPC                    | Delete VPCs in PC                                 | [vpcs.yml](config/example-configs/script-configs/vpcs.yml)                                                |
-| DisconnectAz                 | Disconnects Availability Zones in PC              | [remote_az.yml](config/example-configs/script-configs/remote_az.yml)                                      |
-| DisableNetworkController     | Disabe Network Controller in PC                   | [pc_creds.yml](config/example-configs/script-configs/pc_creds.yml)                                        |
-| PcImageDelete                | Delete Images in PC                               | [pc_image.yml](config/example-configs/script-configs/pc_image.yml)                                        |
-| PcOVADelete                  | Delete OVAs in PC                                 | [pc_ova.yml](config/example-configs/script-configs/pc_ova.yml)                                            |
-| CreateIdp                    | Create SAML2 compliant Identity Provider in PC    | [saml_idp.yml](config/example-configs/script-configs/saml_idp.yml)                                        |
-| UpdateCvmFoundation          | Update CVM Foundation Version                     | [update_cvm_foundation.yml](config/example-configs/script-configs/update_cvm_foundation.yml)              |
-| UpdateAddressGroups          | Update Address Groups in PC                       | [address_groups_pc.yml](config/example-configs/script-configs/address_groups_pc.yml)                      |
-| UpdateServiceGroups          | Update Service Groups in PC                       | [service_groups.yml](config/example-configs/script-configs/service_groups.yml)                            |
-| UpdateNetworkSecurityPolicy  | Update Network Security Policy in PC              | [security_policy_next_gen.yml](config/example-configs/script-configs/security_policy_next_gen.yml)        |
-| UpdateVPC                    | Update VPC in PC                                  | [vpcs.yml](config/example-configs/script-configs/vpcs.yml)                                                |
-| HaReservation                | Enable/Disable HA Reservation in PE               | [ha.yml](config/example-configs/script-configs/ha.yml)                                                    |
-| RebuildCapacityReservation   | Enable/Disable Rebuild Capacity Reservation in PE | [rebuild_capcity_reservation.yml](config/example-configs/script-configs/rebuild_capacity_reservation.yml) |
-| AddRoles                     | Add Roles in IAM                                  | [roles.yml](config/example-configs/script-configs/roles.yml)                                              |
-| AddUserGroups                | Add IAM User Groups to PC                         | [user_groups.yml](config/example-configs/script-configs/user_groups.yml)                                  |
-| AddLocalUsers                | Add Local Users to PC                             | [users.yml](config/example-configs/script-configs/users.yml)                                              |
-| ImportUsers                  | Import Users to PC (LADP)                         | [users.yml](config/example-configs/script-configs/users.yml)                                              |
-| CreateIAMKeys                | Create IAM Keys in PC                             | [iam_keys.yml](config/example-configs/script-configs/iam_keys.yml)                                        |
-| AddAuthorizationPolicy       | Add Authorization Policies to PC                  | [authorization_policy.yml](config/example-configs/script-configs/authorization_policy.yml)                |
-| AddDirectoryServices         | Add DirectoryService Objects to PC                | [directory_services.yml](config/example-configs/script-configs/directory_services.yml)                    |
-| EnableFC                     | Enable Foundation Central in PC                   | [enable_fc.yml](config/example-configs/script-configs/enable_fc.yml)                                      |
-| GenerateFcApiKey             | Generate API keys in Foundation Central           | [generate_api_keys_fc.yml](config/example-configs/script-configs/generate_api_keys_fc.yml)                |
-| EnableMarketplace            | Enable Marketplace in PC                          | [enable_marketplace.yml](config/example-configs/script-configs/enable_marketplace.yml)                    |
-
-To summarize, the input files can either be **json** or **yaml** files. You can find example configurations in
-[config/example-configs](config/example-configs) directory. Copy the required config file, inside [config](config)
-directory. Pass the `-f` and `--script` as inputs and run the workflow.
-
-Note: You can also pass the optional `schema` parameter to validate the inputs against.
-Check [schema.py](framework/helpers/schema.py) for schema details.
-
-#### Example: Trigger scripts with input files
-
-```sh
-  > python main.py --script AddAdServerPe,CreateRoleMappingPe --schema AD_CREATE_SCHEMA -f config/authentication_pe.yml
+```bash
+git clone -b 1.x https://github.com/nutanixdev/zerotouch-framework.git
+cd zerotouch-framework
+# Follow dev-setup-README.md from the 1.x branch for the venv + run loop
+python main.py --workflow <workflow-name> -f config/<your-config>.yml
 ```
 
-```sh
-  > python main.py --script EnableObjects,CreateObjectStore --schema OBJECTS_CREATE_SCHEMA -f config/objectstore_buckets.yml
+New features land on 2.x first; no further functional changes are planned for the 1.x line beyond critical fixes.
+
+## Known Limitations
+
+### Nutanix Files APIs Not Supported
+
+Nutanix Files APIs are currently not included in ZTF due to a dependency conflict with the published Files package. We are tracking this with Nutanix for resolution. Please monitor the [Nutanix Python SDK releases](https://pypi.org/project/ntnx-files-py-client/) for updates.
+
+## Installation
+
+### Local
+
+Create a virtual environment first:
+
+```bash
+# With uv (recommended)
+uv venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+
+# Or with standard Python
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 ```
 
-> Note: The path to the config file, should be defined relative to the root of the project, not to the _framework_
-> directory
+Then install:
+
+```bash
+# Use any of these below ways to install ztf
+
+# From PyPI (with uv)
+uv pip install nutanix-ztf
+
+# From PyPI (with pip)
+pip install nutanix-ztf
+
+# From source (development or pre-release) with uv
+git clone https://github.com/nutanixdev/zerotouch-framework.git && cd zerotouch-framework/ztf
+uv venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+uv pip install .
+
+# From source (development or pre-release) with pip
+git clone https://github.com/nutanixdev/zerotouch-framework.git && cd zerotouch-framework/ztf
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install .
+```
+
+### Docker
+
+ZTF ships a multi-stage `[Dockerfile](https://github.com/nutanixdev/zerotouch-framework/blob/main/Dockerfile)`
+with two consumer-facing targets: `runtime` (a self-contained image with the `ztf` CLI on the PATH) and `wheels-export` (a scratch image used to extract an offline wheel bundle for dark-site installs).
+
+**Build the runtime image:**
+
+```bash
+docker build --target runtime -t ztf:2.0.0 .
+```
+
+**Run against a project on the host** (mount your `input.yml`, `global.yml`, `state.yml`, and `ztfvars.yml` into the container's working directory):
+
+```bash
+docker run --rm -it \
+  -v "$PWD:/home/ztf" \
+  ztf:2.0.0 plan
+```
+
+The image's entrypoint is already `ztf`, the working directory is `/home/ztf`, and it runs as a non-root `ztf` user. Append any subcommand and flags after the image name (e.g. `ztf:2.0.0 apply --auto-approve`).
+
+**Pass secrets via env file or a read-only `ztfvars.yml` mount:**
+
+```bash
+docker run --rm -it \
+  --env-file .env \
+  -v "$PWD:/home/ztf" \
+  -v "$PWD/ztfvars.yml:/home/ztf/ztfvars.yml:ro" \
+  ztf:2.0.0 apply
+```
+
+**Dark-site / offline wheel bundle.** Build the `wheels-export` target on a connected machine, then `pip install --no-index` from the exported wheels on the air-gapped target:
+
+```bash
+# On the connected machine — produces ./offline-wheels/ with ZTF + every dep
+docker build --target wheels-export \
+  --output type=local,dest=./offline-wheels .
+
+# On the dark-site target — no network required
+pip install --no-index --find-links=./offline-wheels nutanix-ztf
+```
+
+## Minimal Configuration
+
+ZTF expects two files by default at the project root: `global.yml` (API settings) and `input.yml` (resource definitions). Both paths are overridable via CLI flags.
+
+**global.yml:**
+
+```yaml
+config:
+  port: 9440
+  verify_ssl: false
+  connect_timeout: 5000 # in milliseconds (default: 5000)
+  read_timeout: 300000 # in milliseconds (default: 300000)
+  debug: false # enable debug-level logging (default: false)
+```
+
+**input.yml:**
+
+```yaml
+# This is just an example input file. You can use the generated examples as reference.
+# local Variables: static inputs you define once and reuse within the input file; referenced as `{var.name}`.
+variables:
+  env: prod # this is a variable that you can reuse within the input file
+
+# Domains are one or more Prism Central or Foundation Central targets; each domain has its own `data` and `resources`.
+domains:
+  # Domain name: unique identifier for the domain
+  lab1:
+    # Domain (PC or Foundation Central) configuration
+    host: 10.10.0.1 # IP or FQDN
+    username: admin
+    password: "{var.lab1_password}" # fetched from the ztfvars.yml file
+
+    # Resources are the entities to create/update/delete
+    # Here we are managing a storage container in the cluster named 'grove1-3'
+    # and a category in the domain
+    resources:
+      storage_container: # resource type -> storage_container
+        my_container: # user-defined resource name -> my_container (must be unique within the domain)
+          params: # parameters to pass to the API call
+            X_Cluster_Id: "{data.cluster.grove_cluster.data.0.extId}" # extId of the cluster as fetched from data-source
+          body: # body of the API call
+            name: "{var.env}-storage-container" # using the variable env to create a name for the storage container. i.e prod-storage-container
+            replicationFactor: 2
+
+      category: # resource type -> category
+        my_category: # user-defined resource name -> my_category (must be unique within the domain)
+          body: # body of the API call
+            key: "{var.env}-category" # key of the category. i.e prod-category
+            value: "{var.env}" # value of the category. i.e prod
+
+# Outputs are values to export after apply
+outputs:
+  # Here we are exporting the extId of the storage container
+  container_id: # user-defined output name -> container_id
+    value: "{lab1.my_container.extId}" # extId of the storage container
+    description: "Storage container ext_id"
+```
+
+If you want to clear all resources from `input.yml`, keep the file structure and set 'resources: {}' or delete the resources section under the domain.
+
+**Resource names** like `my_container`, **Data-Source** **names** like `grove_cluster` are user-defined identifiers. They must be **unique within a domain** and are used for interpolation references, state tracking, and dependency resolution. Within a domain body, use `{resource_name.extId}`. In outputs or when multiple domains share the same resource name, qualify with the domain: `{domain.resource_name.field}`.
+
+Credentials should live in `ztfvars.yml` (auto-loaded, add to `.gitignore`):
+
+```yaml
+my_password: "supersecret"
+```
+
+## Quick Start
+
+```bash
+# 1. Initialise an empty state file
+ztf init
+
+# 1.5. Create ztfvars.yml for secrets if not already present (auto-loaded; add to .gitignore)
+echo 'lab1_password: "supersecret123!"' > ztfvars.yml
+echo 'ztfvars.yml' >> .gitignore
+
+# 2. Generate examples for the entities in all namespaces
+ztf examples
+
+# 3. Create input.yml using the generated examples as reference
+#    Create global.yml using the above global.yml as reference
+#    (see examples/INDEX.md or the User Guide for details)
+
+# 4. Plan before apply -- always preview changes first
+ztf plan
+
+# 4.5. Use --strict in CI to fail on refresh errors
+ztf plan --strict
+
+# 5. Apply changes (will prompt for confirmation)
+ztf apply
+
+# 6. Sync state with live infrastructure. If there are changes outside of ZTF's control (shows what changed)
+ztf refresh
+
+# 7. Destroy all managed resources (will prompt for confirmation)
+ztf destroy
+
+# 7.5. Or destroy specific resources only
+ztf destroy --target my_container  # my_container is resource name
+```
+
+### Discovering values for `data` filters
+
+ZTF data sources require filter values (like cluster names). Use Prism Central UI, CLI or ZTF repl to discover these values, then plug them into your `data` filters.  
+See the [User Guide section on data sources](https://github.com/nutanixdev/zerotouch-framework/blob/main/docs/user-guide.md#8-data-sources) for details.
+
+## Commands
+
+| Command                          | Description                                                                       |
+| -------------------------------- | --------------------------------------------------------------------------------- |
+| `ztf init`                       | Create an empty state. Statefile manages the state of the resources in the domain |
+| `ztf plan`                       | Preview what will change (auto-refreshes state first, fetches live data sources)  |
+| `ztf apply`                      | Apply changes with confirmation prompt and post-apply summary                     |
+| `ztf refresh`                    | Sync current state with live infrastructure (shows diff of changes)               |
+| `ztf destroy`                    | Delete managed resources with detailed plan (supports `--target`)                 |
+| `ztf import <resource> <domain>` | Import resource into state (prints suggested config, supports `--file` for bulk)  |
+| `ztf examples`                   | Generate per-entity YAML examples and Markdown docs                               |
+| `ztf repl`                       | Start a read-only Python REPL with data sources loaded                            |
+
+Run `ztf <command> --help` for per-command flags and defaults.
+
+## CLI Flags
+
+| Flag             | Short | Default         | Commands             | Description                                                  |
+| ---------------- | ----- | --------------- | -------------------- | ------------------------------------------------------------ |
+| `--input`        | `-i`  | `input.yml`     | all except init      | Path to input configuration file                             |
+| `--global-file`  | `-g`  | `global.yml`    | all except init      | Path to global SDK configuration                             |
+| `--state`        | `-s`  | `state.yml`     | all                  | Path to state file (init auto-creates parent directories)    |
+| `--parallel`     | `-p`  | `cpu_count + 4` | all except init      | Maximum parallel workers                                     |
+| `--var`          |       |                 | all except init      | Variable override: `--var 'key=value'` (repeatable)          |
+| `--var-file`     |       |                 | all except init      | Path to a YAML variable file (repeatable)                    |
+| `--functions`    |       |                 | all except init      | Path to functions file for `{fn.*}` tokens (auto-discovered) |
+| `--output-file`  |       |                 | apply                | Path to write resolved outputs (YAML or JSON)                |
+| `--no-refresh`   |       | `false`         | plan, apply, destroy | Skip automatic state refresh                                 |
+| `--strict`       |       | `false`         | plan, apply, destroy | Fail on refresh errors instead of using stale state          |
+| `--auto-approve` |       | `false`         | apply, destroy       | Skip confirmation prompt                                     |
+| `--target`       |       |                 | destroy              | Destroy only named resource(s) (repeatable)                  |
+| `--file`         |       |                 | import               | YAML manifest for bulk import                                |
+
+## Simple Project Layout
+
+```txt
+my-project/
+  global.yml          # SDK settings  (--global-file default)
+  input.yml           # Resource definitions  (--input default)
+  functions.py        # Optional: user-defined {fn.*} functions
+  state.yml           # Managed by ZTF  (--state default)
+  ztfvars.yml         # Secrets — add to .gitignore
+  *.auto.ztfvars.yml  # Additional auto-loaded var files (alphabetical)
+  examples/           # Generated by ztf examples
+```
+
+## Custom Config Directories
+
+```txt
+my-project
+├── prod
+│   ├── input.yml
+│   ├── state.yml
+│   └── ztfvars.yml
+├── dev
+│   └── input.yml
+├── shared
+    └── global.yml
+    └── ztfvars.yml
+```
+
+You are not limited to the default layout. Pass any paths via flags:
+
+```bash
+# Per-environment configs. Manage from the root directory. Keep the global.yml and ztfvars.yml in the shared directory.
+ztf init -s prod/state.yml # create the state file in the prod directory
+
+ztf plan -i prod/input.yml -g shared/global.yml -s prod/state.yml # plan the changes in the prod environment
+
+(or)
+
+# Manage from the prod directory
+cd prod
+
+ztf init # create the state file in the prod directory, no need to specify the directory
+
+ztf plan -g ../shared/global.yml # plan the changes in the prod environment, no need to specify the input file and state file as you are in the prod directory
+```
+
+```txt
+# Example project layout
+my-project
+├── configs # config files based on entity type
+│   ├── network.yml
+│   ├── vms.yml
+│   ├── vpc.yml
+│   ├── subnets.yml
+│   ├── security-groups.yml
+│   ├── load-balancers.yml
+│   ├── databases.yml
+|   └── ztfvars.yml
+├── states/ # state files based on entity type
+|    ├── network.yml
+|    ├── vms.yml
+|    ├── vpc.yml
+|    ├── subnets.yml
+|    ├── security-groups.yml
+|    ├── load-balancers.yml
+|    ├── databases.yml
+├── shared
+    └── global.yml
+    └── ztfvars.yml
+```
+
+```bash
+# Create the state files in the states directory
+ztf init -s states/network.yml # create the state file for the network entity
+ztf init -s states/vms.yml # create the state file for the vms entity
+... # create the state files for the other entities
+
+ztf plan -i configs/network.yml -s states/network.yml -g shared/global.yml --var-file shared/ztfvars.yml # plan the changes for the network entity
+ztf plan -i configs/compute.yml -s states/compute.yml -g shared/global.yml --var-file shared/ztfvars.yml # plan the changes for the vms entity
+
+... # plan the changes for the other entities
+```
+
+## Interpolation
+
+| Pattern                       | Resolves To                     |
+| ----------------------------- | ------------------------------- |
+| `{var.name}`                  | Variable value                  |
+| `{each.key}` / `{each.value}` | `for_each` iteration key/value  |
+| `{fn.name(args)}`             | User-defined function result    |
+| `{data.entity.name.field}`    | Data source field               |
+| `{resource_name.extId}`       | Resource extId (same domain)    |
+| `{domain.resource.field}`     | Cross-domain resource reference |
+
+Full-string tokens preserve the resolved Python type (int, dict, list).
+Embedded tokens are always stringified.
+
+## Lifecycle Rules
+
+```yaml
+defaults:
+  rules:
+    prevent_destroy: false # Protect resources from deletion
+    ignore_changes: [] # Fields to skip during update comparison
+    create_before_destroy: false # Replace without downtime (Beta)
+```
+
+Rules can be overridden per-resource under the `rules:` key.
+
+## Using Example Configurations
+
+After running `ztf examples`, browse `examples/INDEX.md` for
+all available entities. Each entity has a `.yml` example and a `.md` reference
+with field descriptions, enum values, and version availability.
+
+## Documentation
+
+| Document                                                                                                               | Description                                                           |
+| ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| [Getting Started](https://github.com/nutanixdev/zerotouch-framework/blob/main/docs/getting-started.md)                 | Project setup, global config, input file reference                    |
+| [Configuration Reference](https://github.com/nutanixdev/zerotouch-framework/blob/main/docs/configuration-reference.md) | Interpolation, variables, for_each, lifecycle, data sources, commands |
+| [Advanced Topics](https://github.com/nutanixdev/zerotouch-framework/blob/main/docs/advanced-topics.md)                 | Multi-environment workflows, logging, custom functions                |
+| [Developer Guide](https://github.com/nutanixdev/zerotouch-framework/blob/main/docs/developer-guide.md)                 | Architecture, flowcharts, SDK integration, extending the framework    |
+
+## License
+
+Copyright 2026 Nutanix, Inc. Licensed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0).  
+See [LICENSE.txt](https://github.com/nutanixdev/zerotouch-framework/blob/main/LICENSE.txt) for the full text.
