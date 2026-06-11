@@ -1,0 +1,145 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nutanix-ztf"
+version = "2.0.0"
+description = "Nutanix multi-domain infrastructure automation framework"
+authors = [
+    { name = "ztf@nutanix.com" }
+]
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+keywords = ["nutanix", "infrastructure-as-code", "iac", "prism-central", "automation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",   
+    "Topic :: System :: Systems Administration",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
+dependencies = [
+    "click>=8.0",
+    "inflect>=7.5.0",
+    "json5>=0.10.0",
+    "requests>=2.33.0",
+    "ntnx-aiops-py-client==4.2.1b1",
+    "ntnx-clustermgmt-py-client==4.2.1",
+    "ntnx-datapolicies-py-client==4.2.1",
+    "ntnx-dataprotection-py-client==4.2.1",
+    "ntnx-iam-py-client==4.1.1b2",
+    "ntnx-lifecycle-py-client==4.2.1",
+    "ntnx-licensing-py-client==4.3.1",
+    "ntnx-microseg-py-client==4.2.1",
+    "ntnx-monitoring-py-client==4.2.1",
+    "ntnx-multidomain-py-client==4.2.1",
+    "ntnx-networking-py-client==4.2.1",
+    "ntnx-objects-py-client==4.0.2",
+    "ntnx-opsmgmt-py-client==4.0.3",
+    "ntnx-prism-py-client==4.2.1",
+    "ntnx-security-py-client==4.1.1",
+    "ntnx-vmm-py-client==4.2.1",
+    "ntnx-volumes-py-client==4.2.1",
+    "pyyaml>=6.0.3",
+    "orjson>=3.11.8",
+]
+
+[project.scripts]
+ztf = "ztf.main:cli"
+
+[project.optional-dependencies]
+dev = [
+    "bandit>=1.9.4",
+    "mypy>=1.10.0",
+    "pre-commit>=3.0.0",
+    "pytest>=8.4.1",
+    "pytest-cov>=6.2.1",
+    "pytest-timeout>=2.1.0",
+    "ruff>=0.4.0",
+    "twine>=5.0.0",
+    "types-pyyaml>=6.0.12.20250915",
+]
+
+[project.urls]
+Homepage = "https://github.com/nutanixdev/zerotouch-framework"
+Repository = "https://github.com/nutanixdev/zerotouch-framework"
+"User Guide" = "https://github.com/nutanixdev/zerotouch-framework/blob/main/docs/user-guide.md"
+Changelog = "https://github.com/nutanixdev/zerotouch-framework/blob/main/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/nutanixdev/zerotouch-framework/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["ztf*"]
+
+[tool.setuptools.package-data]
+ztf = [
+    "py.typed",
+    "entity_wrapper/multi_namespace_compatibility_map.json",
+    "entity_wrapper/multi_namespace_metadata_map.json",
+]
+
+[[tool.uv.index]]
+url = "https://pypi.org/simple"
+default = true
+
+[dependency-groups]
+dev = [
+    "bandit>=1.9.4",
+    "mypy>=1.10.0",
+    "pre-commit>=3.0.0",
+    "pytest>=8.4.1",
+    "pytest-cov>=6.2.1",
+    "pytest-timeout>=2.1.0",
+    "ruff>=0.4.0",
+    "twine>=5.0.0",
+    "types-pyyaml>=6.0.12.20250915",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "PIE", "RET", "SIM", "ARG", "PTH", "S"]
+ignore = [
+    "E501",    # line length — ruff format owns this; linter would conflict
+    "ARG001",  # unused function argument — needed for callbacks and interface methods
+    "ARG002",  # unused method argument — same reason
+    "PTH",     # pathlib migration — os.path used throughout; enable when migrated
+]
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+    "ARG005",  # lambda mock arguments are intentionally unused (test mock callbacks)
+    "B017",    # pytest.raises(Exception) is acceptable in tests testing generic failure paths
+    "SIM115",  # open() inside lambdas (monkeypatching) cannot use context managers
+    "S",       # bandit security rules — not applicable to test code (S101 assert, etc.)
+]
+"scripts/**" = [
+    "S",       # developer tooling scripts — security rules not applicable
+]
+"workflow/**" = [
+    "S110",    # try-except-pass in workflow scripts is intentional (best-effort processing)
+    "S310",    # URL open in workflow downloader is trusted internal use
+    "S603",    # subprocess in workflow scripts operates on controlled, trusted input
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+addopts = "--ignore=tests/functional -v --tb=short"
+markers = [
+    "functional: marks tests as functional (requires live infrastructure)",
+    "slow: marks tests as slow",
+    "namespace: marks tests with namespace context",
+    "security: marks tests as security-related",
+]
+
+[tool.bandit]
+exclude_dirs = ["tests"]

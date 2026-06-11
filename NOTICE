@@ -1,0 +1,34 @@
+ZTF -- Zero Touch Framework
+Copyright 2026 Nutanix, Inc.
+
+This product includes software developed at Nutanix, Inc.
+(https://www.nutanix.com/).
+
+Licensed under the Apache License, Version 2.0.
+
+Third-party dependencies:
+
+  click            - BSD-3-Clause  - https://palletsprojects.com/p/click/
+  inflect          - MIT           - https://github.com/jaraco/inflect
+  json5            - Apache-2.0    - https://github.com/dpranke/pyjson5
+  requests         - Apache-2.0    - https://requests.readthedocs.io/
+  PyYAML           - MIT           - https://pyyaml.org/
+  orjson           - Apache-2.0    - https://github.com/ijl/orjson
+
+  ntnx-aiops-py-client           - Nutanix SDK - https://developers.nutanix.com/
+  ntnx-clustermgmt-py-client     - Nutanix SDK - https://developers.nutanix.com/
+  ntnx-datapolicies-py-client    - Nutanix SDK - https://developers.nutanix.com/
+  ntnx-dataprotection-py-client  - Nutanix SDK - https://developers.nutanix.com/
+  ntnx-iam-py-client             - Nutanix SDK - https://developers.nutanix.com/
+  ntnx-lifecycle-py-client       - Nutanix SDK - https://developers.nutanix.com/
+  ntnx-licensing-py-client       - Nutanix SDK - https://developers.nutanix.com/
+  ntnx-microseg-py-client        - Nutanix SDK - https://developers.nutanix.com/
+  ntnx-monitoring-py-client      - Nutanix SDK - https://developers.nutanix.com/
+  ntnx-multidomain-py-client     - Nutanix SDK - https://developers.nutanix.com/
+  ntnx-networking-py-client      - Nutanix SDK - https://developers.nutanix.com/
+  ntnx-objects-py-client         - Nutanix SDK - https://developers.nutanix.com/
+  ntnx-opsmgmt-py-client         - Nutanix SDK - https://developers.nutanix.com/
+  ntnx-prism-py-client           - Nutanix SDK - https://developers.nutanix.com/
+  ntnx-security-py-client        - Nutanix SDK - https://developers.nutanix.com/
+  ntnx-vmm-py-client             - Nutanix SDK - https://developers.nutanix.com/
+  ntnx-volumes-py-client         - Nutanix SDK - https://developers.nutanix.com/

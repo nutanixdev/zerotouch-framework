@@ -1,23 +1,40 @@
-dev:
-	# Setup our python based virtualenv
-	# This step assumes python3 is installed on your dev machine as python
-	[ -f venv/bin/python ] || (python -m venv venv)
-		. venv/bin/activate
-		venv/bin/pip install --upgrade "pip<25.3" setuptools
-		venv/bin/pip install pip-tools
-		venv/bin/pip-compile --output-file=requirements/prod.txt requirements/prod.in
-		venv/bin/pip install --no-cache -r requirements/prod.txt
+UV := $(or $(shell command -v uv 2>/dev/null),$(HOME)/.local/bin/uv)
 
-test: dev
-	pytest --cov=framework --cov-report=html --cov-config=.coveragerc
+.PHONY: help lint format test test-functional typecheck install-hooks ci security
 
-dist: dev
-	venv/bin/python setup.py build
+help:
+	@echo "Available commands:"
+	@echo "  make install-hooks      - Install pre-commit hooks (RUN THIS FIRST)"
+	@echo "  make lint               - Run ruff linter"
+	@echo "  make format             - Format code with ruff"
+	@echo "  make test               - Run unit tests with coverage (fast, ~30s)"
+	@echo "  make test-functional    - Run functional tests (slow, 9+ min, requires PC access)"
+	@echo "  make typecheck          - Run mypy type checking"
+	@echo "  make security           - Run bandit security scan"
+	@echo "  make ci                 - Run all checks (format, lint, typecheck, test)"
 
-centos:
-	rpm -q epel-release || sudo yum -y install epel-release
-	sudo yum -y install gcc git openssl-devel sqlite-devel ncurses-devel
+install-hooks:
+	@echo "Installing pre-commit hooks..."
+	$(UV) run pre-commit install
+	@echo "Pre-commit hooks installed. Code will be formatted on each commit."
 
-ubuntu:
-	sudo apt-get update
-	sudo apt-get -y install build-essential gcc git libssl-dev sqlite3 libncurses-dev
+lint:
+	$(UV) run ruff check .
+
+format:
+	$(UV) run ruff format .
+
+typecheck:
+	$(UV) run mypy ztf/ --ignore-missing-imports
+
+test:
+	$(UV) run pytest tests/ --ignore=tests/functional -v --cov=ztf --cov-report=term-missing --cov-fail-under=95
+
+test-functional:
+	$(UV) run pytest tests/functional -v --timeout=600
+
+security:
+	$(UV) run bandit -r ztf/ -c pyproject.toml
+
+ci: format lint typecheck test
+	@echo "All checks passed!"
