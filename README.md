@@ -1,11 +1,9 @@
 # ZTF: Zero Touch Framework
 
-ZTF is a Python-based Infrastructure as Code (IaC) framework for managing resources across multiple Nutanix Prism Central domains. It uses declarative YAML configuration files and Nutanix v4 SDKs to orchestrate creation, update,
-deletion, and custom operations on infrastructure entities. ZTF supports all the v4 APIs except for Nutanix Files APIs due to a dependency conflict with the published Files package.
+ZTF is a Python-based Infrastructure as Code (IaC) framework for managing resources across multiple Nutanix Prism Central domains. It uses declarative YAML configuration files and Nutanix v4 SDKs to orchestrate creation, update, deletion, and custom operations on infrastructure entities. ZTF runs on Python 3.10 through 3.14. Nutanix Files APIs remain unavailable because of a dependency conflict with the published Files package.
 
-> **Beta Notice:** Update, delete, and certain advanced operations (`create_before_destroy`, `operations`, `destroy`) are functional but considered **beta**. Always run `ztf plan` before `ztf apply`, review the diff carefully, and use `--auto-approve` only in trusted CI/CD pipelines.
 
-> **Migrating from ZTF 1.x?** ZTF 2.x is a ground-up rewrite on Nutanix v4 SDKs. PE (v2) APIs, Foundation Central imaging / cluster-create, NCM / Calm DSL workflows, NDB scripts, and the Pod conceptual workflows that shipped in 1.x are **not yet ported**. If you need any of those features, stay on the [`1.x branch`](https://github.com/nutanixdev/zerotouch-framework/tree/1.5.2) (last 1.x release: `v1.5.2`). See [Migrating from ZTF 1.x](#migrating-from-ztf-1x) below for the full feature delta and how to keep using the legacy tree.
+> **Migrating from ZTF 1.x?** ZTF 2.x is a ground-up rewrite on Nutanix v4 SDKs. 2.1.0 ports Foundation Central imaging and cluster create, and a few PE cluster-local helpers. NCM / Calm DSL workflows, NDB scripts, NKE, and the Pod conceptual workflows remain on the [1.x branch](https://github.com/nutanixdev/zerotouch-framework/tree/1.5.2) (last 1.x release: [`v1.5.2`](https://github.com/nutanixdev/zerotouch-framework/releases/tag/v1.5.2)). See [Migrating from ZTF 1.x](#migrating-from-ztf-1x).
 
 ## Table of Contents
 
@@ -34,21 +32,27 @@ deletion, and custom operations on infrastructure entities. ZTF supports all the
 
 ## Features
 
-- **Multi-domain orchestration** -- manage resources across many PC, FC instances in parallel
+- **Multi-domain orchestration** -- manage resources across many Prism Central instances in parallel. Foundation Central is reached through the PC domain
 - **Dependency resolution** -- automatic topological ordering via interpolation analysis (extId dependancy) and provision for explicit dependancy mapping using `depends_on`
-- **State management** -- YAML state file with advisory locking, backups, and incremental writes
+- **State management** -- YAML state file with advisory locking, backups, incremental writes, and atomic replace (a crash during serialization cannot leave a truncated `state.yml`)
 - **Plan before apply** -- preview creates, updates (field-level diff), and deletes with live data sources
 - **Auto-refresh** -- plan and apply refresh state from infrastructure automatically before computing changes
+- **Apply progress** -- long-running Prism Central tasks log child subtasks while ZTF waits
 - **Confirmation prompt** -- interactive `"yes"` confirmation before apply/destroy with post-apply summary
 - **Interpolation** -- reference variables, data sources, resources, and cross-domain state
 - **Variables and var-files** -- multi-source variables with auto-loading (`ztfvars.yml`)
 - **Dynamic resources** -- `for_each` expansion for repeatable resource patterns
 - **Lifecycle rules** -- `prevent_destroy`, `ignore_changes`, `create_before_destroy`
-- **Data sources** -- fetch existing infrastructure data for use in config
-- **Schema negotiation** -- version-aware request body filtering across PC versions
-- **Import** -- bring existing infrastructure under management, with config snippet generation and bulk import
+- **Data sources** -- fetch existing infrastructure; a source may reference another source with `{data.<entity>.<source>...}` or `depends_on`
+- **Foundation Central 1.11** -- HCI clusters (`fc_v1_imaging`, `fc_v1_cluster`)
+- **Foundation Central 2.2** -- compute-only clusters with external storage (`fc_create_cluster`)
+- **Foundation Central helpers** -- `foundation_central_service`, `generate_fc_api_key`, `update_cvm_foundation`, and `fc_v1_image_upload`
+- **PE cluster-local helpers** -- `eula_pe`, `ad_server_pe`, `role_mapping_pe`, `open_replication_ports`, `ha_reservation`
+- **Schema negotiation** -- version-aware request body filtering so one `input.yml` can target mixed Prism Central minors
+- **Import** -- bring existing infrastructure under management, with config snippet generation and bulk import. `refresh` and `import` omit server-managed fields (`createTime`, `ownerExtId`, `sizeBytes`, and similar) so they are not reported as drift
 - **Outputs** -- extract and export values after apply
 - **Operations** -- custom post-CRUD operations (Beta)
+- **Reviewed entity catalog** -- OpenAPI-backed identities, exact operation IDs, per-operation SDK adapters, and compatible entity aliases. Several 2.0.0 headings remain accepted with a deprecation warning; `ztf migrate entity-registry` rewrites them to the 7.5.1 names
 - **Custom functions** -- user-defined Python functions (`{fn.*}` tokens) for computed values, templates, and base64 encoding
 - **Example generation** -- auto-generated per-entity YAML examples, Markdown reference docs, and starter functions file
 
@@ -56,8 +60,8 @@ deletion, and custom operations on infrastructure entities. ZTF supports all the
 
 - **variables**: static inputs you define once and reuse within the input file; referenced as `{var.name}`.
 - **ztfvars.yml**: auto-loaded variable file intended for secrets; keep out of git.
-- **domains**: one or more Prism Central or Foundation Central targets; each domain has its own `data` and `resources`.
-- **data**: read-only lookups of existing entities (resolved at apply time); used to fetch IDs for resources.
+- **domains**: one or more Prism Central targets. Foundation Central is reached through that PC. Each domain has its own `data` and `resources`. Starting with ZTF 2.1.0, `location`, `registered_domain`, and `local_domain` are ordinary resources.
+- **data**: read-only lookups of existing entities (resolved at plan and apply time); used to fetch IDs for resources. A source may reference another source. Source names must be unique within a domain.
 - **resources**: entities ZTF creates/updates/deletes; grouped by entity type.
 - **resource_name**: user-defined identifier under a resource type; used for interpolation and state tracking. Must be unique within a domain.
 - **outputs**: values computed after apply; good for surfacing IDs or sharing with other tools.
@@ -66,13 +70,12 @@ deletion, and custom operations on infrastructure entities. ZTF supports all the
 
 ## Migrating from ZTF 1.x
 
-ZTF 2.x is a ground-up rewrite on Nutanix v4 SDKs. The legacy 1.x line kept v2 / v3 API support so it could reach Prism Element directly, drive Foundation Central imaging, and run NCM / Calm / NDB workflows. Those surfaces are **not yet ported** to 2.x. If your automation depends on any of the features below, stay on `[ZTF 1.x](https://github.com/nutanixdev/zerotouch-framework/tree/1.x)` (last release `v1.5.2`) until parity lands here.
+ZTF 2.x is a ground-up rewrite on Nutanix v4 SDKs. 2.1.0 ports Foundation Central 1.11 HCI imaging and cluster create (`fc_v1_imaging`, `fc_v1_cluster`), and Foundation Central 2.2 compute-only clusters with external storage (`fc_create_cluster`). It also ports `foundation_central_service`, `generate_fc_api_key`, `update_cvm_foundation`, and `fc_v1_image_upload`, and the PE helpers `eula_pe`, `ad_server_pe`, `role_mapping_pe`, `open_replication_ports`, and `ha_reservation`. See [v2.1.0](releases/2.1.0/README.md) and [Advanced Topics](docs/advanced-topics.md). The surfaces below are still only on [ZTF 1.5.2](https://github.com/nutanixdev/zerotouch-framework/tree/1.5.2) (last 1.x release: [`v1.5.2`](https://github.com/nutanixdev/zerotouch-framework/releases/tag/v1.5.2)).
 
 **Features only available on the 1.x branch**
 
-- **Foundation Central — imaging & cluster creation:** The `cluster-create`, `imaging`, `imaging-only`, and `site-deploy` workflows; `UpdateCvmFoundation` for CVM Foundation upgrades.
-- **Prism Element (v2) operations:** `CreateContainerPe`, `CreateVmPe`, `UploadImagePe`, `PowerTransitionVmPe`, `AddAdServerPe`, `CreateRoleMappingPe`, `UpdateDsip`, `HaReservation`, `RebuildCapacityReservation`, `ChangeDefaultAdminPasswordPe`, `AcceptEulaPe`, `UpdatePulsePe`, `AddNameServersPe`, `AddNtpServersPe`, `DeleteSubnetsPe`, and the rest of the `*Pe` script family.
-- **Pod / pod-block conceptual workflows:** `pod-config`, `deploy-management-pc`, `config-management-pc`, `deploy-pc`, `config-pc`, `config-cluster`.
+- **Prism Element (v2) operations:** `CreateContainerPe`, `CreateVmPe`, `UploadImagePe`, `PowerTransitionVmPe`, `UpdateDsip`, `RebuildCapacityReservation`, `UpdatePulsePe`, `AddNameServersPe`, `AddNtpServersPe`, `DeleteSubnetsPe`, and the rest of the `*Pe` script family that has no 2.x helper.
+- **Pod / pod-block conceptual workflows:** `imaging`, `sites-deploy`, `pod-config`, `deploy-management-pc`, `config-management-pc`, `deploy-pc`, `config-pc`, `config-cluster`. `imaging` and `sites-deploy` stay on 1.x; the Foundation Central operations they call are the 2.x helpers above.
 - **NCM / Calm DSL workloads:** `calm-vm-workloads`, `calm-edgeai-vm-workload`, `CreateAppFromDsl`, `CreateNcmProject`, `CreateNcmAccount`, `CreateNcmUser`, `InitCalmDsl`.
 - **NDB:** Deploy and configure the NDB management VM (`ndb` workflow: password change, pulse, multi-cluster, compute / network profiles, HA).
 - **NKE / Karbon:** `EnableNke`, `CreateKarbonClusterPc`.
@@ -82,7 +85,7 @@ ZTF 2.x is a ground-up rewrite on Nutanix v4 SDKs. The legacy 1.x line kept v2 /
 **Using the 1.x tree:**
 
 ```bash
-git clone -b 1.x https://github.com/nutanixdev/zerotouch-framework.git
+git clone -b 1.5.2 https://github.com/nutanixdev/zerotouch-framework.git
 cd zerotouch-framework
 # Follow dev-setup-README.md from the 1.x branch for the venv + run loop
 python main.py --workflow <workflow-name> -f config/<your-config>.yml
@@ -96,7 +99,14 @@ New features land on 2.x first; no further functional changes are planned for th
 
 Nutanix Files APIs are currently not included in ZTF due to a dependency conflict with the published Files package. We are tracking this with Nutanix for resolution. Please monitor the [Nutanix Python SDK releases](https://pypi.org/project/ntnx-files-py-client/) for updates.
 
+Files registry corrections are recorded but remain unavailable until the
+published Files SDK can resolve with the complete pinned SDK set. For current
+entity aliases and the optional one-time correction command, see
+[Entity Registry Corrections and One-Time Migration](docs/entity-registry-migration.md).
+
 ## Installation
+
+ZTF supports Python 3.10, 3.11, 3.12, 3.13, and 3.14.
 
 ### Local
 
@@ -118,7 +128,7 @@ Then install:
 # Use any of these below ways to install ztf
 
 # From PyPI (with uv)
-uv pip install nutanix-ztf
+uv pip install nutanix-ztf --prerelease=allow
 
 # From PyPI (with pip)
 pip install nutanix-ztf
@@ -138,13 +148,13 @@ pip install .
 
 ### Docker
 
-ZTF ships a multi-stage `[Dockerfile](https://github.com/nutanixdev/zerotouch-framework/blob/main/Dockerfile)`
+ZTF ships a multi-stage [`Dockerfile`](https://github.com/nutanixdev/zerotouch-framework/blob/main/Dockerfile)
 with two consumer-facing targets: `runtime` (a self-contained image with the `ztf` CLI on the PATH) and `wheels-export` (a scratch image used to extract an offline wheel bundle for dark-site installs).
 
 **Build the runtime image:**
 
 ```bash
-docker build --target runtime -t ztf:2.0.0 .
+docker build --target runtime -t ztf:2.1.0 .
 ```
 
 **Run against a project on the host** (mount your `input.yml`, `global.yml`, `state.yml`, and `ztfvars.yml` into the container's working directory):
@@ -152,19 +162,19 @@ docker build --target runtime -t ztf:2.0.0 .
 ```bash
 docker run --rm -it \
   -v "$PWD:/home/ztf" \
-  ztf:2.0.0 plan
+  ztf:2.1.0 plan
 ```
 
-The image's entrypoint is already `ztf`, the working directory is `/home/ztf`, and it runs as a non-root `ztf` user. Append any subcommand and flags after the image name (e.g. `ztf:2.0.0 apply --auto-approve`).
+The image's entrypoint is already `ztf`, the working directory is `/home/ztf`, and it runs as a non-root `ztf` user. Append any subcommand and flags after the image name (e.g. `ztf:2.1.0 apply --auto-approve`).
 
-**Pass secrets via env file or a read-only `ztfvars.yml` mount:**
+**Pass secrets via env file or a read-only** `ztfvars.yml` **mount:**
 
 ```bash
 docker run --rm -it \
   --env-file .env \
   -v "$PWD:/home/ztf" \
   -v "$PWD/ztfvars.yml:/home/ztf/ztfvars.yml:ro" \
-  ztf:2.0.0 apply
+  ztf:2.1.0 apply
 ```
 
 **Dark-site / offline wheel bundle.** Build the `wheels-export` target on a connected machine, then `pip install --no-index` from the exported wheels on the air-gapped target:
@@ -201,11 +211,12 @@ config:
 variables:
   env: prod # this is a variable that you can reuse within the input file
 
-# Domains are one or more Prism Central or Foundation Central targets; each domain has its own `data` and `resources`.
+# Domains are one or more Prism Central targets; Foundation Central is reached through that PC.
+# Each domain has its own `data` and `resources`.
 domains:
   # Domain name: unique identifier for the domain
   lab1:
-    # Domain (PC or Foundation Central) configuration
+    # Prism Central configuration. Foundation Central is reached through this PC.
     host: 10.10.0.1 # IP or FQDN
     username: admin
     password: "{var.lab1_password}" # fetched from the ztfvars.yml file
@@ -284,41 +295,61 @@ ztf destroy --target my_container  # my_container is resource name
 
 ### Discovering values for `data` filters
 
-ZTF data sources require filter values (like cluster names). Use Prism Central UI, CLI or ZTF repl to discover these values, then plug them into your `data` filters.  
-See the [User Guide section on data sources](https://github.com/nutanixdev/zerotouch-framework/blob/main/docs/user-guide.md#8-data-sources) for details.
+ZTF data sources need live values (cluster names, `extId`s). Discover them
+with `ztf repl`, then paste the same OData `filter` into YAML:
+
+```bash
+ztf repl -i config/input.yml
+```
+
+```python
+data.cluster.list(domain='lab1')
+data.cluster.list(domain='lab1', filter="name eq 'nested-grove4-2'", select="extId,name")
+```
+
+`data.<entity>` uses the YAML entity-type heading (`cluster`, `vm`,
+`subnet`, `storage_container`, ...). Arguments are `filter`, `select`,
+`orderby`, `limit`, and `page` — the same keys as a YAML `data:` block.
+There is no `sortby`; use `orderby="name asc"`. You can query an entity
+type that is not in the current `input.yml`; the REPL creates the client
+on first use. See
+[ztf repl](docs/configuration-reference.md#ztf-repl) in the configuration
+reference.
 
 ## Commands
 
-| Command                          | Description                                                                       |
-| -------------------------------- | --------------------------------------------------------------------------------- |
-| `ztf init`                       | Create an empty state. Statefile manages the state of the resources in the domain |
-| `ztf plan`                       | Preview what will change (auto-refreshes state first, fetches live data sources)  |
-| `ztf apply`                      | Apply changes with confirmation prompt and post-apply summary                     |
-| `ztf refresh`                    | Sync current state with live infrastructure (shows diff of changes)               |
-| `ztf destroy`                    | Delete managed resources with detailed plan (supports `--target`)                 |
-| `ztf import <resource> <domain>` | Import resource into state (prints suggested config, supports `--file` for bulk)  |
-| `ztf examples`                   | Generate per-entity YAML examples and Markdown docs                               |
-| `ztf repl`                       | Start a read-only Python REPL with data sources loaded                            |
+| Command | Description |
+| --- | --- |
+| `ztf init` | Create an empty state. Statefile manages the state of the resources in the domain |
+| `ztf plan` | Preview what will change (auto-refreshes state first, fetches live data sources)  |
+| `ztf apply` | Apply changes with confirmation prompt, Prism Central subtask logs, and a post-apply summary |
+| `ztf refresh` | Sync current state with live infrastructure. Server-managed fields are omitted so they are not reported as drift |
+| `ztf destroy` | Delete managed resources with detailed plan (supports `--target`) |
+| `ztf import <resource> <domain>` | Import resource into state (prints suggested config, supports `--file` for bulk). Omits the same server-managed fields as `refresh` |
+| `ztf migrate entity-registry` | Rewrite 2.0.0 entity headings and rejected operations to the 7.5.1 catalog (dry-run by default; `--write` to apply) |
+| `ztf examples` | Generate per-entity YAML examples and Markdown docs |
+| `ztf repl` | Start a read-only Python REPL with data sources loaded |
 
 Run `ztf <command> --help` for per-command flags and defaults.
 
 ## CLI Flags
 
-| Flag             | Short | Default         | Commands             | Description                                                  |
-| ---------------- | ----- | --------------- | -------------------- | ------------------------------------------------------------ |
-| `--input`        | `-i`  | `input.yml`     | all except init      | Path to input configuration file                             |
-| `--global-file`  | `-g`  | `global.yml`    | all except init      | Path to global SDK configuration                             |
-| `--state`        | `-s`  | `state.yml`     | all                  | Path to state file (init auto-creates parent directories)    |
-| `--parallel`     | `-p`  | `cpu_count + 4` | all except init      | Maximum parallel workers                                     |
-| `--var`          |       |                 | all except init      | Variable override: `--var 'key=value'` (repeatable)          |
-| `--var-file`     |       |                 | all except init      | Path to a YAML variable file (repeatable)                    |
-| `--functions`    |       |                 | all except init      | Path to functions file for `{fn.*}` tokens (auto-discovered) |
-| `--output-file`  |       |                 | apply                | Path to write resolved outputs (YAML or JSON)                |
-| `--no-refresh`   |       | `false`         | plan, apply, destroy | Skip automatic state refresh                                 |
-| `--strict`       |       | `false`         | plan, apply, destroy | Fail on refresh errors instead of using stale state          |
-| `--auto-approve` |       | `false`         | apply, destroy       | Skip confirmation prompt                                     |
-| `--target`       |       |                 | destroy              | Destroy only named resource(s) (repeatable)                  |
-| `--file`         |       |                 | import               | YAML manifest for bulk import                                |
+| Flag | Short | Default | Commands | Description |
+| --- | --- | --- | --- | --- |
+| `--input` | `-i`  | `input.yml` | all except init | Path to input configuration file |
+| `--global-file` | `-g` | `global.yml` | all except init | Path to global SDK configuration |
+| `--state` | `-s`  | `state.yml` | all | Path to state file (init auto-creates parent directories) |
+| `--parallel` | `-p` | `cpu_count + 4` | all except init | Maximum parallel workers |
+| `--var` | | | all except init | Variable override: `--var 'key=value'` (repeatable) |
+| `--var-file` | | | all except init | Path to a YAML variable file (repeatable) |
+| `--functions` | | | all except init | Path to functions file for `{fn.*}` tokens (auto-discovered) |
+| `--output-file`  | | | apply | Path to write resolved outputs (YAML or JSON) |
+| `--no-refresh` | | `false` | plan, apply, destroy | Skip automatic state refresh                                 |
+| `--strict` | | `false` | plan, apply, destroy | Fail on refresh errors instead of using stale state |
+| `--auto-approve` | | `false` | apply, destroy | Skip confirmation prompt |
+| `--target` | | | destroy | Destroy only named resource(s) (repeatable) |
+| `--file` | | | import | YAML manifest for bulk import |
+| `--write` | | `false` | migrate entity-registry | Apply the entity-registry rewrite (dry-run is the default) |
 
 ## Simple Project Layout
 
@@ -405,17 +436,23 @@ ztf plan -i configs/compute.yml -s states/compute.yml -g shared/global.yml --var
 
 ## Interpolation
 
-| Pattern                       | Resolves To                     |
-| ----------------------------- | ------------------------------- |
-| `{var.name}`                  | Variable value                  |
+| Pattern | Resolves To |
+| --- | --- |
+| `{var.name}` | Variable value |
 | `{each.key}` / `{each.value}` | `for_each` iteration key/value  |
-| `{fn.name(args)}`             | User-defined function result    |
-| `{data.entity.name.field}`    | Data source field               |
-| `{resource_name.extId}`       | Resource extId (same domain)    |
-| `{domain.resource.field}`     | Cross-domain resource reference |
+| `{fn.name(args)}` | User-defined function result |
+| `{data.entity.name.field}` | Data source field (for example `{data.cluster.grove.data.0.extId}`) |
+| `{resource_name.extId}` | Resource extId (same domain) |
+| `{domain.resource.field}` | Cross-domain resource reference |
 
 Full-string tokens preserve the resolved Python type (int, dict, list).
 Embedded tokens are always stringified.
+
+A data source may interpolate another source in `filter` or in a list
+parameter. ZTF infers the fetch order from `{data.<entity>.<source>...}`
+tokens. Use `depends_on` when you need that edge without a token. Source
+names share one namespace per domain and must be unique there. See
+[Data Sources](docs/configuration-reference.md#5-data-sources).
 
 ## Lifecycle Rules
 
@@ -433,18 +470,21 @@ Rules can be overridden per-resource under the `rules:` key.
 
 After running `ztf examples`, browse `examples/INDEX.md` for
 all available entities. Each entity has a `.yml` example and a `.md` reference
-with field descriptions, enum values, and version availability.
+with field descriptions, enum values, and version availability. Extra method
+parameters are nested under `params:`, which is where apply reads them. For
+Prism Central 7.6 Lifecycle skeletons, run `ztf examples --namespace lifecycle`. For
+multi-domain registration, run `ztf examples --namespace multidomain`.
 
 ## Documentation
 
-| Document                                                                                                               | Description                                                           |
-| ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| [Getting Started](https://github.com/nutanixdev/zerotouch-framework/blob/main/docs/getting-started.md)                 | Project setup, global config, input file reference                    |
+|Document | Description |
+| --- | --- |
+| [Getting Started](https://github.com/nutanixdev/zerotouch-framework/blob/main/docs/getting-started.md) | Project setup, global config, input file reference |
 | [Configuration Reference](https://github.com/nutanixdev/zerotouch-framework/blob/main/docs/configuration-reference.md) | Interpolation, variables, for_each, lifecycle, data sources, commands |
-| [Advanced Topics](https://github.com/nutanixdev/zerotouch-framework/blob/main/docs/advanced-topics.md)                 | Multi-environment workflows, logging, custom functions                |
-| [Developer Guide](https://github.com/nutanixdev/zerotouch-framework/blob/main/docs/developer-guide.md)                 | Architecture, flowcharts, SDK integration, extending the framework    |
+| [Advanced Topics](https://github.com/nutanixdev/zerotouch-framework/blob/main/docs/advanced-topics.md) | Multi-environment workflows, logging, custom functions, PE and Foundation Central helpers |
+| [Entity Registry Corrections](docs/entity-registry-migration.md) | 2.1.0 entity aliases, rejected operations, and `ztf migrate entity-registry` |
 
 ## License
 
 Copyright 2026 Nutanix, Inc. Licensed under the [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0).  
-See [LICENSE.txt](https://github.com/nutanixdev/zerotouch-framework/blob/main/LICENSE.txt) for the full text.
+See [LICENSE.txt](LICENSE.txt) for the full text.

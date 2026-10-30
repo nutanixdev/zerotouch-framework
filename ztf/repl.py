@@ -12,13 +12,21 @@ from ztf.entity_wrapper.entity_handler import DomainEntityHandler
 from ztf.entity_wrapper.entity_map import entity_map as entity_metadata_map
 from ztf.utils.utils import strip_internal_attributes
 
+# YAML data-source keys -> SDK list kwargs. Keep in sync with
+# Provider._fetch_data_sources alias_map.
+_LIST_ARG_ALIASES: dict[str, str] = {
+    "filter": "_filter",
+    "select": "_select",
+    "orderby": "_orderby",
+    "limit": "_limit",
+    "page": "_page",
+}
+
 
 class EntityHandlerProtocol(Protocol):
     """Protocol for entity handlers used by the REPL data namespace."""
 
-    def list_entities(
-        self, entity: str, _filter: str | None = None, **kwargs: object
-    ) -> list[object]:
+    def list_entities(self, entity: str, **kwargs: object) -> list[object]:
         """List entities of the given type."""
         ...
 
@@ -92,6 +100,35 @@ def _resolve_domain(
     raise ValueError("Domain is required when multiple domains are configured.")
 
 
+def _alias_list_kwargs(kwargs: dict[str, object]) -> dict[str, object]:
+    """Map YAML-style list arg names to the SDK underscore form.
+
+    ``filter`` / ``select`` / ``orderby`` / ``limit`` / ``page`` become
+    ``_filter`` / ``_select`` / ``_orderby`` / ``_limit`` / ``_page``.
+    Keys already in underscore form, and any other passthrough param
+    (for example ``clusterExtId``), are left unchanged.
+
+    Args:
+        kwargs: Caller kwargs from ``list()`` or ``get()``.
+
+    Returns:
+        A new dict with aliased keys.
+    """
+    return {_LIST_ARG_ALIASES.get(key, key): value for key, value in kwargs.items()}
+
+
+def _maybe_ensure_entity(handler: EntityHandlerProtocol, entity: str) -> None:
+    """Lazily initialize *entity* on handlers that support it.
+
+    Args:
+        handler: Domain handler used for the list/get call.
+        entity: ZTF entity type name (the YAML heading, e.g. ``vm``).
+    """
+    ensure_entity = getattr(handler, "ensure_entity", None)
+    if callable(ensure_entity):
+        ensure_entity(entity)
+
+
 class DataEntityClient:
     """Client for listing and fetching entities of a single type across domains."""
 
@@ -123,18 +160,25 @@ class DataEntityClient:
 
         Args:
             domain: Optional domain override.
-            filter: Optional filter expression for the list API.
-            **kwargs: Additional arguments passed to the list method.
+            filter: Optional OData filter expression (same as YAML ``filter:``).
+            **kwargs: List args using YAML names (``select``, ``orderby``,
+                ``limit``, ``page``) or SDK names (``_select``, ...), plus
+                any entity-specific passthrough params.
 
         Returns:
-            List of sanitized entity dicts.
+            List of sanitized entity dicts. Auto-paginates; ``limit`` is
+            the SDK page size, not a cap on the returned list.
 
         Raises:
             ValueError: If domain is unknown or ambiguous.
         """
         domain_name = _resolve_domain(self._handlers, domain, self._default_domain)
         handler = self._handlers[domain_name]
-        items = handler.list_entities(self._entity, _filter=filter, **kwargs)
+        _maybe_ensure_entity(handler, self._entity)
+        list_kwargs = dict(kwargs)
+        if filter is not None:
+            list_kwargs["filter"] = filter
+        items = handler.list_entities(self._entity, **_alias_list_kwargs(list_kwargs))
         return [_serialize_entity(handler, self._entity, item) for item in items]
 
     def get(
@@ -162,12 +206,14 @@ class DataEntityClient:
         """
         domain_name = _resolve_domain(self._handlers, domain, self._default_domain)
         handler = self._handlers[domain_name]
+        _maybe_ensure_entity(handler, self._entity)
+        mapped = _alias_list_kwargs(dict(kwargs))
         if filter:
             item, _ = handler.get_entity_by_identifier(
-                self._entity, _filter=filter, **kwargs
+                self._entity, _filter=filter, **mapped
             )
         elif ext_id:
-            item = handler.get_entity_by_ext_id(self._entity, ext_id, **kwargs)
+            item = handler.get_entity_by_ext_id(self._entity, ext_id, **mapped)
         else:
             raise ValueError("Either filter or ext_id must be provided.")
         if not item:
@@ -202,6 +248,16 @@ class DataNamespace:
             A DataEntityClient bound to this namespace and the given entity.
         """
         return DataEntityClient(entity, self._handlers, self._default_domain)
+
+    def __dir__(self) -> list[str]:
+        """Expose entity-map keys for REPL tab completion.
+
+        Returns:
+            Sorted attribute names including every registered entity type.
+        """
+        names = set(super().__dir__())
+        names.update(entity_metadata_map)
+        return sorted(names)
 
 
 @dataclass(frozen=True)

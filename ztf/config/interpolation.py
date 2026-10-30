@@ -34,6 +34,15 @@ _TOKEN_PATTERN = re.compile(r"\{((?:[^{}]|\{[^{}]*\})+)\}")
 #: ``{fn.a({fn.b({fn.c(...)})})}`` or circular tokens that keep expanding.
 _MAX_TOKEN_DEPTH: int = 32
 
+#: Reserved top-level keys for the *namespaced* ``data_cache`` shape.
+#: Domain-keyed entries live exclusively under ``_CACHE_CROSS_KEY`` and
+#: entity-type-keyed (current-domain) entries exclusively under
+#: ``_CACHE_LOCAL_KEY``, so an entity type name can never collide with a
+#: domain name (unlike the legacy mixed-key shape).  See
+#: :func:`_lookup_data_entry_namespaced`.
+_CACHE_CROSS_KEY = "_cross"
+_CACHE_LOCAL_KEY = "_local"
+
 #: Directory that ``{fn.template(...)}`` is permitted to read from.
 #: Populated at import time (cwd) and resettable for tests.
 _TEMPLATE_ROOT: Path = Path.cwd().resolve()
@@ -58,10 +67,22 @@ class InterpolationContext:
         for_each: Current for_each iteration (``{"key": ..., "value": ...}``).
         resource_state: Resources in the current domain that have been applied.
             ``{resource_name: {"ext_id": ..., "body": {...}, ...}}``.
-        data_cache: Cached data-source query results.
-            ``{entity_type: {source_name: {"data": [...], "metadata": {...}}}}``
-            or domain-scoped:
-            ``{domain: {entity_type: {source_name: {"data": [...], "metadata": {...}}}}}``.
+        data_cache: Cached data-source query results.  Two shapes are
+            supported (see :func:`_lookup_data_entry`):
+
+            * **Namespaced (preferred):**
+              ``{"_cross": {domain: {entity_type: {source_name: result}}},
+              "_local": {entity_type: {source_name: result}}}``.  Built by
+              :meth:`Provider._build_data_source_context`,
+              :meth:`Provider._build_interpolation_context`, and
+              :meth:`Provider.resolve_outputs`.  Domain names and entity
+              type names live in disjoint namespaces so a name collision
+              between the two is impossible.
+            * **Legacy / flat (backward compatible):**
+              ``{entity_type: {source_name: result}}``, optionally with
+              domain-scoped entries mixed in at the top level
+              (``{domain: {entity_type: {source_name: result}}}``).  Kept
+              for callers/tests that construct ``data_cache`` directly.
         domain_states: Resource state from *other* domains (for cross-domain refs).
             ``{domain_name: {resource_name: {"ext_id": ..., ...}}}``.
         current_domain: Name of the domain currently being processed.
@@ -286,19 +307,16 @@ def _lookup_data_entry(
 ) -> tuple[Any, list[str]]:
     """Resolve a ``{data.*}`` token against the data-source cache.
 
-    Two cache shapes are supported so that single-domain and multi-domain
-    callers share the same interpolation pipeline:
+    Dispatches to one of two implementations depending on the cache
+    shape actually supplied:
 
-    * **Flat / current-domain:** ``{entity_type: {source_name: data}}``.
-      Matches tokens of the form ``data.entity.source[.field...]``.
-    * **Domain-scoped:** ``{domain: {entity_type: {source_name: data}}}``.
-      Matches tokens of the form ``data.domain.entity.source[.field...]``.
-
-    The heuristic is: prefer the domain-scoped interpretation when the
-    token has at least one post-``data`` segment more than the flat form
-    *and* the first two segments happen to name a real (domain, entity)
-    pair in the cache.  Otherwise fall back to the flat shape.  This
-    keeps the caller free of cache-shape knowledge.
+    * :func:`_lookup_data_entry_namespaced` when *data_cache* carries the
+      reserved ``_cross``/``_local`` keys (the shape produced by
+      :class:`~ztf.provider.provider.Provider` as of the namespaced-cache
+      fix -- see the ``InterpolationContext.data_cache`` docstring).
+    * :func:`_lookup_data_entry_legacy` otherwise, for backward
+      compatibility with callers/tests that build a plain flat or
+      domain-scoped dict directly.
 
     Args:
         data_cache: Either cache shape described above.
@@ -308,6 +326,80 @@ def _lookup_data_entry(
         ``(data_entry, field_path_parts)``.  ``data_entry`` is ``None``
         when no matching entry is found; callers should treat that as
         unresolved.
+    """
+    if _CACHE_CROSS_KEY in data_cache or _CACHE_LOCAL_KEY in data_cache:
+        return _lookup_data_entry_namespaced(data_cache, parts)
+    return _lookup_data_entry_legacy(data_cache, parts)
+
+
+def _lookup_data_entry_namespaced(
+    data_cache: dict[str, Any], parts: list[str]
+) -> tuple[Any, list[str]]:
+    """Resolve against the unambiguous ``_cross``/``_local`` cache shape.
+
+    Domain names live exclusively under ``_cross`` and entity types
+    exclusively under ``_local``, so -- unlike
+    :func:`_lookup_data_entry_legacy` -- there is no possibility of a
+    name collision between the two: an entity type happening to share a
+    name with a domain can never cause the wrong branch to be taken.
+
+    Args:
+        data_cache: ``{"_cross": {domain: {entity: {source: data}}},
+            "_local": {entity: {source: data}}}``.
+        parts: Token split on ``.``; ``parts[0]`` is ``"data"``.
+
+    Returns:
+        ``(data_entry, field_path_parts)``; see :func:`_lookup_data_entry`.
+    """
+    # Domain-scoped: data.<domain>.<entity>.<source>[.field...]
+    cross = data_cache.get(_CACHE_CROSS_KEY)
+    if isinstance(cross, dict) and len(parts) >= 5 and parts[1] in cross:
+        domain_cache = cross[parts[1]]
+        if isinstance(domain_cache, dict) and parts[2] in domain_cache:
+            entity_cache = domain_cache[parts[2]]
+            if isinstance(entity_cache, dict) and parts[3] in entity_cache:
+                return entity_cache[parts[3]], parts[4:]
+
+    # Flat / current-domain: data.<entity>.<source>[.field...]
+    local = data_cache.get(_CACHE_LOCAL_KEY)
+    if isinstance(local, dict) and len(parts) >= 3 and parts[1] in local:
+        entity_cache = local[parts[1]]
+        if isinstance(entity_cache, dict) and parts[2] in entity_cache:
+            return entity_cache[parts[2]], parts[3:]
+
+    return None, parts[3:]
+
+
+def _lookup_data_entry_legacy(
+    data_cache: dict[str, Any], parts: list[str]
+) -> tuple[Any, list[str]]:
+    """Resolve a ``{data.*}`` token against a flat/domain-scoped cache.
+
+    Kept for backward compatibility with callers that build ``data_cache``
+    directly without the ``_cross``/``_local`` namespacing (see
+    :func:`_lookup_data_entry`).  Two cache shapes are supported so that
+    single-domain and multi-domain callers share the same interpolation
+    pipeline:
+
+    * **Flat / current-domain:** ``{entity_type: {source_name: data}}``.
+      Matches tokens of the form ``data.entity.source[.field...]``.
+    * **Domain-scoped:** ``{domain: {entity_type: {source_name: data}}}``.
+      Matches tokens of the form ``data.domain.entity.source[.field...]``.
+
+    The heuristic is: prefer the domain-scoped interpretation when the
+    token has at least one post-``data`` segment more than the flat form
+    *and* the first two segments happen to name a real (domain, entity)
+    pair in the cache.  Otherwise fall back to the flat shape.  This is
+    inherently ambiguous when an entity type name collides with a domain
+    name -- callers that need to avoid that should use the namespaced
+    shape (:func:`_lookup_data_entry_namespaced`) instead.
+
+    Args:
+        data_cache: Either cache shape described above.
+        parts: Token split on ``.``; ``parts[0]`` is ``"data"``.
+
+    Returns:
+        ``(data_entry, field_path_parts)``; see :func:`_lookup_data_entry`.
     """
     # Domain-scoped interpretation: data.<domain>.<entity>.<source>[.field...]
     if (
@@ -375,9 +467,17 @@ def _resolve_token_inner(token: str, ctx: "InterpolationContext") -> Any:
         resource_name = parts[1]
         field_path = parts[2:]
         resource = ctx.domain_states[domain].get(resource_name)
-        if resource is None:
-            return _UNRESOLVED
-        return _walk_path(resource, field_path)
+        if resource is not None:
+            result = _walk_path(resource, field_path)
+            if result is not _UNRESOLVED:
+                return result
+        # Fall through: parts[0] matches a domain name but no resource
+        # named parts[1] exists there (or its field path didn't resolve).
+        # This can legitimately happen when a *same-domain* resource
+        # happens to share its name with another domain -- e.g. a
+        # resource named "lab2" referenced as {lab2.body.name} while
+        # "lab2" is also a real domain.  Don't shadow that reference;
+        # let the same-domain check below have a chance to resolve it.
 
     # --- {resource_name.field_path} (same domain) ---
     if len(parts) >= 2:
@@ -664,3 +764,176 @@ def extract_cross_domain_refs(data: Any, known_domains: set[str]) -> set[str]:
         and parts[0] not in _SCOPED_PREFIXES
         and parts[0] in known_domains
     }
+
+
+def extract_cross_domain_data_refs(data: Any, known_domains: set[str]) -> set[str]:
+    """Return domain names referenced by cross-domain data-source tokens.
+
+    Tokens matching ``{data.<domain>.<entity>.<source>[.field...]}``
+    reference *another* domain's data-source cache (see
+    :func:`_lookup_data_entry`'s domain-scoped interpretation).  This is
+    distinct from :func:`extract_cross_domain_refs`, which skips any
+    token starting with the ``data`` scope prefix.
+
+    Args:
+        data: Any JSON-compatible structure.
+        known_domains: Set of valid domain names from config.
+
+    Returns:
+        Set of domain names referenced via ``{data.<domain>....}`` tokens.
+    """
+    return {
+        parts[1]
+        for _, parts in _iter_tokens(data)
+        if len(parts) >= 5 and parts[0] == "data" and parts[1] in known_domains
+    }
+
+
+def extract_data_source_refs(
+    data: Any,
+    known_sources: set[str],
+    known_entity_types: set[str],
+) -> set[str]:
+    """Return source names referenced by within-domain data-source tokens.
+
+    Scans for ``{data.<entity_type>.<source_name>[.field...]}`` tokens where
+    *entity_type* is in *known_entity_types* (this domain's ``data:`` keys)
+    and *source_name* is in *known_sources*.  Cross-domain tokens
+    (``{data.<domain>.<entity>.<source>...}``) have a domain name in
+    ``parts[1]`` which is not a local entity type, so they are skipped
+    here and handled by :func:`extract_cross_domain_data_refs`.
+
+    Matching on local entity types (rather than excluding known domain
+    names) means a domain named ``cluster`` cannot shadow a local
+    ``{data.cluster.<source>...}`` token.
+
+    Used by :meth:`Provider._build_data_source_dependency_graph` to detect
+    implicit ordering constraints between data sources in the same domain —
+    analogous to how :func:`extract_resource_refs` detects resource-level
+    ordering constraints.
+
+    Args:
+        data: Any JSON-compatible structure to scan for tokens.
+        known_sources: Set of source names declared in the current domain's
+            ``data:`` block.
+        known_entity_types: Set of entity-type keys in the current domain's
+            ``data:`` block.
+
+    Returns:
+        Set of source names from *known_sources* that appear as within-domain
+        data-source references in *data*.
+    """
+    return {
+        parts[2]
+        for _, parts in _iter_tokens(data)
+        if len(parts) >= 3
+        and parts[0] == "data"
+        and parts[1] in known_entity_types
+        and parts[2] in known_sources
+    }
+
+
+def extract_indexed_source_tokens(
+    data: Any,
+    known_sources: set[str],
+    known_entity_types: set[str],
+) -> set[tuple[str, str]]:
+    """Return ``(token, source_name)`` pairs using index-based ``.data.N`` access.
+
+    Detects within-domain tokens of the form
+    ``{data.<entity>.<source>.data.<N>.<field>...}`` where *entity* is a
+    local entity type, *source* is a known source name, and ``N`` is a
+    numeric list index into that source's ``data`` result list.  Used by
+    :meth:`Provider._warn_on_unordered_index_access` to flag references
+    that may be non-deterministic when the referenced source has no
+    ``orderby`` configured -- the API could return items in a different
+    order on a later run, silently pointing the index at a different
+    entity.
+
+    Args:
+        data: Any JSON-compatible structure to scan for tokens.
+        known_sources: Set of source names declared in the current
+            domain's ``data:`` block.
+        known_entity_types: Set of entity-type keys in the current
+            domain's ``data:`` block; tokens whose second segment is
+            not a local entity type (including cross-domain
+            ``{data.<domain>...}`` tokens) are skipped.
+
+    Returns:
+        Set of ``(token, source_name)`` pairs.
+    """
+    return {
+        (token, parts[2])
+        for token, parts in _iter_tokens(data)
+        if len(parts) >= 5
+        and parts[0] == "data"
+        and parts[1] in known_entity_types
+        and parts[2] in known_sources
+        and parts[3] == "data"
+        and parts[4].isdigit()
+    }
+
+
+def validate_data_tokens(
+    data_config: dict[str, dict[str, Any]],
+    known_sources: set[str],
+    known_domains: set[str],
+) -> list[str]:
+    """Pre-flight check for ``{data.*}`` tokens referencing unknown sources.
+
+    Scans every source config in *data_config* for ``{data.<entity>.<source>
+    ...}`` tokens (within-domain) and ``{data.<domain>.<entity>.<source>
+    ...}`` tokens (cross-domain) and flags references that look malformed
+    or that point at a source name absent from *known_sources*.  This lets
+    a typo in a data-source reference (e.g. a renamed or misspelled source)
+    surface as an early warning instead of only manifesting as a confusing
+    "unresolved token" failure once ``list_entities`` is actually called.
+
+    This does **not** validate that the referenced field path exists in the
+    fetched result -- that can only be known after the API call returns.
+
+    Args:
+        data_config: ``{entity_type: {source_name: source_cfg}}`` for the
+            domain being validated (as stored in
+            ``Provider.domain_data_config[domain_name]``).
+        known_sources: Set of source names declared in this domain's
+            ``data:`` block (flat namespace).
+        known_domains: Set of all domain names in the config.
+
+    Returns:
+        List of human-readable warning strings, one per suspicious
+        reference.  Empty when no issues are found.
+    """
+    warnings: list[str] = []
+    known_entity_types = set(data_config)
+    for entity_type, sources in data_config.items():
+        for source_name, source_cfg in sources.items():
+            cfg_for_scan = {k: v for k, v in source_cfg.items() if k != "depends_on"}
+            for token, parts in _iter_tokens(cfg_for_scan):
+                if parts[0] != "data" or len(parts) < 3:
+                    continue
+                if parts[1] in known_entity_types or parts[1] not in known_domains:
+                    # Within-domain: {data.<entity>.<source>...}
+                    # Prefer a local entity type over a colliding domain
+                    # name so a domain named ``cluster`` cannot hide a
+                    # typo in ``{data.cluster.<source>...}``.  Tokens
+                    # whose second segment is neither a local entity
+                    # type nor a domain are also treated as local (the
+                    # entity type may itself be misspelled).
+                    ref_source = parts[2]
+                    if ref_source not in known_sources:
+                        warnings.append(
+                            f"Data source '{entity_type}/{source_name}' "
+                            f"references unknown source '{ref_source}' via "
+                            f"token '{{{token}}}'."
+                        )
+                    continue
+                if parts[1] in known_domains and len(parts) < 4:
+                    # Cross-domain: {data.<domain>.<entity>.<source>...}
+                    warnings.append(
+                        f"Data source '{entity_type}/{source_name}' "
+                        f"references incomplete cross-domain token "
+                        f"'{{{token}}}' (expected "
+                        "data.<domain>.<entity>.<source>...)."
+                    )
+    return warnings

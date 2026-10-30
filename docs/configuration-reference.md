@@ -38,9 +38,11 @@ custom functions, and logging, see [Advanced Topics](advanced-topics.md).
       - [Using `metadata.totalAvailableResults`](#using-metadatatotalavailableresults)
       - [Accessing fields beyond `extId`](#accessing-fields-beyond-extid)
       - [Filtering with `orderby` and `limit`](#filtering-with-orderby-and-limit)
+      - [Referencing one data source from another](#referencing-one-data-source-from-another)
       - [Multi-domain data source scoping](#multi-domain-data-source-scoping)
       - [Combining data sources with `for_each`](#combining-data-sources-with-for_each)
       - [Dynamic data-source references with nested tokens](#dynamic-data-source-references-with-nested-tokens)
+      - [Custom helper data sources](#custom-helper-data-sources)
   - [6. Operations (Beta)](#6-operations-beta)
     - [Operations on ZTF-Managed Resources](#operations-on-ztf-managed-resources)
     - [Operations on Pre-Existing Resources](#operations-on-pre-existing-resources)
@@ -59,8 +61,16 @@ custom functions, and logging, see [Advanced Topics](advanced-topics.md).
     - [ztf refresh](#ztf-refresh)
     - [ztf destroy (Beta)](#ztf-destroy-beta)
     - [ztf import](#ztf-import)
+    - [ztf migrate entity-registry](#ztf-migrate-entity-registry)
     - [ztf examples](#ztf-examples)
     - [ztf repl](#ztf-repl)
+      - [Session objects](#session-objects)
+      - [Listing with `data.<entity>.list()`](#listing-with-dataentitylist)
+      - [Entity names](#entity-names)
+      - [Filter expressions](#filter-expressions)
+      - [`orderby`, `select`, `limit`, and `page`](#orderby-select-limit-and-page)
+      - [Fetching one entity with `get()`](#fetching-one-entity-with-get)
+      - [Prototyping YAML data sources](#prototyping-yaml-data-sources)
   - [9. CLI Flags Reference](#9-cli-flags-reference)
   - [10. Confirmation Prompt](#10-confirmation-prompt)
   - [11. State Management](#11-state-management)
@@ -95,6 +105,7 @@ Tokens are resolved at different stages depending on their scope.
 | `{fn.name(args)}`                                   | User-defined function result            | Config load   |
 | `{data.entity.name.data.0.field}`                   | Field from the first data source result | Plan, Apply   |
 | `{data.entity.name.metadata.totalAvailableResults}` | Total results count                     | Plan, Apply   |
+| `{data.domain.entity.name.data.0.field}`            | Field from another domain's data source | Plan, Apply   |
 | `{resource_name.extId}`                             | `extId` of a resource (same domain)     | Apply         |
 | `{resource_name.body.field}`                        | Body field of a resource (same domain)  | Apply         |
 | `{domain.resource.field}`                           | Cross-domain resource reference         | Apply         |
@@ -563,6 +574,19 @@ ZTF never creates, updates, or deletes data source entities.
 
 - `filter`, `select`, `orderby`, `limit`, `page`
 - Underscore variants (`_filter`, `_select`, ...) are also accepted.
+- `depends_on`: list of source names used only for fetch ordering; never
+  forwarded to the API.
+- Any other key is forwarded to the SDK list method unchanged. That is
+  how parent-id params such as `hardwareProviderExtId` and `clusterExtId`
+  work. Unknown keys are forwarded too, so a typo becomes an SDK
+  `TypeError` rather than being stripped.
+- Custom helpers (`use_ztf_helper`) treat non-underscore keys as
+  `custom_filter` on `list_entities`. See
+  [Custom helper data sources](#custom-helper-data-sources).
+
+There is no `sortby` argument; use `orderby` (`name asc` / `name desc`).
+Filter values are OData expressions, the same strings you can try first in
+[`ztf repl`](#ztf-repl).
 
 ### Examples
 
@@ -676,6 +700,39 @@ resources:
                 extId: "{data.image.latest_centos.data.0.extId}"
 ```
 
+#### Referencing one data source from another
+
+Data sources are fetched in dependency order, the same way resources are.
+A source may interpolate another source's result in `filter` or in a
+passthrough list param. The edge is inferred from `{data.<entity>.<source>...}`
+tokens; `depends_on` lists source names when you need an explicit edge
+without a token. Circular dependencies fail at plan/apply time.
+
+```yaml
+data:
+  cluster:
+    target:
+      filter: "name eq 'production'"
+      select: "extId"
+      orderby: "name asc"
+  subnet:
+    app_net:
+      filter: "name eq 'app-network'"
+      clusterExtId: "{data.cluster.target.data.0.extId}"
+      # optional; also inferred from the token above
+      depends_on:
+        - target
+```
+
+Because both `{data.<entity>.<source>...}` tokens and `depends_on` address a
+source by name alone, source names share one flat namespace per domain: the
+`depends_on: [target]` above resolves even though `target` sits under a
+different entity type. Reusing one name under two entity types in the same
+domain is rejected at plan/apply time — rename one of them.
+
+Index-based access (`.data.0`) into a source with no `orderby` logs a
+warning: the API may return items in a different order on a later run.
+
 #### Multi-domain data source scoping
 
 When your config has multiple domains, data sources are fetched per-domain.
@@ -782,6 +839,34 @@ at plan/apply time when data sources are fetched.
 
 One level of nesting is supported: `{outer.{inner}.path}` works, but
 deeper nesting like `{a.{b.{c}}.d}` does not.
+
+#### Custom helper data sources
+
+Entities with `use_ztf_helper: true` that implement `list_entities` receive
+the same top-level list args as SDK entities. After alias mapping
+(`filter` → `_filter`, and so on):
+
+- Underscore kwargs (`_filter`, `_select`, `_limit`, ...) are passed through
+  to the helper.
+- Any other non-underscore key becomes `custom_filter` on
+  `helper.list_entities(...)`.
+- A dict `_filter` is also accepted as `custom_filter` when the helper
+  expects a field map rather than an OData string.
+
+That is how PE helpers such as `role_mapping_pe` accept `directory_name`
+instead of `filter: "name eq '...'"`:
+
+```yaml
+data:
+  role_mapping_pe:
+    cluster_admins:
+      directory_name: corp-ad
+```
+
+Unknown keys on SDK entities are still forwarded unchanged (a typo becomes
+an SDK `TypeError`). `depends_on` is never forwarded. Helper-specific
+filters are documented under
+[Custom PE-Ops Helper Entities](advanced-topics.md#5-custom-pe-ops-helper-entities).
 
 ---
 
@@ -1134,6 +1219,11 @@ Before executing, ZTF auto-refreshes state, computes and displays the plan,
 then prompts for `"yes"` confirmation. State is written incrementally after
 each domain completes -- a `.bak` backup is created before every write.
 
+Long-running Prism Central tasks log child subtasks as they appear. Each
+child is fetched at most once. If a child GET fails, the error is logged
+and skipped; the wait still follows the parent task. See
+[Logging and Audit](advanced-topics.md#2-logging-and-audit).
+
 ```bash
 # Basic apply
 ztf apply
@@ -1163,7 +1253,9 @@ Syncs state from live infrastructure to detect out-of-band changes (drift).
 | `--functions`  |       | auto-discover | Path to Python functions file for `{fn.*}` tokens     |
 
 Refresh stores the full API response body (not just fields you defined).
-If a resource fetch fails, the previous state entry is kept.
+If a resource fetch fails, the previous state entry is kept. Refresh and
+import drop server-managed fields such as `createTime`, `ownerExtId`, and
+`sizeBytes`, so those values are not reported as drift.
 
 ```bash
 # Refresh state
@@ -1282,6 +1374,31 @@ res1:
 > **Note:** `--file` cannot be combined with positional `RESOURCE_NAME` /
 > `DOMAIN_NAME` arguments.
 
+### ztf migrate entity-registry
+
+Optionally rewrites the reviewed entity-registry corrections in configuration
+and state. This is a one-time correction command, not a general upgrade
+framework.
+
+```bash
+# Dry run: originals stay unchanged; migrated sibling files are written
+ztf migrate entity-registry --input config/input.yml --state state.yml
+
+# Write: lock state, create backups, and atomically replace both files
+ztf migrate entity-registry \
+  --input config/input.yml \
+  --state state.yml \
+  --write
+```
+
+Dry-run is the default. Write mode requires a subsequent `ztf refresh` and
+`ztf plan`. The command stops before writing if an entity merge, false CRUD
+state entry, Files correction, or operation parameter cannot be migrated
+safely.
+
+See [Entity Registry Corrections and One-Time Migration](entity-registry-migration.md)
+for the complete alias and correction list.
+
 ### ztf examples
 
 Generates per-entity YAML example configs and Markdown reference docs.
@@ -1308,7 +1425,9 @@ of all entities. See
 
 ### ztf repl
 
-Starts a read-only Python REPL with ZTF config and data sources loaded.
+Starts a read-only Python REPL against the Prism Central(s) in your input
+file. Use it to discover names and `extId`s before writing YAML `data:`
+filters.
 
 | Option         | Short | Default       | Description                                           |
 | -------------- | ----- | ------------- | ----------------------------------------------------- |
@@ -1319,18 +1438,183 @@ Starts a read-only Python REPL with ZTF config and data sources loaded.
 | `--exec`       |       |               | Execute one-line code and exit                        |
 | `--script`     |       |               | Run a Python script file and exit                     |
 
-The session exposes `ctx` (config/handlers) and `data` (data sources).
-`--exec` and `--script` are mutually exclusive.
+`--exec` and `--script` are mutually exclusive. Credentials come from the
+input file (and `ztfvars.yml` / `--var` / `--var-file`), the same way
+`plan` does.
 
 ```bash
-# Interactive REPL
+# Interactive REPL (from the directory that holds input.yml)
 ztf repl
 
+# Against a UAT fixture
+ztf repl -i uat/06-data-refs/input.yml
+
 # One-liner
-ztf repl --exec "print(data.cluster.list(domain='lab1'))"
+ztf repl -i uat/06-data-refs/input.yml --exec "print(data.cluster.list(domain='lab1'))"
 
 # Run a script
 ztf repl --script scripts/audit.py
+```
+
+#### Session objects
+
+The session exposes two locals:
+
+| Name   | What it is |
+| ------ | ---------- |
+| `data` | Entity clients: `data.<entity>.list(...)` and `data.<entity>.get(...)` |
+| `ctx`  | REPL context: `ctx.config`, `ctx.handlers`, `ctx.default_domain`, `ctx.data` |
+
+`data` is the object you use for live queries. `ctx` is for inspecting the
+loaded config when you need it.
+
+#### Listing with `data.<entity>.list()`
+
+```python
+data.cluster.list(domain='lab1')
+data.cluster.list(domain='lab1', filter="name eq 'nested-grove4-2'")
+data.vm.list(domain='lab1', filter="name eq 'web-01'", select="extId,name")
+```
+
+`list()` is keyword-only. Arguments match the YAML data-source keys:
+
+| Argument  | YAML equivalent | SDK name   | Meaning |
+| --------- | --------------- | ---------- | ------- |
+| `domain`  | domain heading  | —          | Domain name from `domains:` (`lab1`, ...). Required when more than one domain is configured. |
+| `filter`  | `filter:`       | `_filter`  | OData filter string |
+| `select`  | `select:`       | `_select`  | Comma-separated fields to return |
+| `orderby` | `orderby:`      | `_orderby` | Sort spec: `name asc` or `name desc` |
+| `limit`   | `limit:`        | `_limit`   | SDK **page size**, not a cap on the Python list |
+| `page`    | `page:`         | `_page`    | Starting page index (0-based) |
+
+There is no `sortby`. Underscore names (`_filter`, `_orderby`, ...) also
+work. Any other keyword is forwarded to the SDK list method unchanged
+(passthrough params such as `clusterExtId`, `_expand`, `_apply`).
+
+`list()` auto-paginates and returns every matching row as a list of
+dicts. `limit` only changes how many rows each API page requests; to
+keep the first N rows in the REPL, slice the result:
+
+```python
+data.cluster.list(domain='lab1', orderby="name asc")[:5]
+```
+
+#### Entity names
+
+Use the **ZTF entity type** — the same heading you would put under
+`resources:` or `data:` in YAML, not the SDK class name and not the
+resource instance name:
+
+```python
+data.cluster.list(domain='lab1')              # entity type "cluster"
+data.storage_container.list(domain='lab1')    # entity type "storage_container"
+data.subnet.list(domain='lab1')
+data.vm.list(domain='lab1')
+data.image.list(domain='lab1')
+data.category.list(domain='lab1')
+```
+
+Not `{target_cluster}` from the YAML source name, and not `Clusters` /
+`StorageContainer`. Tab-complete `data.<Tab>` to see registered types, or
+run `ztf examples` and open `INDEX.md`.
+
+Entity types that are not in the current `input.yml` are initialized on
+first `list()` / `get()`. Unknown names raise `Unsupported entity`.
+
+#### Filter expressions
+
+Filters are **OData** strings, identical to YAML `filter:`. Field names
+are camelCase. String values use **single quotes**.
+
+```python
+# Equality (most common)
+data.cluster.list(domain='lab1', filter="name eq 'nested-grove4-2'")
+data.category.list(domain='lab1', filter="key eq 'Environment'")
+data.cluster.list(domain='lab1', filter="extId eq '00000000-0000-0000-0000-000000000000'")
+
+# Combine with and / or
+data.vm.list(
+    domain='lab1',
+    filter="name eq 'web-01' and powerState eq 'ON'",
+)
+```
+
+Which fields you can filter on is per-entity (see the generated example
+YAML comments after `ztf examples`, or the Nutanix v4 API docs for that
+namespace). A field that works on `cluster` may not exist on `vm`.
+
+Copy a working REPL filter straight into YAML:
+
+```yaml
+data:
+  cluster:
+    target_cluster:
+      filter: "name eq 'nested-grove4-2'"
+      select: "extId"
+```
+
+#### `orderby`, `select`, `limit`, and `page`
+
+```python
+data.cluster.list(
+    domain='lab1',
+    filter="name eq 'nested-grove4-2'",
+    select="extId,name",
+    orderby="name asc",
+)
+
+data.image.list(
+    domain='lab1',
+    filter="name eq 'CentOS-Stream-9'",
+    orderby="name desc",
+    select="extId,name",
+)[0]   # first row after sort; same idea as YAML orderby + .data.0
+```
+
+`orderby` matters when a YAML token uses `.data.0`: without it the API
+may return items in a different order on the next run.
+
+#### Fetching one entity with `get()`
+
+`get()` requires either `filter` or `ext_id` (and `domain` when
+ambiguous):
+
+```python
+data.cluster.get(domain='lab1', filter="name eq 'nested-grove4-2'")
+data.cluster.get(domain='lab1', ext_id='00000000-0000-0000-0000-000000000000')
+```
+
+`filter` still goes through the list API and returns the first match (or
+`None`). Prefer a filter that matches exactly one object.
+
+#### Prototyping YAML data sources
+
+Interactive session:
+
+```text
+>>> rows = data.cluster.list(domain='lab1', filter="name eq 'nested-grove4-2'", select="extId,name")
+>>> rows[0]['extId']
+>>> data.storage_container.list(domain='lab1', filter="name eq 'uat-data-ref-container'")
+```
+
+One-liners. Nested quotes are easier in the interactive REPL than in
+`--exec`:
+
+```bash
+ztf repl -i uat/06-data-refs/input.yml --exec "print([c['name'] for c in data.cluster.list(domain='lab1')])"
+```
+
+`--script` is useful when the snippet is more than one line:
+
+```python
+# scripts/list_clusters.py
+rows = data.cluster.list(domain="lab1", orderby="name asc", select="extId,name")
+for row in rows:
+    print(row["name"], row["extId"])
+```
+
+```bash
+ztf repl -i uat/06-data-refs/input.yml --script scripts/list_clusters.py
 ```
 
 ---
@@ -1422,6 +1706,7 @@ domains:
 | **Domain failure isolation** | If one domain fails, its previous state is preserved               |
 | **Entity ordering**          | Topological order stored in state for consistent delete operations |
 | **Graceful interrupts**      | Ctrl+C saves partial state; only in-flight operation may be lost   |
+| **Atomic replace**           | State is written to a temporary file and then replaced, so a crash cannot leave a truncated file |
 
 ### Graceful Interrupts
 
@@ -1533,10 +1818,12 @@ SDK metadata fields (`$objectType`, `$dataItemDiscriminator`). Fields in
 
 ## 14. Schema Negotiation
 
-ZTF supports multiple Prism Central versions from a single codebase. Before
-sending API requests, the framework filters the request body against a
-compatibility map that records which fields are available in which API
-versions.
+ZTF supports multiple Prism Central versions from a single codebase. The
+pinned Nutanix v4 SDK packages are the 7.5.1 releases. The lifecycle
+namespace is the Prism Central 7.6 release (`ntnx-lifecycle-py-client`
+4.3.1). Before sending API requests, the framework filters the request
+body against a compatibility map that records which fields are available
+in which API versions.
 
 This means:
 
@@ -1609,3 +1896,13 @@ name: "example-name" # REQUIRED | string     (uncommented = required)
 | `# REQUIRED`         | Explicitly marked as required                 |
 | `# enum: A, B, C`    | Allowed enum values                           |
 | `# v4.2`             | Field only available in specific API versions |
+
+Extra method parameters are nested under `params:`. Apply reads them from
+there; a parameter placed beside `body:` is ignored.
+
+Helper entities follow the same convention. For `fc_v1_image_upload`,
+`image_extId` is optional in the schema and is emitted commented; uncomment
+it (or interpolate `{fc_image_resource.extId}`) before apply. The helper
+still requires the field at runtime because it only uploads into an
+existing image. See
+[Foundation Central Helper Entities](advanced-topics.md#6-foundation-central-helper-entities).

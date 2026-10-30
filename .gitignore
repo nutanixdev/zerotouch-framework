@@ -41,7 +41,6 @@ pip-log.txt
 pip-delete-this-directory.txt
 
 # Unit test / coverage reports
-.github/workflows/black-duck.yml
 htmlcov/
 .tox/
 .coverage
@@ -66,9 +65,6 @@ instance/
 # Scrapy stuff:
 .scrapy
 
-# Sphinx documentation
-docs/_build/
-
 # PyBuilder
 target/
 
@@ -82,9 +78,9 @@ pyvenv.cfg
 # celery beat schedule file
 celerybeat-schedule
 
+
 # virtualenv
 .venv/
-venv/
 ENV/
 
 # Spyder project settings
@@ -93,8 +89,57 @@ ENV/
 # Rope project settings
 .ropeproject
 
-# others
-framework/script_log.log
+# tf/*
+tf/*
+
+config/*
+examples/
 
 # local dir
 .local
+.worktrees/
+
+# local reference checkout of nutanixservices/ztf-internal-scripts
+# (entity-catalog maintainer pipeline, verification scripts, UAT scenarios)
+.external/
+
+# local-only symlink into .external/ztf-internal-scripts/workflow -- keeps the
+# entity-catalog maintainer's tracked iteration state (decisions.yml, baseline.json,
+# manual_entities.yml, etc.) out of this public repo while still resolving under
+# this checkout's path for the workflow.entity_catalog CLI (--project-root .)
+/workflow
+*.log
+*.log.*
+state.yml
+state.yml.bak
+ztf_run_results.json
+.vscode/*
+.cursor/*
+.cursor/
+.github/agents/*
+.github/instructions/*
+.github/copilot-instructions.md
+.cursorignore
+sdk_whls/*
+scripts/*
+!scripts/swagger_audit/*
+env.json
+.env
+real-world-examples/
+docs/plans/*
+docs/internal/*
+docs/superpowers/specs/*
+docs/superpowers/plans/*
+docs/architecture/*
+config/*
+.markdownlint.json
+uploads/*
+ztf-workspaces/*
+# UAT test configs (contain environment-specific values)
+uat
+
+# ZTF variable/secrets files (like terraform.tfvars)
+ztfvars.yml
+*.auto.ztfvars.yml
+.cursor/AGENTS.md
+openwiki/*

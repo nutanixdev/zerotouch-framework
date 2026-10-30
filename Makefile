@@ -28,10 +28,10 @@ typecheck:
 	$(UV) run mypy ztf/ --ignore-missing-imports
 
 test:
-	$(UV) run pytest tests/ --ignore=tests/functional -v --cov=ztf --cov-report=term-missing --cov-fail-under=95
+	$(UV) run python -m pytest tests/ --ignore=tests/functional -v --cov=ztf --cov-report=term-missing --cov-fail-under=95
 
 test-functional:
-	$(UV) run pytest tests/functional -v --timeout=600
+	$(UV) run python -m pytest tests/functional -v --timeout=600
 
 security:
 	$(UV) run bandit -r ztf/ -c pyproject.toml
