@@ -6,6 +6,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [2.1.1] - 2026-11-02
+
+Packaging fix. No changes to the framework, configuration, or state format.
+
+### Fixed
+
+- `pip install nutanix-ztf` resolves again. 2.1.0 required
+`urllib3>=2.6.3` and `certifi>=2026.7.22` while every pinned Nutanix v4 SDK
+client requires `urllib3~=1.26` and `certifi<=2025.4.26`, so no install
+from PyPI could succeed. Those two requirements are removed, along with
+the `[tool.uv]` override that let the repository's own lock and CI
+resolve them. Development, CI, and user installs now resolve the same
+versions.
+- The Docker `runtime` and `wheels-export` targets install from a
+hash-pinned export of `uv.lock` generated at build time instead of
+re-resolving the published metadata, which failed for the same reason.
+
+### Added
+
+- CI fails if ZTF's published requirements conflict with the pinned ntnx
+SDK clients' requirements (`make check-deps`), and installs the built
+wheel from outside the repository with plain pip.
+
+### Known Limitations
+
+- ZTF installs with urllib3 1.26.20 and certifi 2025.4.26, the newest
+versions the pinned SDK clients allow. Fixes released only in urllib3 2.x
+and newer CA bundles are not available until the SDK clients relax their
+upper bounds.
+
 ## [2.1.0] - 2026-09-17
 
 7.5.1 alignment release. Most 2.0.0 configurations continue to work; see

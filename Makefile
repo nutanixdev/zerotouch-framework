@@ -1,6 +1,6 @@
 UV := $(or $(shell command -v uv 2>/dev/null),$(HOME)/.local/bin/uv)
 
-.PHONY: help lint format test test-functional typecheck install-hooks ci security
+.PHONY: help lint format test test-functional typecheck install-hooks ci security check-deps
 
 help:
 	@echo "Available commands:"
@@ -11,6 +11,7 @@ help:
 	@echo "  make test-functional    - Run functional tests (slow, 9+ min, requires PC access)"
 	@echo "  make typecheck          - Run mypy type checking"
 	@echo "  make security           - Run bandit security scan"
+	@echo "  make check-deps         - Check published deps against ntnx SDK client pins (needs network)"
 	@echo "  make ci                 - Run all checks (format, lint, typecheck, test)"
 
 install-hooks:
@@ -35,6 +36,9 @@ test-functional:
 
 security:
 	$(UV) run bandit -r ztf/ -c pyproject.toml
+
+check-deps:
+	$(UV) run python scripts/check_dependency_compat.py
 
 ci: format lint typecheck test
 	@echo "All checks passed!"

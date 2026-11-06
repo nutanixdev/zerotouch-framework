@@ -132,19 +132,9 @@ uv pip install nutanix-ztf --prerelease=allow
 
 # From PyPI (with pip)
 pip install nutanix-ztf
-
-# From source (development or pre-release) with uv
-git clone https://github.com/nutanixdev/zerotouch-framework.git && cd zerotouch-framework/ztf
-uv venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-uv pip install .
-
-# From source (development or pre-release) with pip
-git clone https://github.com/nutanixdev/zerotouch-framework.git && cd zerotouch-framework/ztf
-python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install .
 ```
+
+Dependencies are resolved from PyPI. `--prerelease=allow` is required with `uv pip install` because ZTF pins two pre-release Nutanix SDK clients; `pip` needs no extra flag.
 
 ### Docker
 
@@ -154,7 +144,7 @@ with two consumer-facing targets: `runtime` (a self-contained image with the `zt
 **Build the runtime image:**
 
 ```bash
-docker build --target runtime -t ztf:2.1.0 .
+docker build --target runtime -t ztf:2.1.1 .
 ```
 
 **Run against a project on the host** (mount your `input.yml`, `global.yml`, `state.yml`, and `ztfvars.yml` into the container's working directory):
@@ -162,10 +152,10 @@ docker build --target runtime -t ztf:2.1.0 .
 ```bash
 docker run --rm -it \
   -v "$PWD:/home/ztf" \
-  ztf:2.1.0 plan
+  ztf:2.1.1 plan
 ```
 
-The image's entrypoint is already `ztf`, the working directory is `/home/ztf`, and it runs as a non-root `ztf` user. Append any subcommand and flags after the image name (e.g. `ztf:2.1.0 apply --auto-approve`).
+The image's entrypoint is already `ztf`, the working directory is `/home/ztf`, and it runs as a non-root `ztf` user. Append any subcommand and flags after the image name (e.g. `ztf:2.1.1 apply --auto-approve`).
 
 **Pass secrets via env file or a read-only** `ztfvars.yml` **mount:**
 
@@ -174,7 +164,7 @@ docker run --rm -it \
   --env-file .env \
   -v "$PWD:/home/ztf" \
   -v "$PWD/ztfvars.yml:/home/ztf/ztfvars.yml:ro" \
-  ztf:2.1.0 apply
+  ztf:2.1.1 apply
 ```
 
 **Dark-site / offline wheel bundle.** Build the `wheels-export` target on a connected machine, then `pip install --no-index` from the exported wheels on the air-gapped target:
@@ -185,6 +175,8 @@ docker build --target wheels-export \
   --output type=local,dest=./offline-wheels .
 
 # On the dark-site target — no network required
+pip install --no-index --find-links=./offline-wheels --require-hashes \
+  -r ./offline-wheels/requirements.txt
 pip install --no-index --find-links=./offline-wheels nutanix-ztf
 ```
 
