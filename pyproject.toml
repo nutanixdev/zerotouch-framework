@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nutanix-ztf"
-version = "2.1.0"
+version = "2.1.1"
 description = "Nutanix multi-domain infrastructure automation framework"
 authors = [
     { name = "ztf@nutanix.com" }
@@ -30,9 +30,7 @@ dependencies = [
     "click>=8.0",
     "inflect>=7.5.0",
     "json5>=0.10.0",
-    "certifi>=2026.7.22",
     "requests>=2.34.2",
-    "urllib3>=2.6.3,<3",
     "ntnx-aiops-py-client==4.2.2b1",
     "ntnx-clustermgmt-py-client==4.2.2",
     "ntnx-datapolicies-py-client==4.2.2",
@@ -94,16 +92,6 @@ ztf = [
     "entity_wrapper/multi_namespace_compatibility_map.json",
     "entity_wrapper/multi_namespace_metadata_map.json",
     "entity_wrapper/registry_corrections.json",
-]
-
-[tool.uv]
-# ntnx v4 SDK clients pin urllib3~=1.26 and certifi<=2025.4.26, which
-# cannot take current HIGH-severity and CA-bundle fixes. The generated
-# REST wrapper reads .headers rather than the urllib3 2.x-removed
-# getheaders().
-override-dependencies = [
-    "urllib3>=2.6.3,<3",
-    "certifi>=2026.7.22",
 ]
 
 [[tool.uv.index]]
