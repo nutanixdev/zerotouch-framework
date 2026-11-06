@@ -1,7 +1,8 @@
 # Getting Started with ZTF
 
 This guide covers project setup, global configuration, and the input file
-format. For the full configuration reference, see the
+format. ZTF runs on Python 3.10, 3.11, 3.12, 3.13, and 3.14. For the full
+configuration reference, see the
 [Configuration Reference](configuration-reference.md). For multi-environment
 workflows, custom functions, and logging, see
 [Advanced Topics](advanced-topics.md).
@@ -159,7 +160,10 @@ outputs:
 
 ### Domain Configuration
 
-Each domain maps to a Nutanix Prism Central instance.
+Each domain maps to a Nutanix Prism Central instance. Foundation Central
+is reached through that PC. Starting with ZTF 2.1.0, `location`,
+`registered_domain`, and `local_domain` are ordinary resources
+(`ztf examples --namespace multidomain`).
 
 | Field       | Required | Description                       |
 | ----------- | -------- | --------------------------------- |

@@ -1,0 +1,306 @@
+{
+  "entity_aliases": {
+    "aiops_scenario": {
+      "behavior": "warn_and_resolve",
+      "canonical_name": "capacity_planning_scenario"
+    },
+    "aiops_sources_v4": {
+      "behavior": "warn_and_resolve",
+      "canonical_name": "aiops_stats_source"
+    },
+    "bgp_session_bgp_route_route": {
+      "behavior": "warn_and_resolve",
+      "canonical_name": "bgp_session_route"
+    },
+    "category_mapping": {
+      "behavior": "warn_and_resolve",
+      "canonical_name": "directory_server_category_mapping"
+    },
+    "cluster_data_store": {
+      "behavior": "warn_and_resolve",
+      "canonical_name": "cluster_datastore"
+    },
+    "ds_category_mapping": {
+      "behavior": "warn_and_resolve",
+      "canonical_name": "directory_server_category_mapping"
+    },
+    "file_server_emailconfig_email_config": {
+      "behavior": "warn_and_resolve",
+      "canonical_name": "file_server_email_config"
+    },
+    "file_server_license_recommendation": {
+      "behavior": "warn_and_resolve",
+      "canonical_name": "file_server_recommendation"
+    },
+    "licensing_license_recommendation": {
+      "behavior": "warn_and_resolve",
+      "canonical_name": "licensing_recommendation"
+    },
+    "lifecycle_license_recommendation": {
+      "behavior": "warn_and_resolve",
+      "canonical_name": "lifecycle_recommendation"
+    },
+    "source_entity_descriptors_v4": {
+      "behavior": "warn_and_resolve",
+      "canonical_name": "aiops_stats_entity_descriptor"
+    },
+    "source_entity_metrics_v4": {
+      "behavior": "warn_and_resolve",
+      "canonical_name": "aiops_entity_stats"
+    },
+    "source_entity_types_v4": {
+      "behavior": "warn_and_resolve",
+      "canonical_name": "aiops_stats_entity_type"
+    },
+    "task": {
+      "behavior": "warn_and_resolve",
+      "canonical_name": "prism_task"
+    }
+  },
+  "false_crud": {
+    "clustermgmt|POST|/config/clusters/{0}/snmp/$actions/update-status|updateSnmpStatus": {
+      "legacy_behavior": "warn_and_reject",
+      "legacy_entity": "cluster_snmp_status",
+      "legacy_lifecycle_slot": "update",
+      "migration": {
+        "adapter_parameters": [
+          "clusterExtId",
+          "body"
+        ],
+        "path_parameters": [
+          "clusterExtId"
+        ],
+        "state_behavior": "remove_legacy_entity"
+      },
+      "replacement": {
+        "entity": "cluster_snmp_config",
+        "operation": "update_status"
+      },
+      "status": "supported"
+    },
+    "clustermgmt|POST|/config/disks/{0}/$actions/update-led-state|updateDiskLEDState": {
+      "legacy_behavior": "warn_and_reject",
+      "legacy_entity": "disk_led_state",
+      "legacy_lifecycle_slot": "update",
+      "migration": {
+        "adapter_parameters": [
+          "extId",
+          "body"
+        ],
+        "path_parameters": [
+          "extId"
+        ],
+        "state_behavior": "remove_legacy_entity"
+      },
+      "replacement": {
+        "entity": "clustermgmt_disk",
+        "operation": "update_led_state"
+      },
+      "status": "supported"
+    },
+    "datapolicies|POST|/config/entity-sync-policies/{0}/$actions/sync-entity|syncEntitySyncPolicyById": {
+      "legacy_behavior": "warn_and_reject",
+      "legacy_entity": "entity_sync_policy",
+      "legacy_lifecycle_slot": "create",
+      "migration": {
+        "adapter_parameters": [
+          "extId"
+        ],
+        "path_parameters": [
+          "extId"
+        ],
+        "state_behavior": "manual_if_present"
+      },
+      "replacement": {
+        "entity": "entity_sync_policy",
+        "operation": "sync_entity"
+      },
+      "status": "supported"
+    },
+    "files|POST|unsupported|fixInfectedFile": {
+      "legacy_behavior": "warn_and_reject",
+      "legacy_entity": "file_server_infected_file",
+      "legacy_lifecycle_slot": "create",
+      "migration": {
+        "adapter_parameters": [],
+        "path_parameters": [],
+        "state_behavior": "manual_if_present"
+      },
+      "replacement": {
+        "entity": "file_server_infected_file",
+        "operation": "fix_infected_file"
+      },
+      "status": "unsupported_files"
+    },
+    "iam|POST|/authn/users/{0}/$actions/change-state|updateUserState": {
+      "legacy_behavior": "warn_and_reject",
+      "legacy_entity": "user_state",
+      "legacy_lifecycle_slot": "update",
+      "migration": {
+        "adapter_parameters": [
+          "extId",
+          "body"
+        ],
+        "path_parameters": [
+          "extId"
+        ],
+        "state_behavior": "remove_legacy_entity"
+      },
+      "replacement": {
+        "entity": "user",
+        "operation": "change_state"
+      },
+      "status": "supported"
+    }
+  },
+  "lifecycle_promotions": {
+    "clustermgmt|POST|/config/clusters/{0}/$actions/add-disk|addDisk": {
+      "compatibility": "preserved_lifecycle_create",
+      "entity": "clustermgmt_disk",
+      "lifecycle_slot": "create",
+      "operation_name": "add_disk",
+      "recommendation": "promote_create",
+      "sdk_method": "add_disk"
+    }
+  },
+  "operation_owner_changes": {
+    "clustermgmt|POST|/config/clusters/{0}/snmp/$actions/add-transports|addSnmpTransport": {
+      "canonical_owner": "cluster_snmp_config",
+      "legacy_behavior": "warn_and_reject",
+      "legacy_operation_names": [
+        "add_snmp_transport",
+        "add_transports"
+      ],
+      "legacy_owner": "cluster",
+      "operation": "add_transports"
+    },
+    "clustermgmt|POST|/config/clusters/{0}/snmp/$actions/remove-transports|removeSnmpTransport": {
+      "canonical_owner": "cluster_snmp_config",
+      "legacy_behavior": "warn_and_reject",
+      "legacy_operation_names": [
+        "remove_snmp_transport",
+        "remove_transports"
+      ],
+      "legacy_owner": "cluster",
+      "operation": "remove_transports"
+    },
+    "clustermgmt|POST|/config/clusters/{0}/snmp/$actions/update-status|updateSnmpStatus": {
+      "canonical_owner": "cluster_snmp_config",
+      "legacy_behavior": "warn_and_reject",
+      "legacy_operation_names": [
+        "update_snmp_status",
+        "update_status"
+      ],
+      "legacy_owner": "cluster_snmp_status",
+      "operation": "update_status"
+    },
+    "clustermgmt|POST|/config/disks/{0}/$actions/update-led-state|updateDiskLEDState": {
+      "canonical_owner": "clustermgmt_disk",
+      "legacy_behavior": "warn_and_reject",
+      "legacy_operation_names": [
+        "update_disk_l_e_d_state",
+        "update_disk_led_state",
+        "update_led_state"
+      ],
+      "legacy_owner": "disk_led_state",
+      "operation": "update_led_state"
+    },
+    "iam|POST|/authn/users/{0}/$actions/change-state|updateUserState": {
+      "canonical_owner": "user",
+      "legacy_behavior": "warn_and_reject",
+      "legacy_operation_names": [
+        "change_state",
+        "update_user_state"
+      ],
+      "legacy_owner": "user_state",
+      "operation": "change_state"
+    },
+    "monitoring|POST|/serviceability/alerts/{0}/$actions/manage-alert|manageAlert": {
+      "canonical_owner": "alert",
+      "legacy_behavior": "warn_and_reject",
+      "legacy_operation_names": [
+        "manage_alert"
+      ],
+      "legacy_owner": "manage_alert",
+      "operation": "manage_alert"
+    },
+    "networking|POST|/config/virtual-switches/$actions/migrate|migrateBridge": {
+      "canonical_owner": "virtual_switch",
+      "legacy_behavior": "warn_and_reject",
+      "legacy_operation_names": [
+        "migrate",
+        "migrate_bridge"
+      ],
+      "legacy_owner": "bridge",
+      "operation": "migrate"
+    },
+    "prism|POST|/management/restore-sources/{0}/restorable-domain-managers/{1}/restore-points/{2}/$actions/restore|restore": {
+      "canonical_owner": "restore_source_restore_point",
+      "legacy_behavior": "warn_and_reject",
+      "legacy_operation_names": [
+        "restore"
+      ],
+      "legacy_owner": "domain_manager_backup_target",
+      "operation": "restore"
+    },
+    "vmm|POST|/ahv/config/vms/{0}/nics/{1}/$actions/assign-ip|assignIpById": {
+      "canonical_owner": "vm_nic",
+      "legacy_behavior": "warn_and_reject",
+      "legacy_operation_names": [
+        "assign_ip",
+        "assign_ip_by_id"
+      ],
+      "legacy_owner": "vm",
+      "operation": "assign_ip"
+    },
+    "vmm|POST|/ahv/config/vms/{0}/nics/{1}/$actions/release-ip|releaseIpById": {
+      "canonical_owner": "vm_nic",
+      "legacy_behavior": "warn_and_reject",
+      "legacy_operation_names": [
+        "release_ip",
+        "release_ip_by_id"
+      ],
+      "legacy_owner": "vm",
+      "operation": "release_ip"
+    }
+  },
+  "removed_entities": {
+    "consistency_group": {
+      "behavior": "warn_and_reject",
+      "migration": {
+        "state_behavior": "remove_or_pin_previous_release"
+      },
+      "namespace": "dataprotection",
+      "reason": "internal_only",
+      "removed_bindings": [
+        {
+          "kind": "lifecycle",
+          "method": "create_consistency_group",
+          "slot": "create"
+        },
+        {
+          "kind": "lifecycle",
+          "method": "get_consistency_group_by_id",
+          "slot": "get"
+        },
+        {
+          "kind": "lifecycle",
+          "method": "update_consistency_group_by_id",
+          "slot": "update"
+        },
+        {
+          "kind": "lifecycle",
+          "method": "delete_consistency_group_by_id",
+          "slot": "delete"
+        },
+        {
+          "kind": "lifecycle",
+          "method": "list_consistency_groups",
+          "slot": "list"
+        }
+      ],
+      "replacement": null
+    }
+  },
+  "schema_version": 1
+}

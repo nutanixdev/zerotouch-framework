@@ -11,6 +11,14 @@ import orjson
 import urllib3
 from ntnx_prism_py_client.models.prism.v4.config.TaskStatus import TaskStatus
 
+from ztf.custom_helpers import custom_helpers_registry
+from ztf.entity_wrapper.registry_corrections import (
+    load_registry_corrections,
+)
+from ztf.entity_wrapper.runtime_catalog import (
+    RuntimeOperation,
+    load_runtime_catalog,
+)
 from ztf.sdk_utils import call_api_with_body, deep_merge
 from ztf.state_monitor.task_monitor import PcTaskMonitor
 from ztf.utils.utils import (
@@ -194,10 +202,15 @@ class DomainEntityHandler:
         self.sdk_api_client_map: dict[str, Any] = {}
         self.sdk_config_map: dict[str, Any] = {}
         self.global_config_attrs = global_config_data["config"]
+        self.global_config_data = global_config_data
         self.entity_metadata_map: dict[str, Any] = (
             entity_metadata_map if entity_metadata_map else deepcopy(entity_map)
         )
+        self.runtime_catalog = load_runtime_catalog()
+        self.registry_corrections = load_registry_corrections()
+        self._operation_api_instances: dict[tuple[str, str], Any] = {}
         self.entity_cache: dict[tuple[Any, ...], Any] = {}
+        self.custom_helpers: dict[str, Any] = {}
         self.logger = get_logger(
             __name__, log_file=self.global_config_attrs.get("logger_file", None)
         )
@@ -215,15 +228,146 @@ class DomainEntityHandler:
         )
         self._initialize_entities()
 
+    def ensure_entity(self, entity: str) -> None:
+        """Initialize SDK clients for *entity* if they are not already loaded.
+
+        The REPL uses this so ``data.<entity>.list()`` works for types that
+        are not declared under ``resources:`` or ``data:`` in the current
+        input file.
+
+        Args:
+            entity: ZTF entity type name (the YAML heading).
+
+        Raises:
+            ValueError: If *entity* is unknown or was removed from the
+                public SDK surface.
+        """
+        if entity in self.entity_names:
+            return
+        if entity not in self.entity_metadata_map:
+            raise ValueError(f"Unsupported entity: {entity!r}")
+        self._reject_removed_entity(entity)
+        self._warn_entity_alias(entity)
+        if self.entity_metadata_map[entity].get("use_ztf_helper"):
+            self._initialize_ztf_helper(entity)
+        else:
+            self._initialize_config(entity)
+            self._initialize_client(entity)
+            self._initialize_entity_crud_mapping(entity)
+        self.entity_names.add(entity)
+
+    def _initialize_ztf_helper(self, entity: str) -> None:
+        """Initialize a custom ZTF helper for entities that use use_ztf_helper."""
+        if entity in custom_helpers_registry:
+            entry = custom_helpers_registry[entity]
+            mod = importlib.import_module(entry["helper_module"])
+            cls = getattr(mod, entry["helper_class"])
+            session = self._build_rest_session()
+            self.custom_helpers[entity] = cls(
+                session=session,
+                proxy_cluster_uuid=None,
+                logger=self.logger,
+                data=self.global_config_data,
+            )
+            self.logger.info(f"Initialized custom ZTF helper for entity: {entity!r}")
+        else:
+            raise ValueError(
+                f"Entity {entity!r} has use_ztf_helper=True but no registry entry"
+            )
+
+    def _build_rest_session(self):
+        """Build a RestAPIUtil session from global config for custom helpers."""
+        from ztf.helpers.utils.rest_utils import RestAPIUtil
+
+        host = self.global_config_attrs.get("host", "")
+        port = self.global_config_attrs.get("port", 9440)
+        username = self.global_config_attrs.get("username", "admin")
+        password = self.global_config_attrs.get("password", "")
+        return RestAPIUtil(host, username, password, secured=True, port=port)
+
     def _initialize_entities(self) -> None:
         """Initialize configuration, API clients, and CRUD maps for each entity."""
-        self.entity_names.add("task")
+        task_entity = self.runtime_catalog.resolve_entity("task") or "task"
+        self.entity_names.add(task_entity)
         for entity_name in self.entity_names:
+            self._reject_removed_entity(entity_name)
+            self._warn_entity_alias(entity_name)
             if entity_name not in self.entity_metadata_map:
                 raise ValueError(f"Unsupported entity: {entity_name!r}")
-            self._initialize_config(entity_name)
-            self._initialize_client(entity_name)
-            self._initialize_entity_crud_mapping(entity_name)
+            if self.entity_metadata_map[entity_name].get("use_ztf_helper"):
+                self._initialize_ztf_helper(entity_name)
+            else:
+                self._initialize_config(entity_name)
+                self._initialize_client(entity_name)
+                self._initialize_entity_crud_mapping(entity_name)
+
+    def _warn_entity_alias(self, entity: str) -> None:
+        """Warn when a released alias is used for an entity."""
+        if not self.runtime_catalog.is_entity_alias(entity):
+            return
+        canonical = self.runtime_catalog.resolve_entity(entity)
+        self.logger.warning(
+            "Entity %r is deprecated; use %r. The alias remains supported "
+            "for this compatibility release.",
+            entity,
+            canonical,
+        )
+
+    def _reject_removed_entity(self, entity: str) -> None:
+        """Warn and reject one entity removed from the public SDK surface."""
+        correction = self.registry_corrections.removed_entity(entity)
+        if correction is None:
+            return
+        replacement_action = (
+            f"Use '{correction.replacement}' instead."
+            if correction.replacement
+            else "No safe automatic replacement is available."
+        )
+        message = (
+            f"Entity '{entity}' was removed from the public "
+            f"{correction.namespace} SDK because its API is "
+            f"{correction.reason.replace('_', '-')}. ZTF will not import or "
+            f"call internal-only APIs. {replacement_action} Remove this "
+            "entity from configuration, or remain on the prior ZTF release."
+        )
+        self.logger.warning(message)
+        raise ValueError(message)
+
+    def _reject_false_crud(self, entity: str, lifecycle_role: str) -> None:
+        """Warn and reject one reviewed false CRUD lifecycle binding."""
+        correction = self.registry_corrections.false_crud(
+            entity,
+            lifecycle_role,
+        )
+        if correction is None:
+            return
+        message = (
+            f"Legacy lifecycle '{entity}.{lifecycle_role}' is deprecated and "
+            f"rejected; use operation "
+            f"'{correction.canonical_entity}.{correction.operation}'."
+        )
+        self.logger.warning(message)
+        raise ValueError(message)
+
+    def _reject_moved_operation(
+        self,
+        entity: str,
+        operation_name: str,
+    ) -> None:
+        """Warn and reject one operation invoked through its old owner."""
+        correction = self.registry_corrections.moved_operation(
+            entity,
+            operation_name,
+        )
+        if correction is None:
+            return
+        message = (
+            f"Operation owner '{entity}.{operation_name}' is deprecated and "
+            f"rejected; use "
+            f"'{correction.canonical_owner}.{correction.operation}'."
+        )
+        self.logger.warning(message)
+        raise ValueError(message)
 
     def _initialize_config(self, entity: str) -> None:
         """
@@ -362,6 +506,66 @@ class DomainEntityHandler:
     def _get_api_client(self, entity: str) -> Any:
         return self.sdk_api_client_map[self.entity_metadata_map[entity]["sdk_name"]]
 
+    def _get_operation_api_instance(
+        self,
+        operation: RuntimeOperation,
+    ) -> Any:
+        """Return a cached API instance for an exact operation adapter."""
+        cache_key = (operation.module, operation.api_class)
+        cached = self._operation_api_instances.get(cache_key)
+        if cached is not None:
+            return cached
+        sdk_name = operation.module.split(".api.", maxsplit=1)[0]
+        api_client = self.sdk_api_client_map.get(sdk_name)
+        if api_client is None:
+            raise ValueError(
+                f"SDK client {sdk_name!r} is unavailable for "
+                f"{operation.canonical_entity}.{operation.public_name}"
+            )
+        api_class = self._get_class_from_path(
+            operation.module,
+            operation.api_class,
+        )
+        api_instance = api_class(api_client)
+        self._operation_api_instances[cache_key] = api_instance
+        return api_instance
+
+    def _lifecycle_adapter(
+        self,
+        entity: str,
+        lifecycle_role: str,
+    ) -> tuple[Any, str, str | None]:
+        """Resolve an exact lifecycle adapter with legacy-map fallback."""
+        operation = self.runtime_catalog.resolve_lifecycle(
+            entity,
+            lifecycle_role,
+        )
+        if operation is not None:
+            return (
+                self._get_operation_api_instance(operation),
+                operation.method,
+                operation.operation_id,
+            )
+        metadata = self.entity_metadata_map[entity]
+        return (
+            metadata["api_instance"],
+            metadata[f"{lifecycle_role}_method_name"],
+            None,
+        )
+
+    def _operation_id_for_method(
+        self,
+        entity: str,
+        method_name: str,
+    ) -> str:
+        """Return an exact catalog operation ID with legacy fallback."""
+        operation = self.runtime_catalog.resolve_method(entity, method_name)
+        return (
+            operation.operation_id
+            if operation is not None
+            else _snake_to_camel(method_name)
+        )
+
     def _get_parent_kwargs(
         self, entity: str, data: dict, *, pop: bool = False
     ) -> dict[str, Any]:
@@ -496,7 +700,7 @@ class DomainEntityHandler:
         method_name = meta.get(f"{method_key}_method_name")
         if not method_name:
             return set()
-        operation_id = _snake_to_camel(method_name)
+        operation_id = self._operation_id_for_method(entity, method_name)
         compat = _load_compat_map()
         ns_ops = compat.get(namespace, {})
         op_data = ns_ops.get(operation_id)
@@ -647,7 +851,7 @@ class DomainEntityHandler:
             return body
 
         ns_ops = compat_map.get(namespace, {})
-        operation_id = _snake_to_camel(method_name)
+        operation_id = self._operation_id_for_method(entity, method_name)
         op_data = ns_ops.get(operation_id)
         if not op_data:
             return body
@@ -811,16 +1015,47 @@ class DomainEntityHandler:
         response_data: dict[str, Any],
         entity: str,
         method_name: str,
+        known_ids: set[str] | None = None,
     ) -> str | None:
         """Extract the entity ext_id from a completed task response.
 
-        Checks ``entitiesAffected``, then top-level ``extId`` /
-        ``{entity}ExtId`` / ``{entity}extId`` keys.
+        Checks ``entitiesAffected``, then ``completionDetails`` (for task
+        types that report the created entity's id only via a
+        ``{name: "..._uuid", value: "<uuid>"}`` KV pair there -- e.g. FC's
+        ``CreatePatchedImageTask`` leaves ``entitiesAffected`` empty and
+        surfaces the real id as completionDetails ``patched_image_uuid``),
+        then top-level ``extId`` / ``{entity}ExtId`` / ``{entity}extId`` keys.
+
+        The completionDetails check MUST run before the top-level ``extId``
+        fallback: that fallback strips the ``ergon:`` task-id prefix off the
+        task's own ``extId`` and returns the remainder, which happens to
+        look like a plausible UUID but is the *task's* id, not the created
+        entity's -- confirmed live for ``fc_patched_image``, where the task's
+        own id (post-prefix-strip) was silently stored as the patched
+        image's ext_id, so every later reference to it (image_node,
+        delete_patched_image_by_id, etc.) 404/500'd against a uuid FC never
+        actually assigned to that patched image.
+
+        Some create operations return multiple ``entitiesAffected`` entries
+        -- not just the newly created entity, but also the parent/context
+        entity the call was scoped to (e.g. creating a hardware-provider
+        *connection* also lists the parent hardware *provider* itself,
+        tagged with a ``rel`` like ``lifecycle:config:hardware-providers``
+        ahead of the actual ``lifecycle:config:hardware-provider-connections``
+        entry). Blindly taking ``entitiesAffected[0]`` can then return the
+        already-known parent ext_id instead of the entity that was just
+        created. When *known_ids* (the request's own path/param values) is
+        given, any affected entry whose ext_id echoes one of those inputs is
+        skipped in favor of the remaining (genuinely new) entry.
 
         Args:
             response_data: Serialised task response dict.
             entity: Entity type name (used to build key variants).
             method_name: API method name (for log messages).
+            known_ids: Ext_id-like values already supplied as request
+                inputs (e.g. a parent ``hardwareProviderExtId``), used to
+                filter out non-new entries in a multi-entity
+                ``entitiesAffected`` list.
 
         Returns:
             The extracted ext_id string, or *None* if not found.
@@ -829,10 +1064,30 @@ class DomainEntityHandler:
 
         affected = response_data.get("entitiesAffected") or []
         if affected:
-            first = affected[0] if isinstance(affected[0], dict) else {}
+            candidates = affected
+            if known_ids and len(affected) > 1:
+                filtered = [
+                    item
+                    for item in affected
+                    if isinstance(item, dict)
+                    and str(item.get("extId") or item.get(f"{entity}ExtId") or "")
+                    not in known_ids
+                ]
+                if filtered:
+                    candidates = filtered
+            first = candidates[0] if isinstance(candidates[0], dict) else {}
             for key in ext_id_keys:
                 if value := first.get(key):
                     return str(value)
+
+        completion_details = response_data.get("completionDetails") or []
+        for item in completion_details:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name") or "")
+            value = item.get("value")
+            if name.endswith("_uuid") and value and str(value) != "N/A":
+                return str(value)
 
         for key in ext_id_keys:
             if key in response_data:
@@ -882,8 +1137,9 @@ class DomainEntityHandler:
             if ext_id is None:
                 raise Exception(f"Task reference has no ext_id for {method_name!r}")
             response_data = self._monitor_task(ext_id)
+            known_ids = {str(v) for v in kwargs.values() if isinstance(v, str) and v}
             entity_ext_id = self._extract_ext_id_from_task(
-                response_data, entity, method_name
+                response_data, entity, method_name, known_ids=known_ids
             )
         else:
             entity_ext_id = ext_id or getattr(response.data, f"{entity}_ext_id", None)
@@ -898,6 +1154,70 @@ class DomainEntityHandler:
         if entity_ext_id:
             self.logger.info(f"'{label}' completed with ext_id: {entity_ext_id}")
         return entity_ext_id
+
+    def _create_with_custom_helper(self, entity: str, data: dict) -> str | None:
+        helper = self.custom_helpers.get(entity)
+        if not helper:
+            raise ValueError(f"No custom helper initialized for {entity!r}")
+        body = data.get("body", data)
+        self.logger.info(
+            f"Creating '{entity}' via custom helper with body: {list(body.keys())}"
+        )
+        ext_id = helper.create_entity(body)
+        self.logger.info(f"Custom helper created '{entity}' with ext_id: {ext_id}")
+        return ext_id
+
+    def _update_with_custom_helper(self, entity: str, data: dict) -> str | None:
+        helper = self.custom_helpers.get(entity)
+        if not helper:
+            raise ValueError(f"No custom helper initialized for {entity!r}")
+        body = data.get("body", data)
+        ext_id = data.get("ext_id", "")
+        return helper.update_entity(ext_id, body)
+
+    def _delete_with_custom_helper(self, entity: str, ext_id: str) -> str | None:
+        helper = self.custom_helpers.get(entity)
+        if not helper:
+            raise ValueError(f"No custom helper initialized for {entity!r}")
+        return helper.delete_entity(ext_id)
+
+    def _get_with_custom_helper(self, entity: str, ext_id: str) -> Any:
+        helper = self.custom_helpers.get(entity)
+        if not helper:
+            raise ValueError(f"No custom helper initialized for {entity!r}")
+        return helper.get_entity_by_ext_id(ext_id)
+
+    def _list_with_custom_helper(
+        self, entity: str, _filter: str | dict | None = None, **kwargs: Any
+    ) -> list[Any]:
+        helper = self.custom_helpers.get(entity)
+        if not helper:
+            raise ValueError(f"No custom helper initialized for {entity!r}")
+
+        custom_filter = kwargs.pop("custom_filter", None)
+        if custom_filter is None and isinstance(_filter, dict):
+            custom_filter = _filter
+            _filter = None
+        if custom_filter is None:
+            helper_filter = {
+                key: value
+                for key, value in kwargs.items()
+                if not str(key).startswith("_")
+            }
+            if helper_filter:
+                custom_filter = helper_filter
+                kwargs = {
+                    key: value
+                    for key, value in kwargs.items()
+                    if str(key).startswith("_")
+                }
+
+        call_kwargs = dict(kwargs)
+        if custom_filter is not None:
+            call_kwargs["custom_filter"] = custom_filter
+        if _filter is not None:
+            call_kwargs["_filter"] = _filter
+        return helper.list_entities(**call_kwargs)
 
     def create(
         self, entity: str, data: dict, resource_name: str | None = None
@@ -918,10 +1238,14 @@ class DomainEntityHandler:
         self.logger.debug(f"Data: {redact_secrets(data)}")
 
         data = deepcopy(data)
+        self._reject_false_crud(entity, "create")
 
         if entity not in self.entity_metadata_map:
             self.logger.error(f"Unsupported entity: {entity}")
             raise ValueError(f"Unsupported entity: {entity}")
+
+        if self.entity_metadata_map[entity].get("use_ztf_helper"):
+            return self._create_with_custom_helper(entity, data)
 
         create_supported = self.entity_metadata_map[entity].get(
             "create_supported", "True"
@@ -981,8 +1305,10 @@ class DomainEntityHandler:
                 self.logger.error(f"Error while checking if '{label}' already exists")
                 raise Exception(raise_api_exception(e)) from e
 
-        api_instance = self.entity_metadata_map[entity]["api_instance"]
-        create_method_name = self.entity_metadata_map[entity]["create_method_name"]
+        api_instance, create_method_name, _ = self._lifecycle_adapter(
+            entity,
+            "create",
+        )
 
         if has_body and body is not None:
             body = self._negotiate_schema(entity, create_method_name, body)
@@ -1037,10 +1363,14 @@ class DomainEntityHandler:
         label = f"{entity}/{resource_name}" if resource_name else entity
         self.logger.info(f"Updating entity '{label}'")
         self.logger.debug(f"Data: {redact_secrets(data)}")
+        self._reject_false_crud(entity, "update")
 
         if entity not in self.entity_metadata_map:
             self.logger.error(f"Unsupported entity: {entity}")
             raise ValueError(f"Unsupported entity: {entity}")
+
+        if self.entity_metadata_map[entity].get("use_ztf_helper"):
+            return self._update_with_custom_helper(entity, data)
 
         data = deepcopy(data)
         update_supported = self.entity_metadata_map[entity].get(
@@ -1081,18 +1411,23 @@ class DomainEntityHandler:
         # by Provider._build_handler_data.
         parent_kwargs = self._get_parent_kwargs(entity, data, pop=True)
 
-        api_instance = self.entity_metadata_map[entity]["api_instance"]
-        update_method_name = self.entity_metadata_map[entity]["update_method_name"]
+        api_instance, update_method_name, _ = self._lifecycle_adapter(
+            entity,
+            "update",
+        )
         api_client = self._get_api_client(entity)
 
         if has_body and init_body is not None:
-            get_method_name = self.entity_metadata_map[entity]["get_method_name"]
+            get_api_instance, get_method_name, _ = self._lifecycle_adapter(
+                entity,
+                "get",
+            )
 
             # PUT semantics: GET current, strip readOnly, merge user body, PUT
             get_kwargs = self._build_method_kwargs(
                 entity, "get", ext_id=ext_id, **data, **parent_kwargs
             )
-            get_method = getattr(api_instance, get_method_name)
+            get_method = getattr(get_api_instance, get_method_name)
             get_response = get_method(**get_kwargs)
 
             readonly_fields = self._get_readonly_fields_for_entity_operation(
@@ -1172,9 +1507,13 @@ class DomainEntityHandler:
             ValueError: If entity is unsupported or delete not supported.
         """
         label = f"{entity}/{resource_name}" if resource_name else entity
+        self._reject_false_crud(entity, "delete")
         if entity not in self.entity_metadata_map:
             self.logger.error(f"Unsupported entity: {entity}")
             raise ValueError(f"Unsupported entity: {entity}")
+
+        if self.entity_metadata_map[entity].get("use_ztf_helper"):
+            return self._delete_with_custom_helper(entity, ext_id)
 
         delete_supported = self.entity_metadata_map[entity].get(
             "delete_supported", "True"
@@ -1185,8 +1524,10 @@ class DomainEntityHandler:
             raise ValueError(f"Delete operation not supported for entity: {entity!r}.")
 
         self.logger.info(f"Deleting '{label}' (ext_id: {ext_id})")
-        api_instance = self.entity_metadata_map[entity]["api_instance"]
-        delete_method_name = self.entity_metadata_map[entity]["delete_method_name"]
+        api_instance, delete_method_name, _ = self._lifecycle_adapter(
+            entity,
+            "delete",
+        )
 
         delete_kwargs = self._build_method_kwargs(
             entity, "delete", ext_id=ext_id, **kwargs
@@ -1245,15 +1586,23 @@ class DomainEntityHandler:
             raise ValueError(f"Operation 'type' not specified for '{label}'")
 
         operation_name = operation_data["type"]
-
-        ops_list = self.entity_metadata_map.get(entity, {}).get("operations", [])
-        if operation_name not in ops_list:
-            raise ValueError(
-                f"Unsupported operation: {operation_name!r} for '{label}'. "
-                f"Available: {ops_list}"
-            )
-
-        api_instance = self.entity_metadata_map[entity]["api_instance"]
+        self._reject_moved_operation(entity, operation_name)
+        runtime_operation = self.runtime_catalog.resolve_operation(
+            entity,
+            operation_name,
+        )
+        if runtime_operation is None:
+            ops_list = self.entity_metadata_map.get(entity, {}).get("operations", [])
+            if operation_name not in ops_list:
+                raise ValueError(
+                    f"Unsupported operation: {operation_name!r} for '{label}'. "
+                    f"Available: {ops_list}"
+                )
+            api_instance = self.entity_metadata_map[entity]["api_instance"]
+            method_name = operation_name
+        else:
+            api_instance = self._get_operation_api_instance(runtime_operation)
+            method_name = runtime_operation.method
 
         op_kwargs: dict[str, Any] = dict(operation_data.get("params", {}))
 
@@ -1269,7 +1618,7 @@ class DomainEntityHandler:
         try:
             return self._execute_method_with_task_monitor(
                 api_instance,
-                operation_name,
+                method_name,
                 entity,
                 resource_name=resource_name,
                 **op_kwargs,
@@ -1288,7 +1637,7 @@ class DomainEntityHandler:
     _MAX_PAGINATION_PAGES: int = 1000
 
     def list_entities(
-        self, entity: str, _filter: str | None = None, **kwargs
+        self, entity: str, _filter: str | dict | None = None, **kwargs
     ) -> list[Any]:
         """Return every entity row, transparently paginating the SDK call.
 
@@ -1299,12 +1648,21 @@ class DomainEntityHandler:
         Args:
             entity: The entity name.
             _filter: Optional filter string for the list method.
+            **kwargs: Extra list arguments. For SDK entities these are
+                forwarded as SDK kwargs. For custom helpers, non-underscore
+                keys become ``custom_filter`` (e.g. ``directory_name``)
+                and ``_filter`` / other underscore keys are passed through.
 
         Returns:
             List of entity objects across all pages.
         """
-        list_method_name = self.entity_metadata_map[entity]["list_method_name"]
-        api_instance = self.entity_metadata_map[entity]["api_instance"]
+        self._reject_false_crud(entity, "list")
+        if self.entity_metadata_map[entity].get("use_ztf_helper"):
+            return self._list_with_custom_helper(entity, _filter=_filter, **kwargs)
+        api_instance, list_method_name, _ = self._lifecycle_adapter(
+            entity,
+            "list",
+        )
         list_method = getattr(api_instance, list_method_name)
 
         list_kwargs = dict(kwargs)
@@ -1363,8 +1721,10 @@ class DomainEntityHandler:
         Returns:
             The entity data object.
         """
-        get_method_name = self.entity_metadata_map[entity]["get_method_name"]
-        api_instance = self.entity_metadata_map[entity]["api_instance"]
+        self._reject_false_crud(entity, "get")
+        if self.entity_metadata_map[entity].get("use_ztf_helper"):
+            return self._get_with_custom_helper(entity, ext_id)
+        api_instance, get_method_name, _ = self._lifecycle_adapter(entity, "get")
         get_method = getattr(api_instance, get_method_name)
         get_kwargs = self._build_method_kwargs(entity, "get", ext_id=ext_id, **kwargs)
         return get_method(**get_kwargs).data
@@ -1384,12 +1744,12 @@ class DomainEntityHandler:
         Returns:
             The entity data object.
         """
+        self._reject_false_crud(entity, "get")
         ext_id = kwargs.pop("ext_id", None) or kwargs.pop("extId", None)
         if ext_id is not None:
             return self.get_entity_by_ext_id(entity, ext_id, **kwargs)
 
-        get_method_name = self.entity_metadata_map[entity]["get_method_name"]
-        api_instance = self.entity_metadata_map[entity]["api_instance"]
+        api_instance, get_method_name, _ = self._lifecycle_adapter(entity, "get")
         get_method = getattr(api_instance, get_method_name)
         return get_method(**kwargs)
 
@@ -1410,8 +1770,45 @@ class DomainEntityHandler:
                 self.logger.error(f"Data has no content for entity: {entity!r}")
                 raise ValueError(f"Data has no content for entity: {entity!r}")
             data = data.data
+
+        if self.entity_metadata_map[entity].get("use_ztf_helper"):
+            # Custom helpers return plain, already-JSON-safe dicts (no SDK
+            # model instances to convert), and have no SDK API client to
+            # sanitize with.
+            return data
+
         api_client = self._get_api_client(entity)
         return api_client._ApiClient__sanitize_for_serialization(data)
+
+    def strip_readonly_fields(
+        self, entity: str, body: dict[str, Any], operation: str = "create"
+    ) -> dict[str, Any]:
+        """Strip schema-declared readOnly fields from a sanitized entity body.
+
+        The Nutanix API populates fields such as ``createTime``,
+        ``ownerExtId``, or ``sizeBytes`` in GET responses, but rejects or
+        ignores them on write. This reuses the same compatibility-map
+        schema as ``create``/``update`` negotiation (see
+        ``_negotiate_schema``) so callers producing state or suggested
+        config from a live GET (e.g. ``ztf import``) never surface fields
+        the user could not actually set.
+
+        :param entity: The entity name.
+        :param body: Sanitized entity data (as returned by
+            ``sanitize_entity_data``).
+        :param operation: Which operation's schema to check against,
+            ``"create"`` or ``"update"``.
+        :return: A new dict with readOnly fields removed, or *body*
+            unchanged if no compatibility-map schema is available.
+        """
+        if not isinstance(body, dict):
+            return body
+        meta = self.entity_metadata_map.get(entity, {})
+        method_key = "update" if operation == "update" else "create"
+        method_name = meta.get(f"{method_key}_method_name")
+        if not method_name:
+            return body
+        return self._negotiate_schema(entity, method_name, body)
 
     def get_entity_by_identifier(
         self, entity: str, _filter: str | None, **kwargs

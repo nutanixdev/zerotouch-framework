@@ -1,7 +1,7 @@
 # Multi-stage Dockerfile for ZTF
 #
 # Targets:
-#   runtime       - Self-contained image: docker build --target runtime -t ztf:2.0.0 .
+#   runtime       - Self-contained image: docker build --target runtime -t ztf:2.1.0 .
 #   wheels-export - Offline wheel bundle: docker build --target wheels-export --output type=local,dest=./offline-wheels .
 #
 # Dark-site usage (offline pip install from exported wheels):

@@ -12,6 +12,7 @@ import platform
 import shutil
 import signal
 import stat
+import tempfile
 from collections.abc import Callable
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -897,20 +898,43 @@ def _read_state(state_path: str) -> dict:
 
 
 def _write_state(state_path: str, state_data: dict) -> None:
-    """Write state to disk (locked, then set read-only).
+    """Atomically write state under its lock, then set it read-only.
 
     Creates a ``.bak`` backup of the existing state file before writing.
     Always use this function — never open the state file directly.
     """
-    if os.path.exists(state_path):
-        backup_path = state_path + ".bak"
-        _set_writable(state_path)
-        if os.path.exists(backup_path):
-            _set_writable(backup_path)
-        shutil.copy2(state_path, backup_path)
-    with _StateFileLock(state_path), open(state_path, "w", encoding="utf-8") as fh:
-        yaml.safe_dump(state_data, fh, sort_keys=False)
-    _set_readonly(state_path)
+    existed = os.path.exists(state_path)
+    with _StateFileLock(state_path):
+        if existed:
+            backup_path = state_path + ".bak"
+            _set_writable(state_path)
+            if os.path.exists(backup_path):
+                _set_writable(backup_path)
+            shutil.copy2(state_path, backup_path)
+        try:
+            _atomic_write_yaml(state_path, state_data)
+        finally:
+            if os.path.exists(state_path):
+                _set_readonly(state_path)
+
+
+def _atomic_write_yaml(path: str, data: dict) -> None:
+    """Serialize YAML to a sibling temp file and atomically replace *path*."""
+    destination = Path(path)
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=destination.parent,
+        prefix=f".{destination.name}.",
+    )
+    temporary_path = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            yaml.safe_dump(data, stream, sort_keys=False)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary_path, destination)
+    except (OSError, TypeError, yaml.YAMLError):
+        temporary_path.unlink(missing_ok=True)
+        raise
 
 
 def _write_outputs(output_path: str, outputs: dict) -> None:
@@ -1108,7 +1132,12 @@ def repl(
     exec_code: str | None,
     script_path: str | None,
 ) -> None:
-    """Start an interactive REPL or run code/script with ctx and data namespace."""
+    """Start a read-only Python REPL with ``ctx`` and ``data`` for live queries.
+
+    ``data.<entity>.list()`` / ``.get()`` use the same entity names as YAML
+    ``resources:`` / ``data:`` headings. Filter expressions are OData
+    (``name eq 'foo'``). See the configuration-reference ``ztf repl`` section.
+    """
     if exec_code is not None and script_path is not None:
         raise click.UsageError("--exec and --script are mutually exclusive.")
     try:
@@ -1853,6 +1882,81 @@ def import_cmd(
         logger.error("An error occurred: %s", exc)
         logger.debug("Traceback:", exc_info=True)
         raise SystemExit(1) from exc
+
+
+@cli.group()
+def migrate() -> None:
+    """Run optional, explicitly scoped one-time migrations."""
+
+
+@migrate.command(name="entity-registry")
+@click.option(
+    "--input",
+    "input_path",
+    default="config/input.yml",
+    show_default=True,
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    help="Input configuration to inspect and migrate.",
+)
+@click.option(
+    "--state",
+    "state_path",
+    default="state.yml",
+    show_default=True,
+    type=click.Path(path_type=Path, exists=True, dir_okay=False),
+    help="Managed state paired with the input configuration.",
+)
+@click.option(
+    "--write",
+    is_flag=True,
+    help="Back up and atomically replace both original files.",
+)
+def migrate_entity_registry(
+    input_path: Path,
+    state_path: Path,
+    write: bool,
+) -> None:
+    """Apply the reviewed current-registry corrections once.
+
+    Args:
+        input_path: Existing ZTF input configuration.
+        state_path: Existing managed state paired with the input.
+        write: Back up and replace originals instead of writing review siblings.
+
+    Raises:
+        click.ClickException: If migration cannot be completed safely.
+    """
+    from ztf.entity_registry_migration import (
+        MigrationError,
+        run_entity_registry_migration,
+    )
+
+    try:
+        report = run_entity_registry_migration(
+            input_path,
+            state_path,
+            write=write,
+        )
+    except (MigrationError, OSError, yaml.YAMLError) as exc:
+        logger.error("Entity-registry migration failed: %s", exc)
+        raise click.ClickException(str(exc)) from exc
+    changed = bool(report["changed"])
+    raw_count = report["change_count"]
+    if not isinstance(raw_count, int):
+        raise click.ClickException("Migration report returned an invalid change count")
+    count = raw_count
+    mode = "write" if write else "dry-run"
+    click.echo(f"Entity-registry migration {mode}: {count} change(s).")
+    outputs = report.get("outputs")
+    if isinstance(outputs, dict):
+        for label, path in sorted(outputs.items()):
+            click.echo(f"{label}: {path}")
+    if not changed:
+        click.echo("No known legacy entity-registry forms were detected.")
+    elif write:
+        click.echo("Required next steps: run 'ztf refresh', then 'ztf plan'.")
+    else:
+        click.echo("Review the migrated sibling files, then rerun with --write.")
 
 
 # ---------------------------------------------------------------------------

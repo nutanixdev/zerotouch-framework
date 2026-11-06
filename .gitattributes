@@ -1,0 +1,24 @@
+## Force LF line endings everywhere so byte-level hashes (entity catalog
+## fingerprints, manifest/baseline shas, etc.) are stable across platforms.
+## Without this, Windows checkouts with core.autocrlf=true rewrite LF to
+## CRLF, which silently corrupts every stored SHA-256 in this repo.
+* text=auto eol=lf
+
+*.py text eol=lf
+*.pyi text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+*.toml text eol=lf
+*.cfg text eol=lf
+*.ini text eol=lf
+*.sh text eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.whl binary
+*.tar.gz binary
+*.zip binary

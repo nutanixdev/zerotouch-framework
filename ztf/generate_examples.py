@@ -234,6 +234,23 @@ def _is_required(fmeta: dict[str, Any]) -> bool:
     return bool(fmeta.get("required_in"))
 
 
+def _ordered_field_items(fields: dict[str, Any]) -> list[tuple[str, Any]]:
+    """Order schema fields with required attributes first, then alphabetically.
+
+    The compat map stores fields in plain alphabetical order regardless of
+    whether they are required, so generated examples must re-group them
+    here: all required fields first (alphabetical among themselves), then
+    all optional fields (alphabetical among themselves).
+
+    Args:
+        fields: The ``schema.request``-style mapping of field name to metadata.
+
+    Returns:
+        ``(name, metadata)`` pairs ordered required-first, then alphabetical.
+    """
+    return sorted(fields.items(), key=lambda item: (not _is_required(item[1]), item[0]))
+
+
 def _required_label(fmeta: dict[str, Any]) -> str:
     """Build a human-readable required tag for YAML comments.
 
@@ -365,7 +382,7 @@ def _schema_to_yaml_lines(
     pad = " " * indent
     prefix = "# " if commented else ""
 
-    for fname, fmeta in fields.items():
+    for fname, fmeta in _ordered_field_items(fields):
         if fname in _SKIP_FIELDS:
             continue
         if fmeta.get("readOnly"):
@@ -546,6 +563,10 @@ def _format_parent_params(
 ) -> list[str]:
     """Return YAML lines for non-body, non-odata method parameters.
 
+    Extra method arguments are nested under ``params:`` so apply can
+    merge them into SDK kwargs.  Flattened siblings of ``body`` are
+    ignored at apply time.
+
     For no-body entities (where ``schema_request`` is provided), params
     that match schema fields are rendered with example values from the
     schema instead of dependency ext_id references.
@@ -558,7 +579,8 @@ def _format_parent_params(
             metadata instead of dependency references.
 
     Returns:
-        List of formatted YAML lines.
+        YAML lines nested under ``params:`` (the key apply merges into
+        SDK kwargs), or an empty list when there are no extra parameters.
     """
     lines: list[str] = []
     parent = entity_entry.get("parent_entity", "")
@@ -648,7 +670,9 @@ def _format_parent_params(
             )
         else:
             lines.append(f'          {param}: "<value>"  # REQUIRED param')
-    return lines
+    if not lines:
+        return []
+    return ["          params:", *[f"  {line}" for line in lines]]
 
 
 # ---------------------------------------------------------------------------
@@ -676,6 +700,241 @@ def _ref_filter_hint(
             if preferred in filt_fields:
                 return f"{preferred} eq '<{ref_entity}-{preferred}>'"
     return f"name eq '<{ref_entity}-name>'"
+
+
+# ---------------------------------------------------------------------------
+# Custom helper (use_ztf_helper) YAML generation
+# ---------------------------------------------------------------------------
+
+
+def _helper_schema_to_yaml_lines(
+    helper_schema: dict[str, dict[str, Any]],
+    indent: int = 12,
+) -> list[str]:
+    """Convert a helper_schema dict to YAML body lines.
+
+    Each key in helper_schema maps to a field definition with:
+      type, required, description, example
+    """
+    lines: list[str] = []
+    pad = " " * indent
+
+    ordered_items = sorted(
+        helper_schema.items(),
+        key=lambda item: (not item[1].get("required", False), item[0]),
+    )
+    for fname, fmeta in ordered_items:
+        ftype = fmeta.get("type", "string")
+        required = fmeta.get("required", False)
+        description = fmeta.get("description", "")
+        example = fmeta.get("example")
+
+        annotations: list[str] = []
+        if required:
+            annotations.append("REQUIRED")
+        annotations.append(ftype)
+        if description:
+            annotations.append(description)
+        comment = f"  # {' | '.join(annotations)}"
+
+        line_prefix = "" if required else "# "
+
+        if example is None:
+            value = _example_value(ftype, fname)
+        elif isinstance(example, list):
+            lines.append(f"{pad}{line_prefix}{fname}:{comment}")
+            for item in example:
+                if isinstance(item, dict):
+                    lines.append(f"{pad}{line_prefix}  -")
+                    for k, v in item.items():
+                        lines.append(
+                            f'{pad}{line_prefix}    {k}: "{v}"'
+                            if isinstance(v, str)
+                            else f"{pad}{line_prefix}    {k}: {v}"
+                        )
+                else:
+                    lines.append(
+                        f'{pad}{line_prefix}  - "{item}"'
+                        if isinstance(item, str)
+                        else f"{pad}{line_prefix}  - {item}"
+                    )
+            continue
+        elif isinstance(example, dict):
+            lines.append(f"{pad}{line_prefix}{fname}:{comment}")
+            for k, v in example.items():
+                lines.append(
+                    f'{pad}{line_prefix}  {k}: "{v}"'
+                    if isinstance(v, str)
+                    else f"{pad}{line_prefix}  {k}: {v}"
+                )
+            continue
+        elif isinstance(example, bool):
+            value = str(example).lower()
+        elif isinstance(example, str):
+            value = f'"{example}"'
+        else:
+            value = example
+
+        lines.append(f"{pad}{line_prefix}{fname}: {value}{comment}")
+
+    return lines
+
+
+def _generate_custom_helper_yaml(
+    entity_name: str,
+    entity_entry: dict[str, Any],
+) -> str:
+    """Generate YAML example for a use_ztf_helper entity using helper_schema."""
+    namespace = entity_entry["namespace"]
+    sdk_name = entity_entry["sdk_name"]
+    helper_schema = entity_entry.get("helper_schema", {})
+    dependent_entities = entity_entry.get("dependent_entities", [])
+
+    create_supported = entity_entry.get("create_supported", True)
+    update_supported = entity_entry.get("update_supported", False)
+    delete_supported = entity_entry.get("delete_supported", False)
+    has_resources = create_supported or update_supported or delete_supported
+
+    lines: list[str] = []
+
+    lines.append("---")
+    lines.append(f"# {entity_name} Example Configuration")
+    lines.append(f"# Helper: {sdk_name} | Namespace: {namespace}")
+    lines.append("# Type: Custom ZTF Helper (use_ztf_helper: true)")
+    if dependent_entities:
+        lines.append(f"# Dependencies: {', '.join(dependent_entities)}")
+    lines.append("")
+
+    lines.append("domains:")
+    lines.append("  example_domain:")
+    lines.append('    host: "<pc-ip>"')
+    lines.append('    username: "<username>"')
+    lines.append('    password: "<password>"')
+    lines.append("")
+
+    if has_resources:
+        lines.append("    resources:")
+        lines.append(f"      {entity_name}:")
+        lines.append("")
+
+    if create_supported:
+        lines.append("        # === CREATE ===")
+        lines.append(f"        my_{entity_name}:")
+        if helper_schema:
+            lines.append("          body:")
+            body_lines = _helper_schema_to_yaml_lines(helper_schema, indent=12)
+            lines.extend(body_lines)
+        else:
+            lines.append("          body:")
+            lines.append(
+                "            # No schema defined -- add fields as per helper docs"
+            )
+        lines.append("")
+
+    if update_supported:
+        lines.append("        # === UPDATE ===")
+        lines.append("        # To update, modify the body above and re-run:")
+        lines.append("        #   ztf plan   # shows update plan")
+        lines.append("        #   ztf apply  # applies changes")
+        lines.append("")
+
+    if delete_supported:
+        lines.append("        # === DELETE ===")
+        lines.append("        # Remove the resource block from input.yml and run:")
+        lines.append("        #   ztf plan   # shows delete plan")
+        lines.append("        #   ztf apply  # executes delete")
+        lines.append("")
+
+    lines.append("# --- Credentials ---")
+    lines.append("# Define credentials in global.yml under vault.local:")
+    lines.append("#   vault:")
+    lines.append("#     local:")
+    lines.append('#       cvm_creds: "nutanix:nutanix/4u"')
+    lines.append("")
+
+    return "\n".join(lines) + "\n"
+
+
+def _generate_custom_helper_markdown(
+    entity_name: str,
+    entity_entry: dict[str, Any],
+) -> str:
+    """Generate Markdown reference for a use_ztf_helper entity."""
+    namespace = entity_entry["namespace"]
+    sdk_name = entity_entry["sdk_name"]
+    helper_schema = entity_entry.get("helper_schema", {})
+    dependent_entities = entity_entry.get("dependent_entities", [])
+    create_supported = entity_entry.get("create_supported", True)
+    update_supported = entity_entry.get("update_supported", False)
+    delete_supported = entity_entry.get("delete_supported", False)
+
+    lines: list[str] = []
+    lines.append(f"# {entity_name}")
+    lines.append("")
+    lines.append(f"**Namespace:** `{namespace}`  ")
+    lines.append(f"**Helper:** `{sdk_name}`  ")
+    lines.append("**Type:** Custom ZTF Helper  ")
+    lines.append("")
+
+    if dependent_entities:
+        lines.append("## Dependencies")
+        lines.append("")
+        for dep in dependent_entities:
+            lines.append(f"- `{dep}`")
+        lines.append("")
+
+    lines.append("## Supported Operations")
+    lines.append("")
+    lines.append("| Operation | Supported |")
+    lines.append("|-----------|-----------|")
+    lines.append(f"| Create    | {'Yes' if create_supported else 'No'} |")
+    lines.append(f"| Update    | {'Yes' if update_supported else 'No'} |")
+    lines.append(f"| Delete    | {'Yes' if delete_supported else 'No'} |")
+    lines.append("")
+
+    if helper_schema:
+        lines.append("## Body Fields")
+        lines.append("")
+        lines.append("| Field | Type | Required | Description |")
+        lines.append("|-------|------|----------|-------------|")
+        for fname, fmeta in helper_schema.items():
+            ftype = fmeta.get("type", "string")
+            required = "Yes" if fmeta.get("required", False) else "No"
+            description = fmeta.get("description", "")
+            lines.append(f"| `{fname}` | {ftype} | {required} | {description} |")
+        lines.append("")
+
+        lines.append("## Example Body")
+        lines.append("")
+        lines.append("```yaml")
+        lines.append("body:")
+        for fname, fmeta in helper_schema.items():
+            example = fmeta.get("example")
+            if example is None:
+                example = _example_value(fmeta.get("type", "string"), fname)
+            if isinstance(example, dict):
+                lines.append(f"  {fname}:")
+                for k, v in example.items():
+                    lines.append(f"    {k}: {v}")
+            elif isinstance(example, list):
+                lines.append(f"  {fname}:")
+                for item in example:
+                    if isinstance(item, dict):
+                        lines.append("    -")
+                        for k, v in item.items():
+                            lines.append(f"      {k}: {v}")
+                    else:
+                        lines.append(f"    - {item}")
+            elif isinstance(example, bool):
+                lines.append(f"  {fname}: {str(example).lower()}")
+            elif isinstance(example, str):
+                lines.append(f'  {fname}: "{example}"')
+            else:
+                lines.append(f"  {fname}: {example}")
+        lines.append("```")
+        lines.append("")
+
+    return "\n".join(lines) + "\n"
 
 
 def _generate_yaml(
@@ -1490,13 +1749,16 @@ def generate_all(
         for ename in sorted(by_namespace[ns]):
             edata = by_namespace[ns][ename]
 
-            # YAML example
-            yaml_content = _generate_yaml(ename, edata, compat, entity_map)
+            if edata.get("use_ztf_helper"):
+                yaml_content = _generate_custom_helper_yaml(ename, edata)
+                md_content = _generate_custom_helper_markdown(ename, edata)
+            else:
+                yaml_content = _generate_yaml(ename, edata, compat, entity_map)
+                md_content = _generate_markdown(ename, edata, compat)
+
             yaml_path = ns_dir / f"{ename}.yml"
             yaml_path.write_text(yaml_content, encoding="utf-8")
 
-            # Markdown reference
-            md_content = _generate_markdown(ename, edata, compat)
             md_path = ns_dir / f"{ename}.md"
             md_path.write_text(md_content, encoding="utf-8")
 

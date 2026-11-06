@@ -17,10 +17,14 @@ from typing import Any
 
 from ztf.config.interpolation import (
     InterpolationContext,
+    extract_cross_domain_data_refs,
     extract_cross_domain_refs,
+    extract_data_source_refs,
+    extract_indexed_source_tokens,
     extract_resource_refs,
     has_tokens,
     resolve,
+    validate_data_tokens,
 )
 from ztf.entity_wrapper.entity_handler import DomainEntityHandler
 from ztf.entity_wrapper.entity_map import entity_map as entity_metadata_map
@@ -362,8 +366,11 @@ class Provider:
         # --- Create DomainEntityHandler instances ---
         created_hosts: set[str] = set()
 
-        for domain_name in set(self.domain_entity_resource_map) | set(
-            self.previous_domain_entity_resource_map
+        data_only_domains = {d for d, cfg in self.domain_data_config.items() if cfg}
+        for domain_name in (
+            set(self.domain_entity_resource_map)
+            | set(self.previous_domain_entity_resource_map)
+            | data_only_domains
         ):
             api_config = self.domain_global_config_map.get(domain_name)
             if not api_config:
@@ -472,6 +479,99 @@ class Provider:
 
         return graph, in_degree
 
+    def _build_data_source_dependency_graph(
+        self,
+        data_config: dict[str, dict[str, Any]],
+    ) -> tuple[dict[str, list[str]], dict[str, int]]:
+        """Build a source-level dependency graph for a domain's ``data:`` block.
+
+        Mirrors :meth:`_build_dependency_graph` but operates on
+        ``{entity_type: {source_name: source_cfg}}`` instead of
+        ``{entity_type: {resource_name: resource_cfg}}``.
+
+        Two kinds of edges are recognised:
+
+        * **Implicit** — a source config contains a within-domain token of
+          the form ``{data.<entity_type>.<other_source>.<field>...}``.
+          Detected via :func:`extract_data_source_refs`.
+        * **Explicit** — a source config carries a ``depends_on`` list of
+          source names (e.g. ``depends_on: [other_source]``).
+
+        Source names must be unique across all entity types in the domain's
+        ``data:`` block: both ``{data.<entity_type>.<source_name>...}`` tokens
+        and ``depends_on`` entries address a source by name alone, so a name
+        used twice cannot be ordered or referenced unambiguously.  A collision
+        raises rather than picking a winner -- silently dropping one of the
+        two sources would leave its consumers unresolvable while the rest of
+        the domain applied.
+
+        Args:
+            data_config: ``{entity_type: {source_name: source_cfg}}`` as
+                stored in ``self.domain_data_config[domain_name]``.
+
+        Returns:
+            ``(graph, in_degree)`` keyed by source name, suitable for
+            :meth:`_topological_sort`.
+
+        Raises:
+            ValueError: If the same source name appears under more than one
+                entity type.
+        """
+        known_entity_types = set(data_config)
+
+        # Build flat source_name → (entity_type, cfg) lookup.
+        source_to_entity: dict[str, str] = {}
+        source_to_cfg: dict[str, dict[str, Any]] = {}
+        for entity_type, sources in data_config.items():
+            for source_name, source_cfg in sources.items():
+                if source_name in source_to_entity:
+                    raise ValueError(
+                        f"Duplicate data source name '{source_name}' in the same "
+                        f"domain's data block: declared under both entity type "
+                        f"'{source_to_entity[source_name]}' and '{entity_type}'. "
+                        "Data source names share a single flat namespace because "
+                        "'{data.<entity_type>.<source_name>}' tokens and "
+                        "'depends_on' entries reference a source by name alone. "
+                        "Rename one of them."
+                    )
+                source_to_entity[source_name] = entity_type
+                source_to_cfg[source_name] = source_cfg
+
+        known_sources = set(source_to_entity)
+
+        graph: dict[str, list[str]] = defaultdict(list)
+        in_degree: dict[str, int] = defaultdict(int)
+
+        for source_name, source_cfg in source_to_cfg.items():
+            # Strip depends_on before scanning for implicit token refs so that
+            # a list of source names is not mistakenly tokenised.
+            cfg_for_scan = {k: v for k, v in source_cfg.items() if k != "depends_on"}
+            implicit_refs = extract_data_source_refs(
+                cfg_for_scan, known_sources, known_entity_types
+            )
+
+            explicit_deps: set[str] = set()
+            for dep_name in source_cfg.get("depends_on", []):
+                if dep_name in known_sources:
+                    explicit_deps.add(dep_name)
+                else:
+                    logger.warning(
+                        "depends_on entry '%s' in data source '%s' does not "
+                        "match any known source in this domain's data block.",
+                        dep_name,
+                        source_name,
+                    )
+
+            for ref in implicit_refs | explicit_deps:
+                if ref != source_name:
+                    graph[ref].append(source_name)
+                    in_degree[source_name] += 1
+
+        for sname in known_sources:
+            in_degree.setdefault(sname, 0)
+
+        return graph, in_degree
+
     @staticmethod
     def _topological_sort(
         graph: dict[str, list[str]],
@@ -507,7 +607,48 @@ class Provider:
         return sorted_nodes
 
     @staticmethod
+    def _topological_sort_sources(
+        graph: dict[str, list[str]],
+        in_degree: dict[str, int],
+    ) -> list[str]:
+        """Kahn's algorithm for data-source topological ordering.
+
+        Unlike :meth:`_topological_sort` (which re-derives a node count
+        from the raw ``{entity_type: {resource_name: cfg}}`` config), this
+        counts total nodes directly from *in_degree*, which is the
+        authoritative node set: one entry per source name in the domain's
+        ``data:`` block, as built by
+        :meth:`_build_data_source_dependency_graph`.  Any mismatch with
+        *sorted_nodes* is therefore a genuine cycle, not a counting
+        artefact.
+
+        Args:
+            graph: ``{source_name: [dependent_source_names]}``.
+            in_degree: ``{source_name: unresolved_dependency_count}``.
+
+        Raises:
+            ValueError: On circular dependency.
+        """
+        queue: deque[str] = deque(node for node in in_degree if in_degree[node] == 0)
+        sorted_nodes: list[str] = []
+
+        while queue:
+            node = queue.popleft()
+            sorted_nodes.append(node)
+            for neighbor in graph[node]:
+                in_degree[neighbor] -= 1
+                if in_degree[neighbor] == 0:
+                    queue.append(neighbor)
+
+        if len(sorted_nodes) != len(in_degree):
+            raise ValueError(
+                "Circular dependency detected in data source configuration"
+            )
+
+        return sorted_nodes
+
     def _build_cross_domain_waves(
+        self,
         domain_entity_map: dict[str, dict[str, dict[str, dict[str, Any]]]],
     ) -> list[list[str]]:
         """Toposort *domain_entity_map* into parallel waves by cross-domain refs.
@@ -517,6 +658,20 @@ class Provider:
         so wave 0 contains domains with no producers, wave 1 those that
         depend only on wave 0, and so on.  Domains within a wave have
         no inter-domain dependencies and can run in parallel.
+
+        Cross-domain refs are scanned in both a domain's ``resources:``
+        (body/params/operations) *and* its ``data:`` block (e.g. a
+        data-source filter or passthrough param like
+        ``hardwareProviderExtId: "{other_domain.some_resource.extId}"``),
+        since a domain that only depends on another domain through a
+        data-source lookup must still wait for that domain to finish.
+
+        Domains that have a non-empty ``data:`` block but no resources are
+        included as wave nodes so their data sources are fetched before
+        consumers.  Empty ``data: {}`` placeholders are not -- every
+        config domain is stored in ``domain_data_config``, including
+        resource-less "delete everything" domains that must not be
+        upserted.
 
         Args:
             domain_entity_map: ``{domain: {entity: {resource: cfg}}}``;
@@ -529,28 +684,43 @@ class Provider:
         Raises:
             ValueError: On circular cross-domain dependency.
         """
-        all_domains = set(domain_entity_map)
+        # Include data-only domains (non-empty ``data:``) so a producer
+        # that only publishes data sources still occupies a wave slot.
+        # Empty ``data: {}`` entries are ignored -- every config domain
+        # is stored in ``domain_data_config``, including resource-less
+        # "delete everything" domains that must not be upserted.
+        data_only_domains = {d for d, cfg in self.domain_data_config.items() if cfg}
+        all_domains = set(domain_entity_map) | data_only_domains
 
         graph: dict[str, list[str]] = defaultdict(list)
         in_degree: dict[str, int] = dict.fromkeys(all_domains, 0)
 
-        for domain_name, entities in domain_entity_map.items():
+        for domain_name in all_domains:
+            entities = domain_entity_map.get(domain_name, {})
             other_domains = all_domains - {domain_name}
             if not other_domains:
                 continue
             for _entity, resources in entities.items():
                 for _rname, rcfg in resources.items():
+                    fields = [
+                        rcfg.get("body", {}),
+                        rcfg.get("params", {}),
+                        rcfg.get("operations", []),
+                    ]
                     deps = extract_cross_domain_refs(
-                        [
-                            rcfg.get("body", {}),
-                            rcfg.get("params", {}),
-                            rcfg.get("operations", []),
-                        ],
-                        other_domains,
-                    )
+                        fields, other_domains
+                    ) | extract_cross_domain_data_refs(fields, other_domains)
                     for dep in deps:
                         graph[dep].append(domain_name)
                         in_degree[domain_name] += 1
+
+            data_cfg = self.domain_data_config.get(domain_name, {})
+            data_deps = extract_cross_domain_refs(
+                data_cfg, other_domains
+            ) | extract_cross_domain_data_refs(data_cfg, other_domains)
+            for dep in data_deps:
+                graph[dep].append(domain_name)
+                in_degree[domain_name] += 1
 
         waves: list[list[str]] = []
         remaining = dict(in_degree)
@@ -627,15 +797,86 @@ class Provider:
         resource_state: dict[str, dict[str, Any]],
         data_cache: dict[str, dict[str, dict[str, Any]]],
     ) -> InterpolationContext:
-        """Create an interpolation context for the current domain."""
+        """Create an interpolation context for the current domain.
+
+        Args:
+            domain_name: The domain being processed.
+            resource_state: Resources in *domain_name* applied so far.
+            data_cache: This domain's own already-fetched data-source
+                cache (``{entity_type: {source_name: result}}``, as
+                returned by :meth:`_fetch_data_sources`).  Wrapped into
+                the ``_local`` namespace below.
+        """
         # Cross-domain states (exclude current domain)
         other_domain_states = {
             dn: rs for dn, rs in self.domain_resource_state.items() if dn != domain_name
         }
+        other_data_cache = {
+            dn: cache
+            for dn, cache in self.domain_data_cache.items()
+            if dn != domain_name
+        }
+        # Namespaced cache: see _build_data_source_context for rationale.
+        data_cache_for_ctx: dict[str, Any] = {
+            "_cross": other_data_cache,
+            "_local": data_cache,
+        }
         return InterpolationContext(
             variables=self.variables,
             resource_state=resource_state,
-            data_cache=data_cache,
+            data_cache=data_cache_for_ctx,
+            domain_states=other_domain_states,
+            current_domain=domain_name,
+            functions=self.functions,
+        )
+
+    def _build_data_source_context(
+        self,
+        domain_name: str,
+        partial_cache: dict[str, dict[str, Any]] | None = None,
+    ) -> InterpolationContext:
+        """Create an interpolation context for resolving a domain's ``data:`` block.
+
+        Data sources are fetched before any resource in the current domain
+        exists, so this context exposes only variables/functions plus
+        *other* (already-completed) domains' resource state and
+        data-source cache. That's enough to resolve cross-domain tokens
+        such as ``{other_domain.some_resource.extId}`` or
+        ``{data.other_domain.entity.source.field}`` inside a data-source
+        ``filter`` or passthrough param (e.g. ``hardwareProviderExtId``).
+
+        Same-domain resource refs and ``{each.*}`` are intentionally not
+        supported here: no resource in the current domain has been
+        created yet when data sources are fetched.
+
+        Args:
+            domain_name: The domain whose data sources are being fetched.
+            partial_cache: Within-domain sources already fetched during the
+                current sequential pass, keyed by entity_type.  When
+                provided, these are merged into the ``_local`` namespace
+                of ``data_cache`` so that later sources can resolve
+                ``{data.<entity_type>.<source_name>.*}`` tokens against
+                results returned earlier in the same pass.
+        """
+        other_domain_states = {
+            dn: rs for dn, rs in self.domain_resource_state.items() if dn != domain_name
+        }
+        other_data_cache = {
+            dn: cache
+            for dn, cache in self.domain_data_cache.items()
+            if dn != domain_name
+        }
+        # Namespaced cache: domain-keyed entries live under "_cross" and
+        # within-domain (entity_type-keyed) entries under "_local" so an
+        # entity type name can never collide with a domain name -- see
+        # _lookup_data_entry_namespaced in ztf.config.interpolation.
+        data_cache_for_ctx: dict[str, Any] = {
+            "_cross": other_data_cache,
+            "_local": dict(partial_cache) if partial_cache else {},
+        }
+        return InterpolationContext(
+            variables=self.variables,
+            data_cache=data_cache_for_ctx,
             domain_states=other_domain_states,
             current_domain=domain_name,
             functions=self.functions,
@@ -667,10 +908,23 @@ class Provider:
                 sanitized = strip_internal_attributes(sanitized)
                 if isinstance(sanitized, dict):
                     sanitized_items.append(sanitized)
-            if not sanitized_items and "_filter" in list_kwargs:
+            if sanitized_items:
+                logger.info(
+                    "Data source %s/%s resolved: fetched %d item(s)",
+                    entity_type,
+                    source_name,
+                    len(sanitized_items),
+                )
+            elif "_filter" in list_kwargs:
                 logger.warning(
                     f"Data source {entity_type}/{source_name} returned no "
                     f"results for filter: {list_kwargs['_filter']!r}"
+                )
+            else:
+                logger.warning(
+                    f"Data source {entity_type}/{source_name} returned no "
+                    f"results for params: "
+                    f"{ {k: v for k, v in list_kwargs.items() if k != '_filter'} }"
                 )
             return (
                 entity_type,
@@ -691,14 +945,57 @@ class Provider:
         self,
         domain_name: str,
         entity_handler: DomainEntityHandler,
+        ctx: InterpolationContext | None = None,
+        strict: bool = True,
     ) -> tuple[dict[str, dict[str, dict[str, Any]]], list[str]]:
-        """Fetch all data sources for a domain in parallel.
+        """Fetch all data sources for a domain in dependency order.
+
+        Sources are executed sequentially in topological order so that a
+        source whose ``filter`` or passthrough params reference another
+        source's result (via ``{data.<entity>.<source>.*}`` tokens or an
+        explicit ``depends_on`` list) is always fetched after the source it
+        depends on.  Independent sources run in the order they appear in
+        the config (stable, deterministic).
+
+        YAML keys other than ``depends_on`` are forwarded to
+        ``list_entities``.  ``filter`` / ``select`` / ``orderby`` /
+        ``limit`` / ``page`` are aliased to the SDK underscore form;
+        remaining keys (parent ids such as ``hardwareProviderExtId``,
+        and any unknown key) are passed through unchanged.
+
+        The dependency graph is built by
+        :meth:`_build_data_source_dependency_graph`, and the sort uses
+        :meth:`_topological_sort_sources`.  Circular dependencies raise
+        :class:`ValueError` (propagated to the caller) rather than being
+        silently worked around, since proceeding in an arbitrary order
+        would fetch dependent sources before the data they need exists.
+
+        Args:
+            domain_name: The domain whose ``data:`` block should be fetched.
+            entity_handler: Handler used to issue the ``list_entities`` calls.
+            ctx: Base interpolation context (see
+                :meth:`_build_data_source_context`) used to resolve
+                cross-domain and variable tokens.  Within-domain tokens that
+                reference already-fetched sources are resolved via the
+                ``partial_cache`` that grows as each source is fetched.
+                When ``None``, source configs are used as-is (useful for
+                callers/tests that pre-resolve).
+            strict: When ``True`` (default), a source whose config still
+                contains unresolved tokens after resolution is skipped
+                entirely (recorded as a failure) rather than sending the
+                literal ``{token}`` string to the API.
 
         Returns:
             A tuple of ``(cache, failures)`` where *cache* maps
             ``{entity_type: {source_name: {"data": [...], "metadata": {...}}}}``
             and *failures* is a list of ``"entity_type/source_name"``
             identifiers for sources that could not be fetched.
+
+        Raises:
+            ValueError: If the ``data:`` block has a circular dependency
+                (via implicit ``{data.*}`` refs or explicit ``depends_on``
+                entries), or declares the same source name under more than
+                one entity type.
         """
         data_config = self.domain_data_config.get(domain_name, {})
         cache: dict[str, dict[str, dict[str, Any]]] = {}
@@ -710,48 +1007,168 @@ class Provider:
             "limit": "_limit",
             "page": "_page",
         }
+        # Keys that must never be forwarded to list_entities as API params.
+        non_api_keys = frozenset({"depends_on"})
 
-        tasks: list[tuple[str, str, dict[str, Any]]] = []
-        for entity_type, sources in data_config.items():
-            cache[entity_type] = {}
-            for source_name, source_cfg in sources.items():
-                list_kwargs: dict[str, Any] = {
-                    key: value
-                    for key, value in source_cfg.items()
-                    if isinstance(key, str) and key.startswith("_")
-                }
-                for alias, target in alias_map.items():
-                    if alias in source_cfg and target not in list_kwargs:
-                        list_kwargs[target] = source_cfg[alias]
-                if "_filter" not in list_kwargs:
-                    logger.warning(
-                        f"Data source {entity_type}/{source_name} has no filter."
-                    )
-                tasks.append((entity_type, source_name, list_kwargs))
-
-        if not tasks:
+        if not data_config:
             return cache, failures
 
-        max_w = self.max_workers or len(tasks)
-        worker_count = min(len(tasks), max_w)
-        with ThreadPoolExecutor(max_workers=worker_count) as executor:
-            futures = {
-                executor.submit(
-                    self._fetch_single_data_source,
-                    entity_handler,
-                    et,
-                    sn,
-                    kw,
-                ): (et, sn)
-                for et, sn, kw in tasks
-            }
-            for future in as_completed(futures):
-                et, sn, result, error_key = future.result()
-                cache.setdefault(et, {})[sn] = result
-                if error_key:
-                    failures.append(error_key)
+        # Initialise the cache skeleton (entity_type → {}) so callers always
+        # get a full cache structure even if individual sources fail.
+        for entity_type in data_config:
+            cache[entity_type] = {}
+
+        # Known domains/sources for the pre-flight token validation and the
+        # index-based-access advisory warning below.
+        known_domains = set(self.domain_entity_resource_map) | set(
+            self.domain_data_config
+        )
+        known_sources = {sname for sources in data_config.values() for sname in sources}
+        for warning_msg in validate_data_tokens(
+            data_config, known_sources, known_domains
+        ):
+            logger.warning(warning_msg)
+
+        # Build dependency graph and topological order.  A circular
+        # dependency is a hard failure -- proceeding in an arbitrary order
+        # would fetch dependent sources before the data they reference
+        # exists, silently producing wrong (or unresolved) results.
+        graph, in_degree = self._build_data_source_dependency_graph(data_config)
+        try:
+            sorted_source_names = self._topological_sort_sources(graph, in_degree)
+        except ValueError as exc:
+            raise ValueError(
+                f"Circular dependency among data sources in domain "
+                f"'{domain_name}': {exc}"
+            ) from exc
+
+        # Build a flat source_name → (entity_type, source_cfg) lookup.  The
+        # graph build above already rejected duplicate source names, so this
+        # is unambiguous and its keys match sorted_source_names exactly.
+        source_lookup: dict[str, tuple[str, dict[str, Any]]] = {
+            source_name: (entity_type, source_cfg)
+            for entity_type, sources in data_config.items()
+            for source_name, source_cfg in sources.items()
+        }
+
+        self._warn_on_unordered_index_access(source_lookup)
+
+        # partial_cache accumulates within-domain results as they are fetched
+        # and is merged into the interpolation context for each subsequent
+        # source, enabling {data.entity_type.source_name.*} token resolution.
+        partial_cache: dict[str, dict[str, Any]] = {}
+
+        for source_name in sorted_source_names:
+            entity_type, source_cfg = source_lookup[source_name]
+
+            # Strip depends_on before resolution and API dispatch.
+            source_cfg = {k: v for k, v in source_cfg.items() if k not in non_api_keys}
+
+            if ctx is not None:
+                # Merge within-domain sources fetched so far into the
+                # caller's context so that {data.<entity>.<source>.*}
+                # tokens can resolve against results from earlier in this
+                # same pass.  The caller's ctx is used as the base (it
+                # already carries cross-domain state, variables, etc.).
+                # When partial_cache is empty (first source, or no deps),
+                # the original ctx is used unchanged.
+                if partial_cache:
+                    merged_data_cache = dict(ctx.data_cache)
+                    if "_local" in merged_data_cache or "_cross" in merged_data_cache:
+                        # Namespaced cache (the shape _build_data_source_
+                        # context produces): merge only into "_local" so
+                        # cross-domain entries under "_cross" can never be
+                        # shadowed by a same-named local entity type.
+                        merged_local = dict(merged_data_cache.get("_local") or {})
+                        merged_local.update(partial_cache)
+                        merged_data_cache["_local"] = merged_local
+                    else:
+                        # Legacy flat/domain-scoped ctx (e.g. hand-built by
+                        # a caller/test without the _cross/_local wrapper)
+                        # -- preserve the historical top-level overlay for
+                        # backward compatibility.
+                        merged_data_cache.update(partial_cache)
+                    current_ctx = InterpolationContext(
+                        variables=ctx.variables,
+                        for_each=ctx.for_each,
+                        resource_state=ctx.resource_state,
+                        data_cache=merged_data_cache,
+                        domain_states=ctx.domain_states,
+                        current_domain=ctx.current_domain,
+                        functions=ctx.functions,
+                    )
+                else:
+                    current_ctx = ctx
+                try:
+                    source_cfg = resolve(source_cfg, current_ctx, strict=strict)
+                except ValueError as exc:
+                    logger.error(f"Data source {entity_type}/{source_name}: {exc}")
+                    failures.append(f"{entity_type}/{source_name}")
+                    continue
+
+            list_kwargs: dict[str, Any] = {}
+            for key, value in source_cfg.items():
+                if not isinstance(key, str):
+                    continue
+                target = alias_map.get(key, key)
+                list_kwargs[target] = value
+
+            if "_filter" not in list_kwargs:
+                logger.warning(
+                    f"Data source {entity_type}/{source_name} has no filter."
+                )
+
+            et, sn, result, error_key = self._fetch_single_data_source(
+                entity_handler, entity_type, source_name, list_kwargs
+            )
+            cache.setdefault(et, {})[sn] = result
+            if error_key:
+                failures.append(error_key)
+            else:
+                # Make this source's result available to subsequent sources.
+                partial_cache.setdefault(et, {})[sn] = result
 
         return cache, failures
+
+    @staticmethod
+    def _warn_on_unordered_index_access(
+        source_lookup: dict[str, tuple[str, dict[str, Any]]],
+    ) -> None:
+        """Warn when a token indexes into a source with no ``orderby``.
+
+        A within-domain token like ``{data.<entity>.<source>.data.<N>.<field>}``
+        picks a specific item out of *source*'s result list by position.
+        If the API returns results in a non-deterministic order (no
+        ``orderby`` configured on that source), the item at index ``N`` can
+        differ across runs even when nothing in the environment changed,
+        silently pointing resources at the wrong entity.  This only
+        advises -- it does not block the fetch -- since some APIs return a
+        stable natural order without an explicit ``orderby``.
+
+        Args:
+            source_lookup: ``{source_name: (entity_type, source_cfg)}`` for
+                every source in the domain (as built in
+                :meth:`_fetch_data_sources`).
+        """
+        known_sources = set(source_lookup)
+        known_entity_types = {et for et, _cfg in source_lookup.values()}
+        for source_name, (entity_type, source_cfg) in source_lookup.items():
+            refs = extract_indexed_source_tokens(
+                source_cfg, known_sources, known_entity_types
+            )
+            for token, ref_source_name in refs:
+                _ref_entity_type, ref_cfg = source_lookup[ref_source_name]
+                if "orderby" not in ref_cfg and "_orderby" not in ref_cfg:
+                    logger.warning(
+                        "Data source '%s/%s' token '{%s}' uses "
+                        "index-based access into source '%s', which "
+                        "has no 'orderby' -- results may be "
+                        "non-deterministic across runs.",
+                        entity_type,
+                        source_name,
+                        token,
+                        ref_source_name,
+                    )
 
     # ------------------------------------------------------------------
     # Create / Update
@@ -1116,14 +1533,28 @@ class Provider:
         resource: dict[str, Any],
         ext_id: str,
     ) -> dict[str, Any]:
-        """Fetch and sanitize the latest entity body for state."""
+        """Fetch and sanitize the latest entity body for state.
+
+        Strips generic internal attributes (``strip_internal_attributes``)
+        and schema-declared readOnly fields
+        (``DomainEntityHandler.strip_readonly_fields``) so state written
+        after ``create``/``update`` matches what ``ztf refresh`` produces
+        -- otherwise a later refresh would report those server-managed
+        fields as removed/changed drift.
+        """
         try:
             parent_kwargs = _extract_parent_kwargs(entity, resource)
             latest = entity_handler.get_entity_by_ext_id(
                 entity, ext_id, **parent_kwargs
             )
+            if not latest:
+                # Action-style helpers (fc_create_cluster, eula_pe, ...)
+                # have no GET; keep the configured body instead of treating
+                # None as a sanitize error.
+                return resource.get("body", {})
             latest = entity_handler.sanitize_entity_data(entity, latest)
             latest = strip_internal_attributes(latest)
+            latest = entity_handler.strip_readonly_fields(entity, latest)
             if isinstance(latest, dict) and latest:
                 return latest
         except Exception as exc:
@@ -1233,12 +1664,24 @@ class Provider:
     ) -> tuple[dict[str, dict[str, dict[str, Any]]], str]:
         """Create/update all resources in a domain (topological order)."""
         try:
-            entity_handler = self.domain_entity_handler_map[domain_name]
-            domain_entities = self.domain_entity_resource_map[domain_name]
+            entity_handler = self.domain_entity_handler_map.get(domain_name)
+            if entity_handler is None:
+                logger.error(
+                    "No entity handler for domain '%s'; skipping upsert.",
+                    domain_name,
+                )
+                prev = dict(
+                    self.previous_domain_entity_resource_map.get(domain_name, {})
+                )
+                return prev, domain_name
+            # ``.get`` avoids inserting an empty defaultdict entry for
+            # data-only domains that are not in the resource map.
+            domain_entities = dict(self.domain_entity_resource_map.get(domain_name, {}))
 
             # Fetch data sources
+            ds_ctx = self._build_data_source_context(domain_name)
             data_cache, ds_failures = self._fetch_data_sources(
-                domain_name, entity_handler
+                domain_name, entity_handler, ctx=ds_ctx, strict=True
             )
             self.domain_data_cache[domain_name] = data_cache
             if ds_failures:
@@ -1679,8 +2122,30 @@ class Provider:
                     self.previous_domain_resource_name_map[domain_name]
                 )
 
-        # Plan create/update
-        for domain_name in self.domain_entity_resource_map:
+        # Plan create/update. Domains are visited in cross-domain
+        # dependency-wave order (same order apply uses) and each domain's
+        # resource/data state is persisted into self.domain_resource_state /
+        # self.domain_data_cache as it's computed -- otherwise a later
+        # domain's cross-domain tokens (in either its data: block or its
+        # resources) could never resolve during a plan-only run, since
+        # nothing populates those caches outside of an actual apply.
+        try:
+            wave_order = [
+                d
+                for wave in self._build_domain_dependency_order()
+                for d in wave
+                if d in self.domain_entity_resource_map
+            ]
+        except ValueError as wave_exc:
+            logger.warning(
+                "Could not compute domain dependency order for plan (%s); "
+                "falling back to config order. Cross-domain interpolation "
+                "may be inaccurate.",
+                wave_exc,
+            )
+            wave_order = list(self.domain_entity_resource_map)
+
+        for domain_name in wave_order:
             entity_handler = self.domain_entity_handler_map.get(domain_name)
             if not entity_handler:
                 continue
@@ -1692,11 +2157,17 @@ class Provider:
             ).items():
                 for rn, rd in eres.items():
                     resource_state[rn] = rd
+            self.domain_resource_state[domain_name] = resource_state
 
-            # Fetch data sources for accurate plan interpolation
+            # Fetch data sources for accurate plan interpolation. Cross-domain
+            # tokens are resolved against domains already visited above (per
+            # wave_order); anything still unresolvable is skipped rather than
+            # queried with a literal unresolved token -- see ds_failures
+            # handling below.
             try:
+                ds_ctx = self._build_data_source_context(domain_name)
                 data_cache, ds_failures = self._fetch_data_sources(
-                    domain_name, entity_handler
+                    domain_name, entity_handler, ctx=ds_ctx, strict=True
                 )
             except Exception as ds_exc:
                 logger.warning(
@@ -1707,6 +2178,7 @@ class Provider:
                 )
                 data_cache = {}
                 ds_failures = []
+            self.domain_data_cache[domain_name] = data_cache
             if ds_failures:
                 logger.warning(
                     "Domain '%s': %d data source(s) failed to fetch: %s. "
@@ -1807,6 +2279,13 @@ class Provider:
     ) -> tuple[str, str, dict[str, Any] | None]:
         """Fetch the latest state for a single resource.
 
+        The refreshed body has generic internal attributes (via
+        ``strip_internal_attributes``) and schema-declared readOnly fields
+        (via ``DomainEntityHandler.strip_readonly_fields``, e.g.
+        ``createTime``, ``ownerExtId``, ``sizeBytes``) removed, so ``ztf
+        refresh`` never reports server-managed fields as drift against a
+        config that never set them.
+
         Args:
             entity_handler: Handler for the domain.
             entity: Entity type name.
@@ -1827,8 +2306,11 @@ class Provider:
             latest = entity_handler.get_entity_by_ext_id(
                 entity, ext_id, **parent_kwargs
             )
+            if not latest:
+                return resource_name, entity, resource_data
             latest = entity_handler.sanitize_entity_data(entity, latest)
             latest = strip_internal_attributes(latest)
+            latest = entity_handler.strip_readonly_fields(entity, latest)
 
             if not latest:
                 return resource_name, entity, resource_data
@@ -1965,6 +2447,13 @@ class Provider:
         references like ``{var.x}``), they are resolved automatically
         before the API call.
 
+        The returned ``sanitized_data`` has both generic internal
+        attributes (via ``strip_internal_attributes_for_an_entity``) and
+        schema-declared readOnly fields (via
+        ``DomainEntityHandler.strip_readonly_fields``, e.g. ``createTime``,
+        ``ownerExtId``) removed, so the imported state and suggested
+        config only contain fields the user could actually set.
+
         Args:
             resource_name: Name of the resource in the config.
             domain_name: Domain name (key in ``domains:``).
@@ -2005,8 +2494,9 @@ class Provider:
         if isinstance(ext_id, str) and has_tokens(ext_id):
             data_cache = self.domain_data_cache.get(domain_name)
             if data_cache is None:
+                ds_ctx = self._build_data_source_context(domain_name)
                 data_cache, ds_failures = self._fetch_data_sources(
-                    domain_name, entity_handler
+                    domain_name, entity_handler, ctx=ds_ctx, strict=True
                 )
                 self.domain_data_cache[domain_name] = data_cache
                 if ds_failures:
@@ -2035,6 +2525,7 @@ class Provider:
         )
         sanitized = entity_handler.sanitize_entity_data(entity_name, entity_data)
         stripped = strip_internal_attributes_for_an_entity(sanitized, entity_name)
+        stripped = entity_handler.strip_readonly_fields(entity_name, stripped)
 
         return {
             "entity_name": entity_name,
@@ -2062,10 +2553,21 @@ class Provider:
         for _, rs in self.domain_resource_state.items():
             all_resource_state.update(rs)
 
+        # Namespaced cache (see _build_data_source_context for rationale):
+        # "_cross" always exposes every domain's cache keyed by domain name
+        # (so {data.<domain>.<entity>.<source>...} works regardless of how
+        # many domains exist), and "_local" exposes the single domain's
+        # flat cache when there is exactly one domain -- preserving the
+        # ergonomic {data.<entity>.<source>...} shorthand for the common
+        # single-domain case without reviving the domain/entity name
+        # collision the namespacing is meant to eliminate.
+        local_cache: dict[str, Any] = {}
         if len(self.domain_data_cache) == 1:
-            data_cache = next(iter(self.domain_data_cache.values()))
-        else:
-            data_cache = dict(self.domain_data_cache)
+            local_cache = next(iter(self.domain_data_cache.values()))
+        data_cache: dict[str, Any] = {
+            "_cross": dict(self.domain_data_cache),
+            "_local": local_cache,
+        }
 
         # Build domain states for cross-domain references
         ctx = InterpolationContext(

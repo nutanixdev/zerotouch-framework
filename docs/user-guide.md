@@ -16,10 +16,16 @@ resolution, plan/diff, schema negotiation, and example configurations.
 
 ## [Advanced Topics](advanced-topics.md)
 
-Multi-environment workflows, logging and audit, and custom Python
-functions (`{fn.*}` tokens).
+Multi-environment workflows, logging and audit, custom Python functions
+(`{fn.*}` tokens), PE-ops helpers, and Foundation Central helpers.
+
+## [Entity Registry Migration](entity-registry-migration.md)
+
+Reviewed entity aliases, corrected operation owners and lifecycle forms, the
+Files limitation, and the optional one-time migration workflow.
 
 ---
+
 
 For a quick overview, see the [README](../README.md).  For architecture
 and SDK internals, see the [Developer Guide](developer-guide.md).
